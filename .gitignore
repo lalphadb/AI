@@ -1,0 +1,38 @@
+# Node
+node_modules/
+*.log
+npm-debug.log*
+
+# Build
+build/
+dist/
+
+# Environment
+.env
+.env.local
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Temp
+*.tmp
+*.bak
+*.backup
+
+# Backups locaux
+tools/backup-system/local/
+tools/llm-tools/mcp-server-enhanced/tools/backup/
+*.tar.gz
+*.sql.gz

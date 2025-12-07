@@ -1,0 +1,27 @@
+{
+  "description": "Rollback vers un backup spécifique ou le dernier",
+  "steps": [
+    {
+      "type": "command",
+      "command": "node",
+      "args": ["/home/studiosdb/mcp-server/backup-manager.js", "rollback", "{{backup_id}}"],
+      "timeout": 300000,
+      "condition": {
+        "type": "success"
+      }
+    },
+    {
+      "type": "command",
+      "command": "php",
+      "args": ["artisan", "cache:clear"],
+      "timeout": 10000,
+      "working_directory": "/home/studiosdb/studiosunisdb/studiosdb"
+    },
+    {
+      "type": "command",
+      "command": "systemctl",
+      "args": ["restart", "nginx"],
+      "timeout": 10000
+    }
+  ]
+}

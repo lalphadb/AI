@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "chromadb": {
+      "command": "node",
+      "args": ["/home/lalpha/projets/ai-tools/mcp-servers/chromadb-mcp/index.js"],
+      "env": {
+        "CHROMA_HOST": "localhost",
+        "CHROMA_PORT": "8000"
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/lalpha/projets"]
+    },
+    "memory": {
+      "command": "npx", 
+      "args": ["-y", "@modelcontextprotocol/server-memory"]
+    }
+  }
+}

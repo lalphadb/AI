@@ -1,0 +1,586 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════════════
+# 🔄 INFRA-LOG - Infrastructure Changelog CRUD System
+# Version: 3.0.0 - Tags, Rollback, Memory Sync, Grafana
+# ═══════════════════════════════════════════════════════════════════
+
+DB_USER="lalpha"
+DB_NAME="main"
+DB_CONTAINER="postgres"
+MEMORY_FILE="/home/lalpha/documentation/CHANGELOG-RECENT.md"
+GRAFANA_DASHBOARD="/home/lalpha/projets/infrastructure/unified-stack/configs/grafana/dashboards/changelog.json"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+NC='\033[0m'
+
+run_sql() {
+    docker exec -i $DB_CONTAINER psql -U $DB_USER -d $DB_NAME -t -A "$@"
+}
+
+generate_id() {
+    echo "CHG-$(date +%Y-%m-%d)-$(printf '%03d' $((RANDOM % 1000)))"
+}
+
+show_help() {
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}🔄 INFRA-LOG v3.0 - Infrastructure Changelog System${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "${GREEN}Usage:${NC} infra-log <command> [options]"
+    echo ""
+    echo -e "${YELLOW}Commands:${NC}"
+    echo "  add         Ajouter une entrée"
+    echo "  list        Lister les entrées"
+    echo "  search      Rechercher (texte ou tags)"
+    echo "  get         Obtenir une entrée par ID"
+    echo "  update      Mettre à jour une entrée"
+    echo "  delete      Supprimer une entrée"
+    echo "  rollback    Afficher/exécuter la commande rollback"
+    echo "  tags        Lister tous les tags utilisés"
+    echo "  sync-memory Sync avec Claude Memory"
+    echo "  export      Exporter en JSON/Markdown"
+    echo "  stats       Statistiques"
+    echo ""
+    echo -e "${YELLOW}Add Options:${NC}"
+    echo "  -c, --category     infrastructure|docker|llm|mcp|security|client"
+    echo "  -a, --action       add|modify|remove|fix|deploy"
+    echo "  -m, --component    Composant concerné"
+    echo "  -i, --impact       high|medium|low"
+    echo "  -d, --desc         Description du changement"
+    echo "  -t, --tags         Tags séparés par virgules"
+    echo "  -r, --rollback     Commande pour annuler"
+    echo "  --related          ID d'une entrée liée"
+    echo "  --backup           Fichier à sauvegarder avant changement"
+    echo ""
+    echo -e "${YELLOW}Examples:${NC}"
+    echo '  infra-log add -c docker -a modify -m traefik -i high -t "ssl,proxy" -d "Update SSL"'
+    echo '  infra-log add -c docker -a deploy -m nginx -r "docker compose down nginx" -d "Deploy"'
+    echo '  infra-log search --tag ssl'
+    echo '  infra-log rollback CHG-2025-12-07-001'
+    echo '  infra-log sync-memory'
+    echo ""
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# CREATE
+# ═══════════════════════════════════════════════════════════════════
+cmd_add() {
+    local category="infrastructure"
+    local action="modify"
+    local component=""
+    local impact="medium"
+    local description=""
+    local tags=""
+    local rollback_cmd=""
+    local related=""
+    local backup_file=""
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -c|--category) category="$2"; shift 2 ;;
+            -a|--action) action="$2"; shift 2 ;;
+            -m|--component) component="$2"; shift 2 ;;
+            -i|--impact) impact="$2"; shift 2 ;;
+            -d|--desc) description="$2"; shift 2 ;;
+            -t|--tags) tags="$2"; shift 2 ;;
+            -r|--rollback) rollback_cmd="$2"; shift 2 ;;
+            --related) related="$2"; shift 2 ;;
+            --backup) backup_file="$2"; shift 2 ;;
+            *) description="$1"; shift ;;
+        esac
+    done
+    
+    if [[ -z "$description" ]]; then
+        echo -e "${RED}❌ Description requise${NC}"
+        return 1
+    fi
+    
+    local change_id=$(generate_id)
+    
+    # Escape quotes
+    description="${description//\'/\'\'}"
+    component="${component//\'/\'\'}"
+    rollback_cmd="${rollback_cmd//\'/\'\'}"
+    
+    # Convert tags to PostgreSQL array format
+    local tags_array="'{}"
+    if [[ -n "$tags" ]]; then
+        tags_array="ARRAY[$(echo "$tags" | sed "s/,/','/g" | sed "s/^/'/" | sed "s/$/'/" )]"
+    fi
+    
+    # Backup file if specified
+    local backup_json="'[]'"
+    if [[ -n "$backup_file" && -f "$backup_file" ]]; then
+        local backup_content=$(base64 -w0 "$backup_file" 2>/dev/null)
+        local backup_name=$(basename "$backup_file")
+        backup_json="'[{\"name\": \"$backup_name\", \"path\": \"$backup_file\", \"content\": \"$backup_content\"}]'::jsonb"
+    fi
+    
+    # Related clause
+    local related_clause="NULL"
+    [[ -n "$related" ]] && related_clause="'$related'"
+    
+    # Rollback clause
+    local rollback_clause="NULL"
+    [[ -n "$rollback_cmd" ]] && rollback_clause="'$rollback_cmd'"
+    
+    echo "INSERT INTO infrastructure_changelog 
+        (change_id, category, action, component, description, impact, tags, rollback_cmd, related_to, files_backup)
+        VALUES ('$change_id', '$category', '$action', '$component', '$description', '$impact', 
+                $tags_array, $rollback_clause, $related_clause, $backup_json);" | run_sql
+    
+    if [[ $? -eq 0 ]]; then
+        echo -e "${GREEN}✅ Entrée ajoutée${NC}"
+        echo -e "   ${CYAN}ID:${NC} $change_id"
+        echo -e "   ${CYAN}Category:${NC} $category"
+        echo -e "   ${CYAN}Action:${NC} $action"
+        echo -e "   ${CYAN}Component:${NC} $component"
+        echo -e "   ${CYAN}Impact:${NC} $impact"
+        [[ -n "$tags" ]] && echo -e "   ${MAGENTA}Tags:${NC} $tags"
+        [[ -n "$rollback_cmd" ]] && echo -e "   ${YELLOW}Rollback:${NC} ${rollback_cmd//\'\'/\'}"
+        [[ -n "$related" ]] && echo -e "   ${CYAN}Related:${NC} $related"
+        [[ -n "$backup_file" ]] && echo -e "   ${GREEN}Backup:${NC} $backup_file"
+        echo -e "   ${CYAN}Description:${NC} ${description//\'\'/\'}"
+    else
+        echo -e "${RED}❌ Erreur lors de l'ajout${NC}"
+        return 1
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# READ - List
+# ═══════════════════════════════════════════════════════════════════
+cmd_list() {
+    local limit=${1:-20}
+    
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}📋 CHANGELOG INFRASTRUCTURE (dernières $limit entrées)${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    echo "SELECT date, change_id, category, action, component, description, impact, 
+          array_to_string(tags, ',') as tags, rollback_cmd IS NOT NULL as has_rollback
+    FROM infrastructure_changelog ORDER BY timestamp DESC LIMIT $limit;" | run_sql | \
+    while IFS='|' read -r date change_id category action component description impact tags has_rollback; do
+        [[ -z "$date" ]] && continue
+        case "$impact" in
+            high) icon="🔴" ;;
+            medium) icon="🟡" ;;
+            low) icon="🟢" ;;
+            *) icon="⚪" ;;
+        esac
+        
+        # Rollback indicator
+        local rb_icon=""
+        [[ "$has_rollback" == "t" ]] && rb_icon=" ↩️"
+        
+        echo -e "$icon [$date] $change_id$rb_icon"
+        echo -e "   $category/$action → $component"
+        [[ -n "$tags" ]] && echo -e "   ${MAGENTA}#${tags//,/ #}${NC}"
+        echo -e "   $description"
+        echo ""
+    done
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# READ - Search
+# ═══════════════════════════════════════════════════════════════════
+cmd_search() {
+    local query=""
+    local tag_search=""
+    local limit=10
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --tag|-t) tag_search="$2"; shift 2 ;;
+            --limit|-l) limit="$2"; shift 2 ;;
+            *) query="$1"; shift ;;
+        esac
+    done
+    
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    if [[ -n "$tag_search" ]]; then
+        echo -e "${CYAN}🏷️  Recherche tag: \"$tag_search\"${NC}"
+    else
+        echo -e "${CYAN}🔍 Recherche: \"$query\"${NC}"
+    fi
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    local where_clause=""
+    if [[ -n "$tag_search" ]]; then
+        where_clause="'$tag_search' = ANY(tags)"
+    else
+        query="${query//\'/\'\'}"
+        where_clause="description ILIKE '%$query%' OR component ILIKE '%$query%' OR category ILIKE '%$query%' OR '$query' = ANY(tags)"
+    fi
+    
+    echo "SELECT date, change_id, category, action, component, description, impact, array_to_string(tags, ',')
+    FROM infrastructure_changelog WHERE $where_clause
+    ORDER BY timestamp DESC LIMIT $limit;" | run_sql | \
+    while IFS='|' read -r date change_id category action component description impact tags; do
+        [[ -z "$date" ]] && continue
+        case "$impact" in
+            high) icon="🔴" ;;
+            medium) icon="🟡" ;;
+            low) icon="🟢" ;;
+            *) icon="⚪" ;;
+        esac
+        echo -e "📌 [$date] $change_id"
+        echo -e "   $category/$action → $component"
+        [[ -n "$tags" ]] && echo -e "   ${MAGENTA}#${tags//,/ #}${NC}"
+        echo -e "   $description"
+        echo ""
+    done
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# READ - Get
+# ═══════════════════════════════════════════════════════════════════
+cmd_get() {
+    local change_id="$1"
+    
+    if [[ -z "$change_id" ]]; then
+        echo -e "${RED}❌ ID requis${NC}"
+        return 1
+    fi
+    
+    echo "SELECT json_build_object(
+        'change_id', change_id, 'date', date, 'category', category,
+        'action', action, 'component', component, 'description', description,
+        'impact', impact, 'tags', tags, 'rollback_cmd', rollback_cmd,
+        'related_to', related_to, 'created_at', created_at
+    ) FROM infrastructure_changelog WHERE change_id = '$change_id';" | run_sql | python3 -m json.tool 2>/dev/null || echo "Entrée non trouvée"
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# ROLLBACK
+# ═══════════════════════════════════════════════════════════════════
+cmd_rollback() {
+    local change_id="$1"
+    local execute="$2"
+    
+    if [[ -z "$change_id" ]]; then
+        echo -e "${RED}❌ ID requis${NC}"
+        return 1
+    fi
+    
+    local rollback_cmd=$(echo "SELECT rollback_cmd FROM infrastructure_changelog WHERE change_id = '$change_id';" | run_sql)
+    
+    if [[ -z "$rollback_cmd" ]]; then
+        echo -e "${RED}❌ Pas de commande rollback pour $change_id${NC}"
+        return 1
+    fi
+    
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}↩️  Rollback pour: $change_id${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "${YELLOW}Commande:${NC} $rollback_cmd"
+    echo ""
+    
+    if [[ "$execute" == "--execute" || "$execute" == "-x" ]]; then
+        read -p "⚠️  Exécuter cette commande ? (y/N) " confirm
+        if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+            echo -e "${YELLOW}Exécution...${NC}"
+            eval "$rollback_cmd"
+            if [[ $? -eq 0 ]]; then
+                echo -e "${GREEN}✅ Rollback exécuté avec succès${NC}"
+                # Log the rollback
+                cmd_add -c infrastructure -a rollback -m "$change_id" -i high \
+                    -d "Rollback de $change_id" -t "rollback,revert" --related "$change_id"
+            else
+                echo -e "${RED}❌ Erreur lors du rollback${NC}"
+            fi
+        else
+            echo "Annulé"
+        fi
+    else
+        echo -e "${CYAN}Utilisez 'infra-log rollback $change_id --execute' pour exécuter${NC}"
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# TAGS - List all tags
+# ═══════════════════════════════════════════════════════════════════
+cmd_tags() {
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}🏷️  Tags utilisés${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    echo "SELECT tag, COUNT(*) as count 
+    FROM infrastructure_changelog, unnest(tags) as tag 
+    GROUP BY tag ORDER BY count DESC;" | run_sql | \
+    while IFS='|' read -r tag count; do
+        [[ -z "$tag" ]] && continue
+        echo -e "   ${MAGENTA}#$tag${NC} ($count)"
+    done
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# SYNC MEMORY - Export for Claude
+# ═══════════════════════════════════════════════════════════════════
+cmd_sync_memory() {
+    local days=${1:-7}
+    
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}🧠 Sync Claude Memory (derniers $days jours)${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    # Generate markdown summary
+    local summary=$(cat << EOF
+# 📋 Changelog Infrastructure Récent
+
+> Généré automatiquement le $(date '+%Y-%m-%d %H:%M')
+> Période: derniers $days jours
+
+EOF
+)
+    
+    # Get recent high-impact changes
+    local high_changes=$(echo "SELECT change_id, date, category, action, component, description 
+    FROM infrastructure_changelog 
+    WHERE impact = 'high' AND timestamp > NOW() - INTERVAL '$days days'
+    ORDER BY timestamp DESC;" | run_sql)
+    
+    if [[ -n "$high_changes" ]]; then
+        summary+=$'\n## 🔴 Changements Majeurs\n\n'
+        echo "$high_changes" | while IFS='|' read -r id date cat act comp desc; do
+            [[ -z "$id" ]] && continue
+            summary+="- **[$cat]** $act \`$comp\`: $desc ($id)"$'\n'
+        done
+    fi
+    
+    # Get stats
+    local total=$(echo "SELECT COUNT(*) FROM infrastructure_changelog WHERE timestamp > NOW() - INTERVAL '$days days';" | run_sql)
+    local by_category=$(echo "SELECT category || ': ' || COUNT(*) FROM infrastructure_changelog WHERE timestamp > NOW() - INTERVAL '$days days' GROUP BY category;" | run_sql | tr '\n' ', ' | sed 's/, $//')
+    
+    summary+=$'\n## 📊 Résumé\n\n'
+    summary+="- **Total changements:** $total"$'\n'
+    summary+="- **Par catégorie:** $by_category"$'\n'
+    
+    # Get recent components modified
+    local components=$(echo "SELECT DISTINCT component FROM infrastructure_changelog WHERE timestamp > NOW() - INTERVAL '$days days' AND component != '' LIMIT 10;" | run_sql | tr '\n' ', ' | sed 's/, $//')
+    summary+="- **Composants modifiés:** $components"$'\n'
+    
+    # Save to file
+    echo "$summary" > "$MEMORY_FILE"
+    
+    echo -e "${GREEN}✅ Fichier mémoire créé: $MEMORY_FILE${NC}"
+    echo ""
+    echo -e "${YELLOW}📄 Contenu:${NC}"
+    cat "$MEMORY_FILE"
+    echo ""
+    echo -e "${CYAN}💡 Copie ce contenu dans Claude > Settings > Memory pour me garder à jour${NC}"
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# UPDATE
+# ═══════════════════════════════════════════════════════════════════
+cmd_update() {
+    local change_id="$1"
+    shift
+    
+    if [[ -z "$change_id" ]]; then
+        echo -e "${RED}❌ ID requis${NC}"
+        return 1
+    fi
+    
+    local set_clauses=""
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -c|--category) set_clauses+="category='$2', "; shift 2 ;;
+            -a|--action) set_clauses+="action='$2', "; shift 2 ;;
+            -m|--component) set_clauses+="component='${2//\'/\'\'}', "; shift 2 ;;
+            -i|--impact) set_clauses+="impact='$2', "; shift 2 ;;
+            -d|--desc) set_clauses+="description='${2//\'/\'\'}', "; shift 2 ;;
+            -t|--tags) 
+                local tags_array="ARRAY[$(echo "$2" | sed "s/,/','/g" | sed "s/^/'/" | sed "s/$/'/" )]"
+                set_clauses+="tags=$tags_array, "
+                shift 2 ;;
+            -r|--rollback) set_clauses+="rollback_cmd='${2//\'/\'\'}', "; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+    
+    if [[ -z "$set_clauses" ]]; then
+        echo -e "${RED}❌ Aucun champ à modifier${NC}"
+        return 1
+    fi
+    
+    set_clauses+="updated_at=NOW()"
+    
+    local result=$(echo "UPDATE infrastructure_changelog SET $set_clauses WHERE change_id = '$change_id' RETURNING change_id;" | run_sql)
+    
+    if [[ -n "$result" ]]; then
+        echo -e "${GREEN}✅ Entrée $change_id mise à jour${NC}"
+    else
+        echo -e "${RED}❌ Entrée $change_id non trouvée${NC}"
+        return 1
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# DELETE
+# ═══════════════════════════════════════════════════════════════════
+cmd_delete() {
+    local change_id="$1"
+    local force="$2"
+    
+    if [[ -z "$change_id" ]]; then
+        echo -e "${RED}❌ ID requis${NC}"
+        return 1
+    fi
+    
+    if [[ "$force" != "-f" && "$force" != "--force" ]]; then
+        read -p "Confirmer suppression de $change_id ? (y/N) " confirm
+        if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+            echo "Annulé"
+            return 0
+        fi
+    fi
+    
+    local result=$(echo "DELETE FROM infrastructure_changelog WHERE change_id = '$change_id' RETURNING change_id;" | run_sql)
+    
+    if [[ -n "$result" ]]; then
+        echo -e "${GREEN}✅ Entrée $change_id supprimée${NC}"
+    else
+        echo -e "${RED}❌ Entrée $change_id non trouvée${NC}"
+        return 1
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# EXPORT
+# ═══════════════════════════════════════════════════════════════════
+cmd_export() {
+    local format="json"
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --format|-f) format="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+    
+    if [[ "$format" == "md" || "$format" == "markdown" ]]; then
+        echo "# 📋 Infrastructure Changelog"
+        echo ""
+        echo "> Généré le $(date '+%Y-%m-%d %H:%M')"
+        echo ""
+        
+        local current_date=""
+        
+        echo "SELECT date, change_id, category, action, component, description, impact, array_to_string(tags, ', '), rollback_cmd IS NOT NULL
+        FROM infrastructure_changelog ORDER BY date DESC, timestamp DESC;" | run_sql | \
+        while IFS='|' read -r date change_id category action component description impact tags has_rb; do
+            [[ -z "$date" ]] && continue
+            if [[ "$date" != "$current_date" ]]; then
+                echo "## $date"
+                echo ""
+                current_date="$date"
+            fi
+            case "$impact" in
+                high) icon="🔴" ;;
+                medium) icon="🟡" ;;
+                low) icon="🟢" ;;
+                *) icon="⚪" ;;
+            esac
+            local rb_mark=""
+            [[ "$has_rb" == "t" ]] && rb_mark=" ↩️"
+            local tag_str=""
+            [[ -n "$tags" ]] && tag_str=" \`[$tags]\`"
+            echo "- $icon **[$category]** $action \`$component\`: $description$tag_str$rb_mark"
+        done
+        echo ""
+    else
+        echo "SELECT json_agg(json_build_object(
+            'change_id', change_id, 'date', date, 'category', category,
+            'action', action, 'component', component, 'description', description, 
+            'impact', impact, 'tags', tags, 'has_rollback', rollback_cmd IS NOT NULL
+        ) ORDER BY timestamp DESC) FROM infrastructure_changelog;" | run_sql
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# STATS
+# ═══════════════════════════════════════════════════════════════════
+cmd_stats() {
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}📊 STATISTIQUES CHANGELOG${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    local total=$(echo "SELECT COUNT(*) FROM infrastructure_changelog;" | run_sql)
+    local with_rollback=$(echo "SELECT COUNT(*) FROM infrastructure_changelog WHERE rollback_cmd IS NOT NULL;" | run_sql)
+    local with_tags=$(echo "SELECT COUNT(*) FROM infrastructure_changelog WHERE array_length(tags, 1) > 0;" | run_sql)
+    
+    echo -e "📈 Total entrées: $total"
+    echo -e "↩️  Avec rollback: $with_rollback"
+    echo -e "🏷️  Avec tags: $with_tags"
+    echo ""
+    
+    echo "📂 Par catégorie:"
+    echo "SELECT category, COUNT(*) FROM infrastructure_changelog GROUP BY category ORDER BY COUNT(*) DESC;" | run_sql | \
+    while IFS='|' read -r cat count; do
+        [[ -z "$cat" ]] && continue
+        echo "   $cat: $count"
+    done
+    echo ""
+    
+    echo "🔧 Par action:"
+    echo "SELECT action, COUNT(*) FROM infrastructure_changelog GROUP BY action ORDER BY COUNT(*) DESC;" | run_sql | \
+    while IFS='|' read -r act count; do
+        [[ -z "$act" ]] && continue
+        echo "   $act: $count"
+    done
+    echo ""
+    
+    echo "⚡ Par impact:"
+    echo "SELECT impact, COUNT(*) FROM infrastructure_changelog GROUP BY impact ORDER BY 
+        CASE impact WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END;" | run_sql | \
+    while IFS='|' read -r imp count; do
+        [[ -z "$imp" ]] && continue
+        case "$imp" in
+            high) icon="🔴" ;;
+            medium) icon="🟡" ;;
+            low) icon="🟢" ;;
+            *) icon="⚪" ;;
+        esac
+        echo "   $icon $imp: $count"
+    done
+    echo ""
+    
+    echo "🏷️  Top tags:"
+    echo "SELECT tag, COUNT(*) FROM infrastructure_changelog, unnest(tags) as tag GROUP BY tag ORDER BY COUNT(*) DESC LIMIT 5;" | run_sql | \
+    while IFS='|' read -r tag count; do
+        [[ -z "$tag" ]] && continue
+        echo -e "   ${MAGENTA}#$tag${NC}: $count"
+    done
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# MAIN
+# ═══════════════════════════════════════════════════════════════════
+case "${1:-}" in
+    add) shift; cmd_add "$@" ;;
+    list|ls) shift; cmd_list "$@" ;;
+    search|find) shift; cmd_search "$@" ;;
+    get) shift; cmd_get "$@" ;;
+    update|edit) shift; cmd_update "$@" ;;
+    delete|rm) shift; cmd_delete "$@" ;;
+    rollback|rb) shift; cmd_rollback "$@" ;;
+    tags) cmd_tags ;;
+    sync-memory|sync) shift; cmd_sync_memory "$@" ;;
+    export) shift; cmd_export "$@" ;;
+    stats) cmd_stats ;;
+    help|--help|-h|"") show_help ;;
+    *) echo -e "${RED}❌ Commande inconnue: $1${NC}"; show_help; exit 1 ;;
+esac

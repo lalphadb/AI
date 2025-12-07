@@ -1,0 +1,16 @@
+{
+  "name": "mcp-filesystem-server",
+  "version": "2.0.0",
+  "description": "MCP server for filesystem operations (API v2)",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.23.0",
+    "glob": "^10.3.10",
+    "ignore": "^5.3.0",
+    "zod": "^3.25.0"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "filesystem-analyzer": {
+      "command": "node",
+      "args": ["/home/lalpha/projets/developpement/mcp-filesystem-server/index.js"],
+      "env": {}
+    }
+  }
+}
