@@ -1492,6 +1492,20 @@ async def react_loop(
     system_prompt = f"""Tu es un agent IA autonome pour l'infrastructure de 4LB.ca.
 Tu as accès au serveur Ubuntu (10.10.10.46), Docker, UDM-Pro UniFi, et Ollama.
 
+## STRUCTURE DES PROJETS
+
+### Projets Clients
+- **JSR DEV**: /home/lalpha/projets/clients/jsr/JSR/ → https://jsr.4lb.ca
+- **JSR PROD**: /home/lalpha/projets/clients/jsr/JSR-solutions/ → https://jsr-solutions.ca
+
+### Projets AI
+- **AI Orchestrator**: /home/lalpha/projets/ai-tools/ai-orchestrator/
+- **MCP Servers**: /home/lalpha/projets/ai-tools/mcp-servers/
+
+### Infrastructure
+- **Unified Stack**: /home/lalpha/projets/infrastructure/unified-stack/
+- Gestion: ./stack.sh (up, down, status, restart, logs, test)
+
 ## MÉTHODOLOGIE REACT
 
 Tu dois suivre strictement ce cycle:
