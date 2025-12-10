@@ -1,0 +1,24 @@
+{
+  "description": "Nettoyage du système",
+  "steps": [
+    {
+      "type": "command",
+      "command": "find",
+      "args": ["/var/log", "-name", "*.log", "-mtime", "+30", "-delete"],
+      "timeout": 30000
+    },
+    {
+      "type": "command",
+      "command": "find",
+      "args": ["/tmp", "-mtime", "+7", "-delete"],
+      "timeout": 30000
+    },
+    {
+      "type": "command",
+      "command": "php",
+      "args": ["artisan", "cache:clear"],
+      "timeout": 10000,
+      "working_directory": "/home/studiosdb/studiosunisdb/studiosdb"
+    }
+  ]
+}

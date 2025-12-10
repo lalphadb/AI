@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orchestrator-4lb
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    environment:
+      - ORCHESTRATOR_HOST=0.0.0.0
+      - ORCHESTRATOR_PORT=8888
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_MODEL=qwen2.5-coder:32b
+      - LOG_LEVEL=INFO
+      # PostgreSQL
+      - POSTGRES_HOST=host.docker.internal
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      # S3 (optionnel)
+      - S3_ENABLED=false
+      # - S3_ENDPOINT=https://s3.amazonaws.com
+      # - S3_BUCKET=4lb-backups
+      # - S3_ACCESS_KEY=
+      # - S3_SECRET_KEY=
+    volumes:
+      # Accès à l'infrastructure
+      - /home/lalpha/projets:/mnt/projets:ro
+      - /home/lalpha/scripts:/mnt/scripts:ro
+      # Volumes persistants
+      - orchestrator-logs:/app/logs
+      - orchestrator-backups:/app/backups
+      # Socket Docker pour docker_status
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.orchestrator.rule=Host(`orchestrator.4lb.ca`)"
+      - "traefik.http.routers.orchestrator.entrypoints=websecure"
+      - "traefik.http.routers.orchestrator.tls.certresolver=letsencrypt"
+      - "traefik.http.services.orchestrator.loadbalancer.server.port=8888"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  traefik-net:
+    external: true
+
+volumes:
+  orchestrator-logs:
+  orchestrator-backups:

@@ -1,0 +1,104 @@
+{
+  "timestamp": "2025-12-06T16:00:57.007944",
+  "score": 100,
+  "status": "excellent",
+  "metrics": {
+    "cpu_percent": 2.96,
+    "memory_percent": 18.34,
+    "disk_root_percent": 20.3,
+    "network_rx_rate": 52.87,
+    "network_tx_rate": 1337.81,
+    "docker": {
+      "total": 14,
+      "running": 14,
+      "stopped": 0,
+      "unhealthy": 0,
+      "containers": [
+        {
+          "name": "ai-orchestrator-backend",
+          "status": "Up 11 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "ai-orchestrator-frontend",
+          "status": "Up 11 hours",
+          "state": "running"
+        },
+        {
+          "name": "open-webui",
+          "status": "Up 2 days (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "grafana",
+          "status": "Up 2 days",
+          "state": "running"
+        },
+        {
+          "name": "promtail",
+          "status": "Up 2 days",
+          "state": "running"
+        },
+        {
+          "name": "postgres",
+          "status": "Up 2 days (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "redis",
+          "status": "Up 2 days (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "code-server",
+          "status": "Up 2 days",
+          "state": "running"
+        },
+        {
+          "name": "cadvisor",
+          "status": "Up 2 days (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "traefik",
+          "status": "Up 2 days (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "node-exporter",
+          "status": "Up 2 days",
+          "state": "running"
+        },
+        {
+          "name": "prometheus",
+          "status": "Up 2 days",
+          "state": "running"
+        },
+        {
+          "name": "loki",
+          "status": "Up 2 days",
+          "state": "running"
+        },
+        {
+          "name": "nvidia-exporter",
+          "status": "Up 2 days",
+          "state": "running"
+        }
+      ]
+    },
+    "uptime_days": 6.9,
+    "load_1m": 0.38,
+    "load_5m": 4.31,
+    "load_15m": 4.78,
+    "gpu_util": 4.0,
+    "gpu_mem_used": 791.0,
+    "gpu_mem_total": 16303.0,
+    "gpu_temp": 34.0,
+    "gpu_mem_percent": 4.851867754401031,
+    "collected_at": "2025-12-06T16:00:57.001648"
+  },
+  "alerts": [],
+  "recommendations": [],
+  "auto_actions": [],
+  "trends": {}
+}

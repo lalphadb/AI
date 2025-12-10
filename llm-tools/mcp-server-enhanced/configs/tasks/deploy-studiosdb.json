@@ -1,0 +1,68 @@
+{
+  "description": "Déploiement complet de StudiosDB",
+  "steps": [
+    {
+      "type": "command",
+      "command": "git",
+      "args": ["pull", "origin", "main"],
+      "timeout": 30000,
+      "working_directory": "/home/studiosdb/studiosunisdb"
+    },
+    {
+      "type": "command",
+      "command": "composer",
+      "args": ["install", "--no-dev", "--optimize-autoloader"],
+      "timeout": 60000,
+      "working_directory": "/home/studiosdb/studiosunisdb/studiosdb"
+    },
+    {
+      "type": "command",
+      "command": "npm",
+      "args": ["install"],
+      "timeout": 60000,
+      "working_directory": "/home/studiosdb/studiosunisdb/studiosdb"
+    },
+    {
+      "type": "command",
+      "command": "npm",
+      "args": ["run", "build"],
+      "timeout": 60000,
+      "working_directory": "/home/studiosdb/studiosunisdb/studiosdb"
+    },
+    {
+      "type": "command",
+      "command": "php",
+      "args": ["artisan", "migrate", "--force"],
+      "timeout": 30000,
+      "working_directory": "/home/studiosdb/studiosunisdb/studiosdb"
+    },
+    {
+      "type": "command",
+      "command": "php",
+      "args": ["artisan", "config:cache"],
+      "timeout": 10000,
+      "working_directory": "/home/studiosdb/studiosunisdb/studiosdb"
+    },
+    {
+      "type": "command",
+      "command": "php",
+      "args": ["artisan", "route:cache"],
+      "timeout": 10000,
+      "working_directory": "/home/studiosdb/studiosunisdb/studiosdb"
+    },
+    {
+      "type": "command",
+      "command": "php",
+      "args": ["artisan", "view:cache"],
+      "timeout": 10000,
+      "working_directory": "/home/studiosdb/studiosunisdb/studiosdb"
+    },
+    {
+      "type": "command",
+      "command": "php",
+      "args": ["artisan", "queue:restart"],
+      "timeout": 10000,
+      "working_directory": "/home/studiosdb/studiosunisdb/studiosdb"
+    }
+  ]
+}

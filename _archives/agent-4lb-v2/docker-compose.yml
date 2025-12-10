@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  # === API Gateway ===
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: agent-4lb-api
+    ports:
+      - "8889:8889"
+    volumes:
+      - ./:/app
+      - ./memory:/app/memory
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - CHROMA_HOST=host.docker.internal
+      - CHROMA_PORT=8000
+      - LOG_LEVEL=INFO
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - traefik-net
+      - agent-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.agent-api.rule=Host(`api.4lb.ca`)"
+      - "traefik.http.routers.agent-api.entrypoints=websecure"
+      - "traefik.http.routers.agent-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.agent-api.loadbalancer.server.port=8889"
+    restart: unless-stopped
+
+  # === UI React ===
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    container_name: agent-4lb-ui
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - traefik-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.agent-ui.rule=Host(`ai.4lb.ca`)"
+      - "traefik.http.routers.agent-ui.entrypoints=websecure"
+      - "traefik.http.routers.agent-ui.tls.certresolver=letsencrypt"
+      - "traefik.http.services.agent-ui.loadbalancer.server.port=80"
+    restart: unless-stopped
+
+  # === n8n - Automatisation ===
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: agent-4lb-n8n
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./workflows:/home/node/workflows
+    environment:
+      - N8N_HOST=n8n.4lb.ca
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://n8n.4lb.ca/
+      - GENERIC_TIMEZONE=America/Toronto
+      - TZ=America/Toronto
+    networks:
+      - traefik-net
+      - agent-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.4lb.ca`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls.certresolver=letsencrypt"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+    restart: unless-stopped
+
+  # === Redis (cache sessions) ===
+  redis:
+    image: redis:7-alpine
+    container_name: agent-4lb-redis
+    volumes:
+      - redis_data:/data
+    networks:
+      - agent-net
+    restart: unless-stopped
+
+networks:
+  traefik-net:
+    external: true
+  agent-net:
+    driver: bridge
+
+volumes:
+  n8n_data:
+  redis_data:

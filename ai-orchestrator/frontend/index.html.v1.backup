@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent IA - 4lb.ca</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        body { background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); }
+        .chat-container { height: calc(100vh - 200px); }
+        .message-user { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); }
+        .message-assistant { background: #1f2937; border: 1px solid #374151; }
+        .message-thinking { background: #1e3a5f; border-left: 4px solid #3b82f6; }
+        .message-action { background: #1a3d2e; border-left: 4px solid #10b981; }
+        .message-observation { background: #3d3a1a; border-left: 4px solid #f59e0b; }
+        pre { background: #0d1117 !important; border-radius: 8px; padding: 12px; overflow-x: auto; }
+        code { font-family: 'JetBrains Mono', monospace; }
+        .typing-indicator span { animation: blink 1.4s infinite both; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
+        .glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+    </style>
+</head>
+<body class="min-h-screen text-white">
+    <div class="container mx-auto px-4 py-6 max-w-4xl">
+        <!-- Header -->
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                🤖 Agent IA Autonome
+            </h1>
+            <p class="text-gray-400 mt-2">Infrastructure lalpha-server-1 • ReAct Loop • 19 outils</p>
+            <div id="status" class="mt-2 text-sm">
+                <span class="inline-block w-2 h-2 rounded-full bg-yellow-500 mr-2"></span>
+                <span class="text-yellow-400">Connexion...</span>
+            </div>
+        </div>
+
+        <!-- Chat Container -->
+        <div id="chat" class="chat-container overflow-y-auto space-y-4 mb-4 p-4 rounded-xl bg-black/30 backdrop-blur border border-gray-800">
+            <div class="text-center text-gray-500 py-8">
+                <p class="text-lg">👋 Bienvenue !</p>
+                <p class="text-sm mt-2">Pose une question ou donne une mission à l'agent.</p>
+                <div class="mt-4 flex flex-wrap justify-center gap-2">
+                    <button onclick="sendQuick('Montre les infos système')" class="px-3 py-1 bg-gray-800 rounded-full text-sm hover:bg-gray-700">📊 Système</button>
+                    <button onclick="sendQuick('Liste les conteneurs Docker')" class="px-3 py-1 bg-gray-800 rounded-full text-sm hover:bg-gray-700">🐳 Docker</button>
+                    <button onclick="sendQuick('Analyse l\\'espace disque')" class="px-3 py-1 bg-gray-800 rounded-full text-sm hover:bg-gray-700">💾 Disque</button>
+                    <button onclick="sendQuick('Statut du UDM-Pro')" class="px-3 py-1 bg-gray-800 rounded-full text-sm hover:bg-gray-700">🌐 Réseau</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input -->
+        <div class="flex gap-3">
+            <input type="text" id="input" placeholder="Pose une question ou donne une mission..."
+                class="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl focus:outline-none focus:border-blue-500 focus:glow transition-all"
+                onkeypress="if(event.key==='Enter')sendMessage()">
+            <button onclick="sendMessage()" id="sendBtn"
+                class="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50">
+                Envoyer
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isProcessing = false;
+        const chat = document.getElementById('chat');
+        const input = document.getElementById('input');
+        const sendBtn = document.getElementById('sendBtn');
+        const status = document.getElementById('status');
+
+        function updateStatus(connected) {
+            status.innerHTML = connected 
+                ? '<span class="inline-block w-2 h-2 rounded-full bg-green-500 mr-2"></span><span class="text-green-400">Connecté</span>'
+                : '<span class="inline-block w-2 h-2 rounded-full bg-red-500 mr-2"></span><span class="text-red-400">Déconnecté</span>';
+        }
+
+        function connect() {
+            const wsUrl = location.protocol === 'https:' ? 'wss://' : 'ws://';
+            ws = new WebSocket(wsUrl + location.host + '/ws/chat');
+            
+            ws.onopen = () => updateStatus(true);
+            ws.onclose = () => { updateStatus(false); setTimeout(connect, 3000); };
+            ws.onerror = () => updateStatus(false);
+            ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
+        }
+
+        function handleMessage(msg) {
+            switch(msg.type) {
+                case 'start':
+                    clearWelcome();
+                    addMessage('user', msg.message);
+                    break;
+                case 'thinking':
+                    showTyping(msg.message);
+                    break;
+                case 'think':
+                    hideTyping();
+                    if(msg.content) addStep('thinking', '💭 Réflexion', msg.content);
+                    break;
+                case 'action':
+                    addStep('action', '⚡ Action', `${msg.tool}(${JSON.stringify(msg.params)})`);
+                    break;
+                case 'observation':
+                    addStep('observation', '👁️ Observation', msg.result);
+                    break;
+                case 'complete':
+                    hideTyping();
+                    addMessage('assistant', msg.response);
+                    setProcessing(false);
+                    break;
+                case 'error':
+                    hideTyping();
+                    addMessage('error', '❌ Erreur: ' + msg.message);
+                    setProcessing(false);
+                    break;
+            }
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function clearWelcome() {
+            const welcome = chat.querySelector('.text-center');
+            if(welcome) welcome.remove();
+        }
+
+        function addMessage(type, content) {
+            const div = document.createElement('div');
+            div.className = type === 'user' 
+                ? 'message-user p-4 rounded-xl ml-12' 
+                : 'message-assistant p-4 rounded-xl mr-12';
+            
+            if(type === 'user') {
+                div.innerHTML = `<div class="font-semibold mb-1">👤 Vous</div><div>${escapeHtml(content)}</div>`;
+            } else {
+                div.innerHTML = `<div class="font-semibold mb-1">🤖 Agent</div><div class="prose prose-invert max-w-none">${marked.parse(content)}</div>`;
+                div.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+            }
+            chat.appendChild(div);
+        }
+
+        function addStep(type, title, content) {
+            const div = document.createElement('div');
+            div.className = `message-${type} p-3 rounded-lg text-sm mx-8 my-2`;
+            div.innerHTML = `<div class="font-semibold text-xs opacity-70 mb-1">${title}</div><pre class="whitespace-pre-wrap text-xs">${escapeHtml(content.substring(0, 500))}${content.length > 500 ? '...' : ''}</pre>`;
+            chat.appendChild(div);
+        }
+
+        function showTyping(msg) {
+            hideTyping();
+            const div = document.createElement('div');
+            div.id = 'typing';
+            div.className = 'flex items-center gap-2 text-gray-400 p-4';
+            div.innerHTML = `<div class="typing-indicator"><span>●</span><span>●</span><span>●</span></div><span>${msg || 'Réflexion...'}</span>`;
+            chat.appendChild(div);
+        }
+
+        function hideTyping() {
+            const typing = document.getElementById('typing');
+            if(typing) typing.remove();
+        }
+
+        function setProcessing(val) {
+            isProcessing = val;
+            sendBtn.disabled = val;
+            input.disabled = val;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function sendMessage() {
+            const msg = input.value.trim();
+            if(!msg || isProcessing || !ws || ws.readyState !== WebSocket.OPEN) return;
+            setProcessing(true);
+            ws.send(JSON.stringify({ message: msg }));
+            input.value = '';
+        }
+
+        function sendQuick(msg) {
+            input.value = msg;
+            sendMessage();
+        }
+
+        connect();
+    </script>
+</body>
+</html>

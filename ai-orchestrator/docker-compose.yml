@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai-orchestrator-backend
+    restart: unless-stopped
+    environment:
+      - OLLAMA_URL=http://10.10.10.46:11434
+    volumes:
+      - ai-orchestrator-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/lalpha/.ssh/id_rsa_udm:/home/lalpha/.ssh/id_rsa_udm:ro
+    networks:
+      - traefik-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ai-orchestrator-api.rule=Host(`ai.4lb.ca`) && (PathPrefix(`/api`) || PathPrefix(`/ws`) || PathPrefix(`/health`) || PathPrefix(`/tools`) || PathPrefix(`/models`))"
+      - "traefik.http.routers.ai-orchestrator-api.entrypoints=websecure"
+      - "traefik.http.routers.ai-orchestrator-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.ai-orchestrator-api.loadbalancer.server.port=8001"
+
+  frontend:
+    image: nginx:alpine
+    container_name: ai-orchestrator-frontend
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - traefik-net
+    depends_on:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ai-orchestrator.rule=Host(`ai.4lb.ca`)"
+      - "traefik.http.routers.ai-orchestrator.entrypoints=websecure"
+      - "traefik.http.routers.ai-orchestrator.tls.certresolver=letsencrypt"
+      - "traefik.http.services.ai-orchestrator.loadbalancer.server.port=80"
+
+networks:
+  traefik-net:
+    external: true
+
+volumes:
+  ai-orchestrator-data:

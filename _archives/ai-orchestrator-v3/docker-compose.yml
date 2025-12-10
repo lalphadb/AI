@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  ai-orchestrator-v3:
+    build: .
+    container_name: ai-orchestrator-v3
+    restart: unless-stopped
+    ports:
+      - "8890:8000"
+    volumes:
+      - ai-data-v3:/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /home/lalpha:/home/lalpha:ro
+      - /home/lalpha/.ssh:/root/.ssh:ro
+    environment:
+      - OLLAMA_URL=http://10.10.10.46:11434
+    networks:
+      - traefik-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ai-v3.rule=Host(`ai.4lb.ca`)"
+      - "traefik.http.routers.ai-v3.entrypoints=websecure"
+      - "traefik.http.routers.ai-v3.tls=true"
+      - "traefik.http.routers.ai-v3.tls.certresolver=letsencrypt"
+      - "traefik.http.services.ai-v3.loadbalancer.server.port=8000"
+
+volumes:
+  ai-data-v3:
+
+networks:
+  traefik-net:
+    external: true

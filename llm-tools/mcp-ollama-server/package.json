@@ -1,0 +1,29 @@
+{
+  "name": "mcp-ollama-server",
+  "version": "1.0.0",
+  "description": "MCP Server pour utiliser les modèles Ollama locaux",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "mcp-ollama-server": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "keywords": [
+    "mcp",
+    "ollama",
+    "llm",
+    "ai"
+  ],
+  "author": "lalpha",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "axios": "^1.7.7"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
