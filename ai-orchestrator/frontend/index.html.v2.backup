@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🤖 AI Orchestrator v2.4 - 4LB.ca</title>
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <title>🤖 AI Orchestrator v2.3 - 4LB.ca</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -576,67 +575,6 @@
                 left: 0;
             }
         }
-    
-        /* Stats Bar */
-        .stats-bar {
-            display: flex;
-            gap: 12px;
-            padding: 8px 16px;
-            background: var(--bg-tertiary);
-            border-bottom: 1px solid var(--border);
-            font-size: 12px;
-            flex-wrap: wrap;
-        }
-        .stat-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 10px;
-            background: rgba(0, 217, 255, 0.1);
-            border-radius: 12px;
-            font-family: 'JetBrains Mono', monospace;
-        }
-        .stat-item .value { font-weight: 600; color: var(--accent); }
-        .stat-item .value.warn { color: #ffaa00; }
-        .stat-item .value.bad { color: #ff4444; }
-        
-        /* Syntax Highlighting */
-        .message pre {
-            background: #1a1a2e !important;
-            border-radius: 8px;
-            padding: 12px;
-            overflow-x: auto;
-            margin: 8px 0;
-        }
-        .message code {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-        }
-        .message p code {
-            background: rgba(0, 217, 255, 0.1);
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-        
-        /* Copy button improved */
-        .copy-btn {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            cursor: pointer;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-        .message:hover .copy-btn { opacity: 1; }
-        .copy-btn:hover { background: var(--accent); color: white; }
-        .copy-btn.copied { background: #00ff88; color: #000; }
-
     </style>
 </head>
 <body>
@@ -645,7 +583,7 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <h1>🤖 AI Orchestrator</h1>
-                <span>v2.4 - 4LB.ca</span>
+                <span>v2.3 - 4LB.ca</span>
             </div>
             <button class="new-chat-btn" onclick="newConversation()">+ Nouvelle conversation</button>
             <div class="conversations-list" id="conversations-list">
@@ -931,45 +869,28 @@
             const messages = document.getElementById('messages');
             const div = document.createElement('div');
             div.className = 'message assistant';
-            div.style.position = 'relative';
             
-            // Convertir markdown avec syntax highlighting
+            // Convertir markdown basique
             let html = escapeHtml(text)
-                .replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
-                    const langClass = lang ? `language-${lang}` : 'language-bash';
-                    return `<pre><code class="${langClass}">${code}</code></pre>`;
-                })
+                .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
                 .replace(/`([^`]+)`/g, '<code>$1</code>')
                 .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
                 .replace(/\n/g, '<br>');
             
             div.innerHTML = `
-                <button class="copy-btn" onclick="copyMessage(this)">📋 Copier</button>
                 ${html}
+                <div class="message-actions">
+                    <button onclick="copyMessage(this)">📋 Copier</button>
+                </div>
             `;
             
             messages.appendChild(div);
             messages.scrollTop = messages.scrollHeight;
-            
-            // Apply syntax highlighting
-            div.querySelectorAll('pre code').forEach((block) => {
-                if (typeof Prism !== 'undefined') {
-                    Prism.highlightElement(block);
-                }
-            });
         }
         
         function copyMessage(btn) {
-            const msg = btn.closest('.message');
-            const text = msg.innerText.replace('📋 Copier', '').replace('✓ Copié', '').trim();
-            navigator.clipboard.writeText(text).then(() => {
-                btn.textContent = '✓ Copié';
-                btn.classList.add('copied');
-                setTimeout(() => {
-                    btn.textContent = '📋 Copier';
-                    btn.classList.remove('copied');
-                }, 2000);
-            });
+            const text = btn.closest('.message').innerText.replace('📋 Copier', '').trim();
+            navigator.clipboard.writeText(text);
             btn.textContent = '✅ Copié!';
             setTimeout(() => btn.textContent = '📋 Copier', 2000);
         }
@@ -1173,72 +1094,8 @@
         });
         
         // ===== INIT =====
-        
-        // Load system stats
-        async function loadStats() {
-            try {
-                const response = await fetch('/api/stats');
-                const stats = await response.json();
-                
-                // CPU
-                const cpuEl = document.getElementById('cpu-stat');
-                cpuEl.textContent = stats.cpu.percent;
-                cpuEl.className = 'value' + (stats.cpu.percent > 80 ? ' bad' : stats.cpu.percent > 50 ? ' warn' : '');
-                
-                // RAM
-                const ramEl = document.getElementById('ram-stat');
-                ramEl.textContent = stats.memory.used_gb + '/' + stats.memory.total_gb;
-                ramEl.className = 'value' + (stats.memory.percent > 80 ? ' bad' : stats.memory.percent > 50 ? ' warn' : '');
-                
-                // GPU
-                const gpuEl = document.getElementById('gpu-stat');
-                if (stats.gpu.name !== 'N/A') {
-                    gpuEl.textContent = stats.gpu.percent;
-                } else {
-                    gpuEl.textContent = 'N/A';
-                }
-                
-                // Docker
-                document.getElementById('docker-stat').textContent = stats.docker.running + '/' + stats.docker.total;
-            } catch (e) {
-                console.error('Stats error:', e);
-            }
-        }
-        
-        // Load stats every 10 seconds
-        loadStats();
-        setInterval(loadStats, 10000);
-        
-        // Enhanced copy function
-        function copyCode(btn, code) {
-            navigator.clipboard.writeText(code).then(() => {
-                btn.textContent = '✓ Copié';
-                btn.classList.add('copied');
-                setTimeout(() => {
-                    btn.textContent = '📋 Copier';
-                    btn.classList.remove('copied');
-                }, 2000);
-            });
-        }
-        
-        // Highlight code in messages
-        function highlightCode() {
-            document.querySelectorAll('pre code').forEach((block) => {
-                if (!block.classList.contains('highlighted')) {
-                    Prism.highlightElement(block);
-                    block.classList.add('highlighted');
-                }
-            });
-        }
-
         connectWebSocket();
         loadConversations();
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </body>
 </html>

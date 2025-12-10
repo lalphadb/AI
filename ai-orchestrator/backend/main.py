@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Orchestrateur IA 4LB.ca - Backend FastAPI v2.3 - RAG & Templates & Auto-correction
+Orchestrateur IA 4LB.ca - Backend FastAPI v2.0
 Agent autonome avec boucle ReAct, sélection auto de modèle, upload fichiers
 """
 
@@ -203,26 +203,6 @@ TOOLS = {
         "description": "Valider qu'une étape du plan a été correctement exécutée",
         "parameters": {"step_description": "string - Ce qui devait être fait", "expected_result": "string - Résultat attendu"},
         "example": "validate_step(step_description=\"Créer le dossier\", expected_result=\"Dossier existe\")"
-    },
-    "search_knowledge": {
-        "description": "Rechercher dans la base de connaissances (documentation, projets indexés). Utilise la recherche sémantique via ChromaDB.",
-        "parameters": {"query": "string - Ce que tu cherches", "collection": "string - Collection (défaut: documentation)", "n_results": "int - Nombre de résultats (défaut: 5)"},
-        "example": "search_knowledge(query=\"configurer Traefik SSL\", collection=\"documentation\")"
-    },
-    "index_directory": {
-        "description": "Indexer un répertoire dans ChromaDB pour permettre la recherche sémantique",
-        "parameters": {"path": "string - Chemin du répertoire", "collection": "string - Nom de la collection", "extensions": "string - Extensions à indexer (défaut: .md,.txt,.py)"},
-        "example": "index_directory(path=\"/home/lalpha/documentation\", collection=\"documentation\")"
-    },
-    "create_project": {
-        "description": "Créer un nouveau projet complet avec structure, fichiers de base, et dépendances. Types: webapp, api, site, script",
-        "parameters": {"type": "string - webapp|api|site|script", "name": "string - Nom du projet", "path": "string - Chemin parent (défaut: /home/lalpha/projets)", "framework": "string - react|nextjs|fastapi|flask (optionnel)"},
-        "example": "create_project(type=\"api\", name=\"mon-api\", framework=\"fastapi\")"
-    },
-    "get_project_context": {
-        "description": "Analyser un projet et récupérer son contexte (structure, README, package.json, requirements.txt)",
-        "parameters": {"path": "string - Chemin du projet"},
-        "example": "get_project_context(path=\"/home/lalpha/projets/ai-tools/ai-orchestrator\")"
     },
     "final_answer": {
         "description": "Fournir la réponse finale à l'utilisateur",
@@ -745,690 +725,6 @@ async def execute_tool(tool_name: str, params: dict, uploaded_files: dict = None
                     resp = await client.get(url, timeout=30)
                 return f"HTTP {resp.status_code}:\n{resp.text[:2000]}"
         
-        elif tool_name == "create_plan":
-            task = params.get("task", "")
-            if not task:
-                return "Erreur: description de la tâche requise"
-            
-            # Utiliser le LLM pour créer un plan
-            plan_prompt = f"""Tu es un planificateur de tâches. Analyse cette demande et crée un plan d'exécution détaillé.
-
-        TÂCHE: {task}
-
-        RÈGLES:
-        1. Décompose en étapes simples et séquentielles (max 8 étapes)
-        2. Chaque étape doit être actionnable avec les outils disponibles
-        3. Inclure des étapes de validation
-
-        Réponds UNIQUEMENT avec un JSON valide de ce format:
-        {{
-            "task_summary": "résumé court de la tâche",
-            "complexity": "simple|medium|complex",
-            "estimated_steps": 5,
-            "plan": [
-        {{"step": 1, "action": "description", "tool": "tool_name", "validation": "comment vérifier"}},
-        {{"step": 2, "action": "description", "tool": "tool_name", "validation": "comment vérifier"}}
-            ]
-        }}"""
-            
-            try:
-                async with httpx.AsyncClient() as client:
-                    resp = await client.post(
-                        f"{OLLAMA_URL}/api/generate",
-                        json={
-                            "model": DEFAULT_MODEL,
-                            "prompt": plan_prompt,
-                            "stream": False,
-                            "options": {"temperature": 0.3}
-                        },
-                        timeout=60
-                    )
-                    data = resp.json()
-                    plan_text = data.get("response", "")
-                    
-                    # Extraire le JSON du plan
-                    import re
-                    json_match = re.search(r'\{.*\}', plan_text, re.DOTALL)
-                    if json_match:
-                        plan_json = json.loads(json_match.group())
-                        # Stocker le plan en mémoire
-                        conn = get_db()
-                        c = conn.cursor()
-                        c.execute('INSERT OR REPLACE INTO memory (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
-                                  ("current_plan", json.dumps(plan_json)))
-                        conn.commit()
-                        conn.close()
-                        
-                        # Formater le plan pour l'affichage
-                        result = f"📋 PLAN CRÉÉ: {plan_json.get('task_summary', task)}\n"
-                        result += f"Complexité: {plan_json.get('complexity', 'medium')} | Étapes: {plan_json.get('estimated_steps', len(plan_json.get('plan', [])))}\n\n"
-                        for step in plan_json.get("plan", []):
-                            result += f"  {step['step']}. {step['action']}\n"
-                            result += f"     → Outil: {step.get('tool', 'N/A')} | Validation: {step.get('validation', 'N/A')}\n"
-                        return result
-                    else:
-                        return f"Plan généré (format libre):\n{plan_text}"
-            except Exception as e:
-                return f"Erreur création du plan: {str(e)}"
-        
-        elif tool_name == "validate_step":
-            step_desc = params.get("step_description", "")
-            expected = params.get("expected_result", "")
-            
-            if not step_desc:
-                return "Erreur: description de l'étape requise"
-            
-            # Vérifications automatiques selon le type d'action
-            validation_result = "✅ VALIDÉ"
-            checks_performed = []
-            
-            # Si l'expected contient un chemin, vérifier l'existence
-            path_match = re.search(r'(/[^\s]+)', expected)
-            if path_match:
-                path = path_match.group(1)
-                if os.path.exists(path):
-                    checks_performed.append(f"✓ Chemin existe: {path}")
-                else:
-                    validation_result = "❌ ÉCHEC"
-                    checks_performed.append(f"✗ Chemin manquant: {path}")
-            
-            # Si l'expected mentionne un conteneur Docker
-            if "docker" in expected.lower() or "conteneur" in expected.lower():
-                container_match = re.search(r'(\w+-\w+|\w+)', expected)
-                if container_match:
-                    container = container_match.group(1)
-                    result = subprocess.run(
-                        f"docker ps --filter name={container} --format '{{{{.Status}}}}'",
-                        shell=True, capture_output=True, text=True
-                    )
-                    if result.stdout.strip():
-                        checks_performed.append(f"✓ Conteneur actif: {container}")
-                    else:
-                        validation_result = "⚠️ À VÉRIFIER"
-                        checks_performed.append(f"? Conteneur non trouvé: {container}")
-            
-            return f"{validation_result}\nÉtape: {step_desc}\nAttendu: {expected}\n\nVérifications:\n" + "\n".join(checks_performed) if checks_performed else f"{validation_result}\nÉtape: {step_desc}\n(Validation manuelle requise)"
-        
-
-        elif tool_name == "search_knowledge":
-            query = params.get("query", "")
-            collection_name = params.get("collection", "documentation")
-            n_results = int(params.get("n_results", 5))
-            
-            if not query:
-                return "Erreur: query requise"
-            
-            try:
-                # Utiliser l'API REST de ChromaDB
-                chromadb_url = "http://chromadb:8000"
-                
-                async with httpx.AsyncClient() as client:
-                    # Vérifier si la collection existe
-                    collections_resp = await client.get(
-                        f"{chromadb_url}/api/v2/tenants/default_tenant/databases/default_database/collections",
-                        timeout=10
-                    )
-                    collections = collections_resp.json()
-                    collection_exists = any(c.get("name") == collection_name for c in collections)
-                    
-                    if not collection_exists:
-                        return f"Collection '{collection_name}' non trouvée. Collections disponibles: {[c.get('name') for c in collections]}\nUtilise index_directory() pour créer une collection."
-                    
-                    # Trouver l'ID de la collection
-                    collection_id = None
-                    for c in collections:
-                        if c.get("name") == collection_name:
-                            collection_id = c.get("id")
-                            break
-                    
-                    # Rechercher avec query texte (ChromaDB génère les embeddings)
-                    search_resp = await client.post(
-                        f"{chromadb_url}/api/v2/tenants/default_tenant/databases/default_database/collections/{collection_id}/query",
-                        json={
-                            "query_texts": [query],
-                            "n_results": n_results,
-                            "include": ["documents", "metadatas", "distances"]
-                        },
-                        timeout=30
-                    )
-                    results = search_resp.json()
-                    
-                    if not results.get("documents") or not results["documents"][0]:
-                        return f"Aucun résultat trouvé pour: {query}"
-                    
-                    # Formater les résultats
-                    output = f"🔍 Recherche: '{query}' dans {collection_name}\n\n"
-                    for i, (doc, meta, dist) in enumerate(zip(
-                        results["documents"][0], 
-                        results.get("metadatas", [[]])[0],
-                        results.get("distances", [[]])[0]
-                    )):
-                        source = meta.get("source", "inconnu") if meta else "inconnu"
-                        score = round(1 - dist, 3) if dist else "N/A"
-                        output += f"--- Résultat {i+1} (score: {score}) ---\n"
-                        output += f"Source: {source}\n"
-                        output += f"{doc[:500]}...\n\n" if len(doc) > 500 else f"{doc}\n\n"
-                    
-                    return output
-                    
-            except Exception as e:
-                return f"Erreur recherche ChromaDB: {str(e)}"
-        
-        elif tool_name == "index_directory":
-            path = params.get("path", "")
-            collection_name = params.get("collection", "")
-            extensions = params.get("extensions", ".md,.txt,.py").split(",")
-            
-            if not path or not collection_name:
-                return "Erreur: path et collection requis"
-            
-            if not os.path.exists(path):
-                return f"Erreur: chemin non trouvé: {path}"
-            
-            try:
-                chromadb_url = "http://chromadb:8000"
-                
-                # Collecter les fichiers
-                files_content = []
-                for root, dirs, files in os.walk(path):
-                    # Ignorer certains dossiers
-                    dirs[:] = [d for d in dirs if d not in ['node_modules', '.git', '__pycache__', 'venv', '.venv']]
-                    for file in files:
-                        if any(file.endswith(ext.strip()) for ext in extensions):
-                            filepath = os.path.join(root, file)
-                            try:
-                                with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-                                    content = f.read()
-                                    if content.strip():
-                                        # Découper en chunks de ~1000 caractères
-                                        chunks = [content[i:i+1000] for i in range(0, len(content), 800)]
-                                        for j, chunk in enumerate(chunks):
-                                            files_content.append({
-                                                "id": f"{filepath}_{j}",
-                                                "content": chunk,
-                                                "source": filepath
-                                            })
-                            except Exception as e:
-                                pass
-                
-                if not files_content:
-                    return f"Aucun fichier trouvé avec les extensions: {extensions}"
-                
-                async with httpx.AsyncClient() as client:
-                    # Créer ou récupérer la collection
-                    create_resp = await client.post(
-                        f"{chromadb_url}/api/v2/tenants/default_tenant/databases/default_database/collections",
-                        json={
-                            "name": collection_name,
-                            "metadata": {"indexed_path": path}
-                        },
-                        timeout=10
-                    )
-                    
-                    # Récupérer l'ID de la collection
-                    collections_resp = await client.get(
-                        f"{chromadb_url}/api/v2/tenants/default_tenant/databases/default_database/collections",
-                        timeout=10
-                    )
-                    collections = collections_resp.json()
-                    collection_id = None
-                    for c in collections:
-                        if c.get("name") == collection_name:
-                            collection_id = c.get("id")
-                            break
-                    
-                    if not collection_id:
-                        return "Erreur: impossible de créer la collection"
-                    
-                    # Ajouter les documents par batch
-                    batch_size = 50
-                    total_added = 0
-                    
-                    for i in range(0, len(files_content), batch_size):
-                        batch = files_content[i:i+batch_size]
-                        add_resp = await client.post(
-                            f"{chromadb_url}/api/v2/tenants/default_tenant/databases/default_database/collections/{collection_id}/add",
-                            json={
-                                "ids": [item["id"] for item in batch],
-                                "documents": [item["content"] for item in batch],
-                                "metadatas": [{"source": item["source"]} for item in batch]
-                            },
-                            timeout=60
-                        )
-                        total_added += len(batch)
-                    
-                    return f"✅ Indexation terminée!\nCollection: {collection_name}\nDocuments indexés: {total_added}\nChemin: {path}\nExtensions: {extensions}"
-                    
-            except Exception as e:
-                return f"Erreur indexation: {str(e)}"
-        
-        elif tool_name == "get_project_context":
-            path = params.get("path", "")
-            if not path or not os.path.exists(path):
-                return f"Erreur: chemin non trouvé: {path}"
-            
-            context = f"📁 Contexte du projet: {path}\n\n"
-            
-            # Structure du projet
-            result = subprocess.run(
-                f"find {path} -maxdepth 3 -type f | head -50",
-                shell=True, capture_output=True, text=True, timeout=10
-            )
-            context += f"=== Structure (50 premiers fichiers) ===\n{result.stdout}\n\n"
-            
-            # README
-            readme_paths = ["README.md", "README.txt", "readme.md"]
-            for readme in readme_paths:
-                readme_path = os.path.join(path, readme)
-                if os.path.exists(readme_path):
-                    with open(readme_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        content = f.read()[:2000]
-                    context += f"=== {readme} ===\n{content}\n\n"
-                    break
-            
-            # package.json / requirements.txt
-            pkg_files = ["package.json", "requirements.txt", "pyproject.toml", "Cargo.toml"]
-            for pkg in pkg_files:
-                pkg_path = os.path.join(path, pkg)
-                if os.path.exists(pkg_path):
-                    with open(pkg_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        content = f.read()[:1500]
-                    context += f"=== {pkg} ===\n{content}\n\n"
-            
-            # docker-compose.yml
-            docker_path = os.path.join(path, "docker-compose.yml")
-            if os.path.exists(docker_path):
-                with open(docker_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read()[:1500]
-                context += f"=== docker-compose.yml ===\n{content}\n\n"
-            
-            return context
-        
-        elif tool_name == "create_project":
-            project_type = params.get("type", "")
-            name = params.get("name", "")
-            base_path = params.get("path", "/home/lalpha/projets")
-            framework = params.get("framework", "")
-            
-            if not project_type or not name:
-                return "Erreur: type et name requis"
-            
-            if project_type not in ["webapp", "api", "site", "script"]:
-                return f"Erreur: type invalide. Valeurs: webapp, api, site, script"
-            
-            project_path = os.path.join(base_path, name)
-            
-            if os.path.exists(project_path):
-                return f"Erreur: le projet existe déjà: {project_path}"
-            
-            try:
-                os.makedirs(project_path, exist_ok=True)
-                created_files = []
-                
-                # ===== TEMPLATES PAR TYPE =====
-                
-                if project_type == "api":
-                    # Structure API FastAPI
-                    os.makedirs(f"{project_path}/app", exist_ok=True)
-                    os.makedirs(f"{project_path}/tests", exist_ok=True)
-                    
-                    # main.py
-                    main_content = '''from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-app = FastAPI(title="{name}", version="1.0.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/")
-def root():
-    return {{"message": "Bienvenue sur {name}!"}}
-
-@app.get("/health")
-def health():
-    return {{"status": "healthy"}}
-'''.format(name=name)
-                    with open(f"{project_path}/app/main.py", 'w') as f:
-                        f.write(main_content)
-                    created_files.append("app/main.py")
-                    
-                    # __init__.py
-                    with open(f"{project_path}/app/__init__.py", 'w') as f:
-                        f.write("")
-                    created_files.append("app/__init__.py")
-                    
-                    # requirements.txt
-                    req_content = '''fastapi==0.115.0
-uvicorn[standard]==0.32.0
-httpx==0.27.2
-pydantic==2.9.2
-python-dotenv==1.0.0
-'''
-                    with open(f"{project_path}/requirements.txt", 'w') as f:
-                        f.write(req_content)
-                    created_files.append("requirements.txt")
-                    
-                    # Dockerfile
-                    dockerfile = '''FROM python:3.12-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-'''
-                    with open(f"{project_path}/Dockerfile", 'w') as f:
-                        f.write(dockerfile)
-                    created_files.append("Dockerfile")
-                    
-                    # docker-compose.yml
-                    compose = f'''services:
-  {name}:
-    build: .
-    ports:
-      - "8000:8000"
-    volumes:
-      - .:/app
-    environment:
-      - ENV=development
-'''
-                    with open(f"{project_path}/docker-compose.yml", 'w') as f:
-                        f.write(compose)
-                    created_files.append("docker-compose.yml")
-                
-                elif project_type == "webapp":
-                    # Structure React/Vite
-                    os.makedirs(f"{project_path}/src", exist_ok=True)
-                    os.makedirs(f"{project_path}/public", exist_ok=True)
-                    
-                    # package.json
-                    pkg = f'''{{
-  "name": "{name}",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {{
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  }},
-  "dependencies": {{
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
-  }},
-  "devDependencies": {{
-    "@vitejs/plugin-react": "^4.3.0",
-    "vite": "^5.4.0",
-    "tailwindcss": "^3.4.0",
-    "autoprefixer": "^10.4.0",
-    "postcss": "^8.4.0"
-  }}
-}}
-'''
-                    with open(f"{project_path}/package.json", 'w') as f:
-                        f.write(pkg)
-                    created_files.append("package.json")
-                    
-                    # vite.config.js
-                    vite_config = '''import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-
-export default defineConfig({
-  plugins: [react()],
-  server: { port: 3000 }
-})
-'''
-                    with open(f"{project_path}/vite.config.js", 'w') as f:
-                        f.write(vite_config)
-                    created_files.append("vite.config.js")
-                    
-                    # index.html
-                    html = f'''<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{name}</title>
-</head>
-<body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-</body>
-</html>
-'''
-                    with open(f"{project_path}/index.html", 'w') as f:
-                        f.write(html)
-                    created_files.append("index.html")
-                    
-                    # src/main.jsx
-                    main_jsx = '''import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App'
-import './index.css'
-
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-)
-'''
-                    with open(f"{project_path}/src/main.jsx", 'w') as f:
-                        f.write(main_jsx)
-                    created_files.append("src/main.jsx")
-                    
-                    # src/App.jsx
-                    app_jsx = f'''export default function App() {{
-  return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">🚀 {name}</h1>
-        <p className="text-gray-400">Votre application est prête!</p>
-      </div>
-    </div>
-  )
-}}
-'''
-                    with open(f"{project_path}/src/App.jsx", 'w') as f:
-                        f.write(app_jsx)
-                    created_files.append("src/App.jsx")
-                    
-                    # src/index.css
-                    css = '''@tailwind base;
-@tailwind components;
-@tailwind utilities;
-'''
-                    with open(f"{project_path}/src/index.css", 'w') as f:
-                        f.write(css)
-                    created_files.append("src/index.css")
-                
-                elif project_type == "site":
-                    # Site statique HTML/CSS/JS
-                    os.makedirs(f"{project_path}/css", exist_ok=True)
-                    os.makedirs(f"{project_path}/js", exist_ok=True)
-                    os.makedirs(f"{project_path}/images", exist_ok=True)
-                    
-                    # index.html
-                    html = f'''<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{name}</title>
-    <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-    <header>
-        <nav>
-            <h1>{name}</h1>
-        </nav>
-    </header>
-    
-    <main>
-        <section class="hero">
-            <h2>Bienvenue sur {name}</h2>
-            <p>Votre site est prêt!</p>
-        </section>
-    </main>
-    
-    <footer>
-        <p>&copy; 2025 {name}</p>
-    </footer>
-    
-    <script src="js/main.js"></script>
-</body>
-</html>
-'''
-                    with open(f"{project_path}/index.html", 'w') as f:
-                        f.write(html)
-                    created_files.append("index.html")
-                    
-                    # css/style.css
-                    css = '''* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: system-ui, sans-serif; line-height: 1.6; }
-header { background: #1a1a2e; color: white; padding: 1rem 2rem; }
-main { min-height: 80vh; padding: 2rem; }
-.hero { text-align: center; padding: 4rem 2rem; }
-footer { background: #1a1a2e; color: white; text-align: center; padding: 1rem; }
-'''
-                    with open(f"{project_path}/css/style.css", 'w') as f:
-                        f.write(css)
-                    created_files.append("css/style.css")
-                    
-                    # js/main.js
-                    js = '''console.log("Site chargé!");
-'''
-                    with open(f"{project_path}/js/main.js", 'w') as f:
-                        f.write(js)
-                    created_files.append("js/main.js")
-                
-                elif project_type == "script":
-                    # Script Python
-                    os.makedirs(f"{project_path}/src", exist_ok=True)
-                    os.makedirs(f"{project_path}/tests", exist_ok=True)
-                    
-                    # main.py
-                    main_py = f'''#!/usr/bin/env python3
-"""
-{name} - Script principal
-"""
-
-import argparse
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-def main():
-    parser = argparse.ArgumentParser(description="{name}")
-    parser.add_argument("--verbose", "-v", action="store_true", help="Mode verbose")
-    args = parser.parse_args()
-    
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-    
-    logger.info("Démarrage de {name}...")
-    # TODO: Ajouter la logique ici
-    logger.info("Terminé!")
-
-if __name__ == "__main__":
-    main()
-'''
-                    with open(f"{project_path}/src/main.py", 'w') as f:
-                        f.write(main_py)
-                    os.chmod(f"{project_path}/src/main.py", 0o755)
-                    created_files.append("src/main.py")
-                    
-                    # requirements.txt
-                    with open(f"{project_path}/requirements.txt", 'w') as f:
-                        f.write("# Dépendances\n")
-                    created_files.append("requirements.txt")
-                
-                # ===== FICHIERS COMMUNS =====
-                
-                # README.md
-                readme = f'''# {name}
-
-> Projet créé par AI Orchestrator
-
-## Description
-
-{project_type.upper()} project.
-
-## Installation
-
-```bash
-cd {project_path}
-{"npm install" if project_type == "webapp" else "pip install -r requirements.txt" if project_type in ["api", "script"] else "# Ouvrir index.html"}
-```
-
-## Utilisation
-
-```bash
-{"npm run dev" if project_type == "webapp" else "uvicorn app.main:app --reload" if project_type == "api" else "python src/main.py" if project_type == "script" else "# Ouvrir dans un navigateur"}
-```
-
----
-*Créé le {__import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M")}*
-'''
-                with open(f"{project_path}/README.md", 'w') as f:
-                    f.write(readme)
-                created_files.append("README.md")
-                
-                # .gitignore
-                gitignore = '''# Dependencies
-node_modules/
-venv/
-.venv/
-__pycache__/
-*.pyc
-
-# Build
-dist/
-build/
-*.egg-info/
-
-# Environment
-.env
-.env.local
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-'''
-                with open(f"{project_path}/.gitignore", 'w') as f:
-                    f.write(gitignore)
-                created_files.append(".gitignore")
-                
-                # Initialiser git
-                subprocess.run(f"cd {project_path} && git init", shell=True, capture_output=True)
-                
-                return f"""✅ Projet créé avec succès!
-
-📁 Chemin: {project_path}
-📦 Type: {project_type}
-🔧 Framework: {framework or "aucun"}
-
-Fichiers créés:
-{chr(10).join(f"  - {f}" for f in created_files)}
-
-Prochaines étapes:
-```bash
-cd {project_path}
-{"npm install && npm run dev" if project_type == "webapp" else "pip install -r requirements.txt && uvicorn app.main:app --reload" if project_type == "api" else "python src/main.py --help" if project_type == "script" else "# Ouvrir index.html dans un navigateur"}
-```
-"""
-                
-            except Exception as e:
-                return f"Erreur création projet: {str(e)}"
-        
-
         elif tool_name == "final_answer":
             return params.get("answer", "")
         
@@ -1525,20 +821,6 @@ Tu dois suivre strictement ce cycle:
 3. **FINAL_ANSWER OBLIGATOIRE**: Termine TOUJOURS par final_answer(answer="...")
 4. **Maximum {MAX_ITERATIONS} itérations**
 5. **JAMAIS SUDO** - Tu tournes en root, sudo n'existe pas dans le conteneur
-
-## STRATÉGIE DE PLANIFICATION
-
-Pour les tâches COMPLEXES (création de projet, multiple fichiers, configuration):
-1. **COMMENCE PAR** create_plan(task="...") pour décomposer la tâche
-2. **SUIS LE PLAN** étape par étape
-3. **VALIDE CHAQUE ÉTAPE** avec validate_step() si nécessaire
-
-## AUTO-CORRECTION
-
-Si une erreur survient:
-1. **ANALYSE** le message d'erreur
-2. **ADAPTE** ta commande (permissions, chemin, syntaxe)
-3. **RETENTE** jusqu'à 3 fois avant d'abandonner
 {files_context}
 ## FORMAT DE RÉPONSE
 
@@ -1643,29 +925,9 @@ Puis attends le résultat avant de continuer."""
                 
                 result = await execute_tool(tool_name, params, uploaded_files)
                 
-                # === AUTO-CORRECTION : Détecter les erreurs et aider le LLM ===
-                error_patterns = ["Erreur:", "error:", "Error:", "failed", "Failed", "FAILED", 
-                                  "Permission denied", "not found", "No such file", "timeout", "Timeout"]
-                is_error = any(pattern in result for pattern in error_patterns)
-                
-                correction_hint = ""
-                if is_error:
-                    # Analyser le type d'erreur et suggérer une correction
-                    if "Permission denied" in result:
-                        correction_hint = "\n\n⚠️ ERREUR DE PERMISSION: Essaie avec sudo ou vérifie les droits du fichier."
-                    elif "not found" in result.lower() or "No such file" in result:
-                        correction_hint = "\n\n⚠️ FICHIER/DOSSIER NON TROUVÉ: Vérifie le chemin ou crée le dossier parent avec mkdir -p."
-                    elif "timeout" in result.lower():
-                        correction_hint = "\n\n⚠️ TIMEOUT: La commande a pris trop de temps. Essaie une commande plus simple."
-                    elif "connection" in result.lower():
-                        correction_hint = "\n\n⚠️ ERREUR CONNEXION: Vérifie que le service est démarré et accessible."
-                    else:
-                        correction_hint = "\n\n⚠️ ERREUR DÉTECTÉE: Analyse l'erreur et adapte ta commande. Tu peux retenter jusqu'à 3 fois."
-                
                 # Ajouter au contexte
                 messages.append({"role": "assistant", "content": assistant_text})
-                observation_msg = f"OBSERVATION:\n{result}{correction_hint}\n\nContinue ton analyse ou utilise final_answer() si tu as terminé."
-                messages.append({"role": "user", "content": observation_msg})
+                messages.append({"role": "user", "content": f"OBSERVATION:\n{result}\n\nContinue ton analyse ou utilise final_answer() si tu as terminé."})
                 
                 if websocket:
                     await websocket.send_json({
@@ -1703,7 +965,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Orchestrateur IA 4LB.ca",
     description="Agent autonome avec boucle ReAct",
-    version="2.3.0",
+    version="2.0.0",
     lifespan=lifespan
 )
 
@@ -1736,7 +998,7 @@ async def root():
 async def health():
     return {
         "status": "healthy",
-        "version": "2.3.0",
+        "version": "2.0.0",
         "tools_count": len(TOOLS),
         "models_count": len(MODELS),
         "ollama_url": OLLAMA_URL
@@ -1763,6 +1025,74 @@ async def list_tools():
         ],
         "count": len(TOOLS)
     }
+
+
+@app.get("/api/stats")
+async def get_system_stats():
+    """Get real-time system stats for dashboard"""
+    import subprocess
+    
+    stats = {
+        "cpu": {"percent": 0, "cores": 0},
+        "memory": {"used_gb": 0, "total_gb": 0, "percent": 0},
+        "gpu": {"name": "N/A", "memory_used": 0, "memory_total": 0, "percent": 0},
+        "docker": {"running": 0, "total": 0}
+    }
+    
+    try:
+        # CPU usage
+        cpu_result = subprocess.run(
+            ["sh", "-c", "top -bn1 | grep 'Cpu(s)' | awk '{print $2}'"],
+            capture_output=True, text=True, timeout=5
+        )
+        stats["cpu"]["percent"] = round(float(cpu_result.stdout.strip() or 0), 1)
+        
+        cores_result = subprocess.run(["nproc"], capture_output=True, text=True, timeout=5)
+        stats["cpu"]["cores"] = int(cores_result.stdout.strip() or 0)
+        
+        # Memory
+        mem_result = subprocess.run(
+            ["sh", "-c", "free -b | awk '/^Mem:/ {print $2, $3}'"],
+            capture_output=True, text=True, timeout=5
+        )
+        if mem_result.stdout.strip():
+            parts = mem_result.stdout.strip().split()
+            if len(parts) >= 2:
+                total, used = int(parts[0]), int(parts[1])
+                stats["memory"]["total_gb"] = round(total / (1024**3), 1)
+                stats["memory"]["used_gb"] = round(used / (1024**3), 1)
+                stats["memory"]["percent"] = round((used / total) * 100, 1)
+        
+        # GPU (nvidia-smi from host)
+        gpu_result = subprocess.run(
+            ["sh", "-c", "nvidia-smi --query-gpu=name,memory.used,memory.total,utilization.gpu --format=csv,noheader,nounits 2>/dev/null || echo ''"],
+            capture_output=True, text=True, timeout=5
+        )
+        if gpu_result.stdout.strip():
+            parts = gpu_result.stdout.strip().split(", ")
+            if len(parts) >= 4:
+                stats["gpu"]["name"] = parts[0]
+                stats["gpu"]["memory_used"] = int(parts[1])
+                stats["gpu"]["memory_total"] = int(parts[2])
+                stats["gpu"]["percent"] = int(parts[3])
+        
+        # Docker
+        docker_result = subprocess.run(
+            ["sh", "-c", "docker ps -q 2>/dev/null | wc -l"],
+            capture_output=True, text=True, timeout=5
+        )
+        stats["docker"]["running"] = int(docker_result.stdout.strip() or 0)
+        
+        docker_all = subprocess.run(
+            ["sh", "-c", "docker ps -aq 2>/dev/null | wc -l"],
+            capture_output=True, text=True, timeout=5
+        )
+        stats["docker"]["total"] = int(docker_all.stdout.strip() or 0)
+        
+    except Exception as e:
+        stats["error"] = str(e)
+    
+    return stats
 
 @app.post("/api/upload")
 async def upload_file(
