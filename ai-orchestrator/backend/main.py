@@ -38,29 +38,55 @@ MODELS = {
         "description": "L'agent choisit le meilleur modèle selon la tâche",
         "model": None
     },
+    # === MODÈLES LOCAUX ===
     "qwen-coder": {
-        "name": "Qwen 2.5 Coder 32B",
+        "name": "💻 Qwen 2.5 Coder 32B",
         "description": "Code, scripts, debug, analyse technique",
         "model": "qwen2.5-coder:32b-instruct-q4_K_M",
         "keywords": ["code", "script", "python", "bash", "debug", "fonction", "variable", "api", "docker", "git", "npm", "programm"]
     },
     "deepseek-coder": {
-        "name": "DeepSeek Coder 33B",
+        "name": "🧠 DeepSeek Coder 33B",
         "description": "Code alternatif, algorithmes complexes",
         "model": "deepseek-coder:33b",
         "keywords": ["algorithme", "optimis", "complex", "performance", "refactor"]
     },
     "llama-vision": {
-        "name": "Llama 3.2 Vision 11B",
+        "name": "👁️ Llama 3.2 Vision 11B",
         "description": "Analyse d'images, OCR, vision",
         "model": "llama3.2-vision:11b-instruct-q8_0",
         "keywords": ["image", "photo", "screenshot", "capture", "voir", "regarde", "analyse visuel", "ocr"]
     },
     "qwen-vision": {
-        "name": "Qwen3 VL 32B",
+        "name": "🎨 Qwen3 VL 32B",
         "description": "Vision multimodale avancée",
         "model": "qwen3-vl:32b",
         "keywords": ["image", "multimodal", "vision", "graphique", "diagramme", "schéma"]
+    },
+    # === MODÈLES CLOUD (via Ollama) ===
+    "kimi-k2": {
+        "name": "☁️ Kimi K2 1T",
+        "description": "Modèle cloud Kimi (Moonshot AI)",
+        "model": "kimi-k2:1t-cloud",
+        "keywords": ["kimi", "moonshot", "cloud", "chinois"]
+    },
+    "qwen3-coder-cloud": {
+        "name": "☁️ Qwen3 Coder 480B",
+        "description": "Qwen3 Coder géant via cloud",
+        "model": "qwen3-coder:480b-cloud",
+        "keywords": ["qwen", "cloud", "coder", "gros"]
+    },
+    "gemini-pro": {
+        "name": "☁️ Gemini 3 Pro",
+        "description": "Google Gemini Pro via cloud",
+        "model": "gemini-3-pro-preview:latest",
+        "keywords": ["gemini", "google", "cloud"]
+    },
+    "gpt-safeguard": {
+        "name": "🛡️ GPT Safeguard 13B",
+        "description": "GPT Open Source local (sécurité)",
+        "model": "gpt-oss-safeguard:latest",
+        "keywords": ["gpt", "safeguard", "sécurité", "modération"]
     }
 }
 
@@ -1004,7 +1030,7 @@ async def health():
         "ollama_url": OLLAMA_URL
     }
 
-@app.get("/models")
+@app.get("/api/models")
 async def list_models():
     """Liste des modèles disponibles"""
     return {

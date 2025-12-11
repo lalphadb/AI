@@ -670,11 +670,21 @@
                 </div>
                 <div class="model-selector">
                     <select id="model-select">
-                        <option value="auto">🤖 AUTO</option>
-                        <option value="qwen-coder">💻 Qwen Coder 32B</option>
-                        <option value="deepseek-coder">🧠 DeepSeek 33B</option>
-                        <option value="llama-vision">👁️ Llama Vision 11B</option>
-                        <option value="qwen-vision">🎨 Qwen Vision 32B</option>
+                        <optgroup label="🤖 Auto">
+                            <option value="auto">🤖 AUTO (Sélection intelligente)</option>
+                        </optgroup>
+                        <optgroup label="💾 Modèles Locaux">
+                            <option value="qwen-coder">💻 Qwen Coder 32B</option>
+                            <option value="deepseek-coder">🧠 DeepSeek 33B</option>
+                            <option value="llama-vision">👁️ Llama Vision 11B</option>
+                            <option value="qwen-vision">🎨 Qwen Vision 32B</option>
+                            <option value="gpt-safeguard">🛡️ GPT Safeguard 13B</option>
+                        </optgroup>
+                        <optgroup label="☁️ Modèles Cloud (API)">
+                            <option value="kimi-k2">☁️ Kimi K2 1T</option>
+                            <option value="qwen3-coder-cloud">☁️ Qwen3 Coder 480B</option>
+                            <option value="gemini-pro">☁️ Gemini 3 Pro</option>
+                        </optgroup>
                     </select>
                     <button class="activity-toggle" onclick="toggleActivityPanel()">
                         📊 Activity Log
