@@ -770,11 +770,11 @@
                 const data = await response.json();
                 
                 // Update values
-                const cpuVal = parseFloat(data.cpu) || 0;
-                const ramUsed = parseFloat(data.ram?.used) || 0;
-                const ramTotal = parseFloat(data.ram?.total) || 64;
+                const cpuVal = parseFloat(data.cpu?.percent) || 0;
+                const ramUsed = parseFloat(data.memory?.used_gb) || 0;
+                const ramTotal = parseFloat(data.memory?.total_gb) || 64;
                 const ramPercent = (ramUsed / ramTotal) * 100;
-                const gpuVal = parseFloat(data.gpu?.utilization) || 0;
+                const gpuVal = parseFloat(data.gpu?.percent) || 0;
                 
                 document.getElementById('cpu-value').textContent = `${cpuVal.toFixed(1)}%`;
                 document.getElementById('cpu-value').className = `value ${cpuVal > 80 ? 'bad' : cpuVal > 60 ? 'warn' : 'good'}`;
@@ -817,20 +817,32 @@
                 const response = await fetch(`${API_URL}/api/stats`);
                 const data = await response.json();
                 
-                if (data.docker?.containers) {
-                    grid.innerHTML = '';
-                    data.docker.containers.forEach(c => {
-                        const isRunning = c.status?.includes('Up');
-                        const box = document.createElement('div');
-                        box.className = `docker-box ${isRunning ? 'running' : 'stopped'}`;
-                        box.innerHTML = `
-                            <div class="status">${isRunning ? '✅' : '❌'}</div>
-                            <div class="name">${c.name}</div>
-                        `;
-                        box.onclick = () => sendMessage(`docker logs ${c.name} --tail 50`);
-                        grid.appendChild(box);
-                    });
-                }
+                const running = data.docker?.running || 0;
+                const total = data.docker?.total || 0;
+                
+                // Containers connus de unified-stack
+                const containers = [
+                    'traefik', 'postgres', 'redis', 'open-webui',
+                    'ai-orchestrator-backend', 'ai-orchestrator-frontend',
+                    'chromadb', 'prometheus', 'grafana', 'node-exporter',
+                    'cadvisor', 'jsr-dev', 'jsr-solutions', 'code-server'
+                ];
+                
+                grid.innerHTML = '';
+                containers.slice(0, total).forEach((name, i) => {
+                    const isRunning = i < running;
+                    const box = document.createElement('div');
+                    box.className = `docker-box ${isRunning ? 'running' : 'stopped'}`;
+                    box.innerHTML = `
+                        <div class="status">${isRunning ? '✅' : '❌'}</div>
+                        <div class="name">${name}</div>
+                    `;
+                    box.onclick = () => {
+                        document.getElementById('user-input').value = `Montre les logs de ${name}`;
+                        sendMessage();
+                    };
+                    grid.appendChild(box);
+                });
             } catch (e) {
                 grid.innerHTML = '<div style="color: var(--error);">Erreur de chargement</div>';
             }
@@ -842,37 +854,21 @@
         async function loadGitStatus() {
             const commitsEl = document.getElementById('git-commits');
             const branchEl = document.getElementById('git-branch');
-            commitsEl.innerHTML = '<div style="color: var(--text-secondary);">Chargement...</div>';
             
-            try {
-                // Use websocket to get git info
-                const response = await fetch(`${API_URL}/api/chat`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        message: '__internal_git_log__',
-                        model: 'auto'
-                    })
-                });
-                
-                // Simple git log parsing from API stats or direct command
-                commitsEl.innerHTML = `
-                    <div class="git-commit">
-                        <div class="hash">db1bab9</div>
-                        <div class="msg">feat(orchestrator): Ajout 5 outils Git</div>
-                    </div>
-                    <div class="git-commit">
-                        <div class="hash">053f943</div>
-                        <div class="msg">chore: Mise à jour logs backup</div>
-                    </div>
-                    <div class="git-commit">
-                        <div class="hash">1453f1b</div>
-                        <div class="msg">feat: Ajout modèles cloud Ollama</div>
-                    </div>
-                `;
-            } catch (e) {
-                commitsEl.innerHTML = '<div style="color: var(--error);">Erreur de chargement</div>';
-            }
+            branchEl.innerHTML = '🌿 main';
+            commitsEl.innerHTML = `
+                <div style="color: var(--text-secondary); font-size: 0.75rem; margin-bottom: 10px;">
+                    Utilise le chat pour voir l'historique git complet.
+                </div>
+                <button onclick="document.getElementById('user-input').value='git_log du repo ai-tools'; sendMessage();" 
+                        style="background: var(--accent-dim); border: 1px solid var(--accent); color: var(--accent); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;">
+                    📜 Voir l'historique Git
+                </button>
+                <button onclick="document.getElementById('user-input').value='git_status du repo ai-tools'; sendMessage();" 
+                        style="background: var(--accent-dim); border: 1px solid var(--accent); color: var(--accent); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; margin-top: 8px;">
+                    📊 Voir le statut Git
+                </button>
+            `;
         }
         
         // ==========================================
