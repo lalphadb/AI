@@ -2,13 +2,17 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Installer les dépendances système incluant Docker CLI
+# Installer les dépendances système incluant Docker CLI et Git
 RUN apt-get update && apt-get install -y \
     curl \
     openssh-client \
     procps \
     docker.io \
+    git \
     && rm -rf /var/lib/apt/lists/*
+
+# Configurer Git pour accepter tous les répertoires (requis pour volumes montés)
+RUN git config --global --add safe.directory '*'
 
 # Copier les requirements
 COPY requirements.txt .

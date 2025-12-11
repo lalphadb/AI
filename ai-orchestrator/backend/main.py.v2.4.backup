@@ -38,55 +38,29 @@ MODELS = {
         "description": "L'agent choisit le meilleur modèle selon la tâche",
         "model": None
     },
-    # === MODÈLES LOCAUX ===
     "qwen-coder": {
-        "name": "💻 Qwen 2.5 Coder 32B",
+        "name": "Qwen 2.5 Coder 32B",
         "description": "Code, scripts, debug, analyse technique",
         "model": "qwen2.5-coder:32b-instruct-q4_K_M",
         "keywords": ["code", "script", "python", "bash", "debug", "fonction", "variable", "api", "docker", "git", "npm", "programm"]
     },
     "deepseek-coder": {
-        "name": "🧠 DeepSeek Coder 33B",
+        "name": "DeepSeek Coder 33B",
         "description": "Code alternatif, algorithmes complexes",
         "model": "deepseek-coder:33b",
         "keywords": ["algorithme", "optimis", "complex", "performance", "refactor"]
     },
     "llama-vision": {
-        "name": "👁️ Llama 3.2 Vision 11B",
+        "name": "Llama 3.2 Vision 11B",
         "description": "Analyse d'images, OCR, vision",
         "model": "llama3.2-vision:11b-instruct-q8_0",
         "keywords": ["image", "photo", "screenshot", "capture", "voir", "regarde", "analyse visuel", "ocr"]
     },
     "qwen-vision": {
-        "name": "🎨 Qwen3 VL 32B",
+        "name": "Qwen3 VL 32B",
         "description": "Vision multimodale avancée",
         "model": "qwen3-vl:32b",
         "keywords": ["image", "multimodal", "vision", "graphique", "diagramme", "schéma"]
-    },
-    # === MODÈLES CLOUD (via Ollama) ===
-    "kimi-k2": {
-        "name": "☁️ Kimi K2 1T",
-        "description": "Modèle cloud Kimi (Moonshot AI)",
-        "model": "kimi-k2:1t-cloud",
-        "keywords": ["kimi", "moonshot", "cloud", "chinois"]
-    },
-    "qwen3-coder-cloud": {
-        "name": "☁️ Qwen3 Coder 480B",
-        "description": "Qwen3 Coder géant via cloud",
-        "model": "qwen3-coder:480b-cloud",
-        "keywords": ["qwen", "cloud", "coder", "gros"]
-    },
-    "gemini-pro": {
-        "name": "☁️ Gemini 3 Pro",
-        "description": "Google Gemini Pro via cloud",
-        "model": "gemini-3-pro-preview:latest",
-        "keywords": ["gemini", "google", "cloud"]
-    },
-    "gpt-safeguard": {
-        "name": "🛡️ GPT Safeguard 13B",
-        "description": "GPT Open Source local (sécurité)",
-        "model": "gpt-oss-safeguard:latest",
-        "keywords": ["gpt", "safeguard", "sécurité", "modération"]
     }
 }
 
@@ -204,31 +178,6 @@ TOOLS = {
         "description": "Voir le statut git d'un répertoire",
         "parameters": {"path": "string - Chemin du repo"},
         "example": "git_status(path=\"/home/lalpha/projets/ai-tools\")"
-    },
-    "git_diff": {
-        "description": "Voir les différences non commitées dans un repo git",
-        "parameters": {"path": "string - Chemin du repo"},
-        "example": "git_diff(path=\"/home/lalpha/projets/ai-tools\")"
-    },
-    "git_log": {
-        "description": "Voir l historique des commits git",
-        "parameters": {"path": "string - Chemin du repo", "n": "int - Nombre de commits (défaut: 10)"},
-        "example": "git_log(path=\"/home/lalpha/projets/ai-tools\", n=20)"
-    },
-    "git_commit": {
-        "description": "Commiter les changements avec un message",
-        "parameters": {"path": "string - Chemin du repo", "message": "string - Message de commit", "add_all": "bool - Ajouter tous les fichiers (défaut: true)"},
-        "example": "git_commit(path=\"/home/lalpha/projets/ai-tools\", message=\"feat: nouvelle fonctionnalité\")"
-    },
-    "git_branch": {
-        "description": "Lister ou changer de branche git",
-        "parameters": {"path": "string - Chemin du repo", "branch": "string - Nom de branche (optionnel, pour switch)"},
-        "example": "git_branch(path=\"/home/lalpha/projets/ai-tools\")"
-    },
-    "git_pull": {
-        "description": "Tirer les changements du remote",
-        "parameters": {"path": "string - Chemin du repo"},
-        "example": "git_pull(path=\"/home/lalpha/projets/ai-tools\")"
     },
     "memory_store": {
         "description": "Stocker une information en mémoire persistante",
@@ -730,63 +679,6 @@ async def execute_tool(tool_name: str, params: dict, uploaded_files: dict = None
                 shell=True, capture_output=True, text=True, timeout=10
             )
             return f"Git status de {path}:\n{result.stdout or result.stderr}"
-        elif tool_name == "git_diff":
-            path = params.get("path", "/home/lalpha/projets")
-            result = subprocess.run(
-                f"cd {path} && git diff --stat && echo '\n=== Détails ===' && git diff",
-                shell=True, capture_output=True, text=True, timeout=30
-            )
-            output = result.stdout or result.stderr
-            if not output.strip():
-                return f"Aucune modification dans {path}"
-            return f"Git diff de {path}:\n{output[:3000]}"
-        
-        elif tool_name == "git_log":
-            path = params.get("path", "/home/lalpha/projets")
-            n = params.get("n", 10)
-            result = subprocess.run(
-                f"cd {path} && git log --oneline --graph -n {n}",
-                shell=True, capture_output=True, text=True, timeout=10
-            )
-            return f"Git log de {path} ({n} derniers commits):\n{result.stdout or result.stderr}"
-        
-        elif tool_name == "git_commit":
-            path = params.get("path", "/home/lalpha/projets")
-            message = params.get("message", "")
-            add_all = params.get("add_all", True)
-            if not message:
-                return "Erreur: message de commit requis"
-            add_cmd = "git add -A && " if add_all else ""
-            result = subprocess.run(
-                f'cd {path} && {add_cmd}git commit -m "{message}"',
-                shell=True, capture_output=True, text=True, timeout=30
-            )
-            return f"Git commit dans {path}:\n{result.stdout or result.stderr}"
-        
-        elif tool_name == "git_branch":
-            path = params.get("path", "/home/lalpha/projets")
-            branch = params.get("branch", "")
-            if branch:
-                result = subprocess.run(
-                    f"cd {path} && git checkout {branch}",
-                    shell=True, capture_output=True, text=True, timeout=10
-                )
-                return f"Switch vers branche {branch}:\n{result.stdout or result.stderr}"
-            else:
-                result = subprocess.run(
-                    f"cd {path} && git branch -a",
-                    shell=True, capture_output=True, text=True, timeout=10
-                )
-                return f"Branches dans {path}:\n{result.stdout or result.stderr}"
-        
-        elif tool_name == "git_pull":
-            path = params.get("path", "/home/lalpha/projets")
-            result = subprocess.run(
-                f"cd {path} && git pull",
-                shell=True, capture_output=True, text=True, timeout=60
-            )
-            return f"Git pull dans {path}:\n{result.stdout or result.stderr}"
-
         
         elif tool_name == "memory_store":
             key = params.get("key", "")
@@ -1112,7 +1004,7 @@ async def health():
         "ollama_url": OLLAMA_URL
     }
 
-@app.get("/api/models")
+@app.get("/models")
 async def list_models():
     """Liste des modèles disponibles"""
     return {
