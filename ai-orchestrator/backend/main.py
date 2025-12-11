@@ -1063,18 +1063,19 @@ async def get_system_stats():
                 stats["memory"]["used_gb"] = round(used / (1024**3), 1)
                 stats["memory"]["percent"] = round((used / total) * 100, 1)
         
-        # GPU (nvidia-smi from host)
-        gpu_result = subprocess.run(
-            ["sh", "-c", "nvidia-smi --query-gpu=name,memory.used,memory.total,utilization.gpu --format=csv,noheader,nounits 2>/dev/null || echo ''"],
-            capture_output=True, text=True, timeout=5
-        )
-        if gpu_result.stdout.strip():
-            parts = gpu_result.stdout.strip().split(", ")
-            if len(parts) >= 4:
-                stats["gpu"]["name"] = parts[0]
-                stats["gpu"]["memory_used"] = int(parts[1])
-                stats["gpu"]["memory_total"] = int(parts[2])
-                stats["gpu"]["percent"] = int(parts[3])
+        # GPU (read from host file)
+        try:
+            with open('/tmp/gpu-stats.txt', 'r') as f:
+                gpu_data = f.read().strip()
+            if gpu_data:
+                parts = gpu_data.split(", ")
+                if len(parts) >= 4:
+                    stats["gpu"]["name"] = parts[0]
+                    stats["gpu"]["memory_used"] = int(parts[1])
+                    stats["gpu"]["memory_total"] = int(parts[2])
+                    stats["gpu"]["percent"] = int(parts[3])
+        except FileNotFoundError:
+            pass
         
         # Docker
         docker_result = subprocess.run(
