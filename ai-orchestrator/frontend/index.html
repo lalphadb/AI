@@ -1011,40 +1011,58 @@
         }
         
         function handleWebSocketMessage(data) {
+            console.log('📨 WS Message:', data.type, data);
+            
             switch (data.type) {
-                case 'iteration_start':
-                    showThinking(data.iteration);
-                    addActivity('info', `🔄 Itération ${data.iteration}`, 'Analyse en cours...');
+                case 'model_selected':
+                    document.getElementById('model-select').value = data.model.includes('vision') ? 'vision' : 'auto';
+                    addActivity('info', '🤖 Modèle sélectionné', data.model);
+                    break;
+                    
+                case 'conversation_created':
+                    currentConversationId = data.conversation_id;
+                    addActivity('info', '💬 Conversation créée', data.conversation_id);
                     break;
                     
                 case 'thinking':
-                    updateThinking(data.content);
+                    showThinking(data.iteration);
+                    addActivity('info', `🔄 Itération ${data.iteration}`, data.message || 'Analyse en cours...');
                     break;
                     
-                case 'tool_call':
+                case 'step':
+                    updateThinking(data.content);
+                    addActivity('info', `📝 Étape ${data.iteration}`, data.content?.slice(0, 200) || '');
+                    break;
+                    
+                case 'tool':
                     updateThinking(`🔧 ${data.tool}(${JSON.stringify(data.params).slice(0, 100)}...)`);
                     addActivity('tool', `⚡ Exécution: ${data.tool}`, JSON.stringify(data.params, null, 2));
                     break;
                     
-                case 'tool_result':
+                case 'result':
                     updateThinking(`✅ Résultat de ${data.tool}`);
                     addActivity('success', `✅ Résultat: ${data.tool}`, data.result?.slice(0, 500) || '');
                     break;
                     
-                case 'response':
+                case 'complete':
                     hideThinking();
-                    addMessage('assistant', data.content);
+                    addMessage('assistant', data.answer);
+                    addActivity('success', '✅ Réponse complète', `${data.iterations} itérations`);
                     isProcessing = false;
                     document.getElementById('send-btn').disabled = false;
+                    loadConversations();
                     break;
                     
                 case 'error':
                     hideThinking();
-                    addMessage('system', `❌ Erreur: ${data.content}`);
-                    addActivity('error', '❌ Erreur', data.content);
+                    addMessage('system', `❌ Erreur: ${data.message || data.content}`);
+                    addActivity('error', '❌ Erreur', data.message || data.content);
                     isProcessing = false;
                     document.getElementById('send-btn').disabled = false;
                     break;
+                    
+                default:
+                    console.log('Type non géré:', data.type);
             }
         }
         
