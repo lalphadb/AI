@@ -602,23 +602,14 @@
                 </div>
                 <div class="header-actions">
                     <div class="model-selector">
-                        <select id="model-select">
-                            <optgroup label="🤖 Auto">
-                                <option value="auto">🤖 AUTO (Sélection intelligente)</option>
-                            </optgroup>
-                            <optgroup label="💾 Modèles Locaux">
-                                <option value="qwen-coder">💻 Qwen Coder 32B</option>
-                                <option value="deepseek-coder">🧠 DeepSeek 33B</option>
-                                <option value="llama-vision">👁️ Llama Vision 11B</option>
-                                <option value="qwen-vision">🎨 Qwen Vision 32B</option>
-                                <option value="gpt-safeguard">🛡️ GPT Safeguard 13B</option>
-                            </optgroup>
-                            <optgroup label="☁️ Modèles Cloud (API)">
-                                <option value="kimi-k2">☁️ Kimi K2 1T</option>
-                                <option value="qwen3-coder-cloud">☁️ Qwen3 Coder 480B</option>
-                                <option value="gemini-pro">☁️ Gemini 3 Pro</option>
-                            </optgroup>
-                        </select>
+                        <select id="model-select" style="background: var(--bg-tertiary); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; color: var(--text);">
+                        <option value="auto">🤖 AUTO (Cloud Qwen 480B)</option>
+                        <option value="qwen3-coder-cloud">☁️ Qwen3 Coder 480B</option>
+                        <option value="kimi-k2">☁️ Kimi K2 1T</option>
+                        <option value="gemini-pro">☁️ Gemini 3 Pro</option>
+                        <option value="qwen-coder">💻 Local: Qwen 32B</option>
+                        <option value="llama-vision">👁️ Vision: Llama 11B</option>
+                    </select>
                     </div>
                     <button class="terminal-toggle" onclick="toggleTerminal()">⌨️ Terminal</button>
                     <button class="activity-toggle" onclick="toggleActivityPanel()">📊 Activity Log</button>
@@ -1176,8 +1167,9 @@
                     message: message,
                     model: document.getElementById('model-select').value,
                     conversation_id: currentConversationId,
-                    files: attachedFiles
+                    file_ids: attachedFiles
                 };
+                console.log('📤 Sending payload:', payload);
                 ws.send(JSON.stringify(payload));
                 attachedFiles = [];
                 document.getElementById('attachments').innerHTML = '';

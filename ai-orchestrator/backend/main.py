@@ -29,7 +29,7 @@ from pydantic import BaseModel
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://10.10.10.46:11434")
 DB_PATH = "/data/orchestrator.db"
 UPLOAD_DIR = "/data/uploads"
-MAX_ITERATIONS = 8
+MAX_ITERATIONS = 6
 
 # Modèles disponibles avec leurs spécialités
 MODELS = {
@@ -90,7 +90,7 @@ MODELS = {
     }
 }
 
-DEFAULT_MODEL = "qwen2.5-coder:32b-instruct-q4_K_M"
+DEFAULT_MODEL = "qwen3-coder:480b-cloud"
 
 # ===== DÉFINITION DES OUTILS =====
 
@@ -320,31 +320,12 @@ def get_db():
 # ===== SÉLECTION AUTOMATIQUE DE MODÈLE =====
 
 def auto_select_model(message: str, has_image: bool = False) -> str:
-    """Sélectionner automatiquement le meilleur modèle selon la tâche"""
-    message_lower = message.lower()
-    
-    # Si une image est attachée, utiliser le modèle vision
+    """Sélectionner automatiquement le meilleur modèle - CLOUD par défaut"""
+    # Si une image est attachée, utiliser le modèle vision local
     if has_image:
         return MODELS["llama-vision"]["model"]
     
-    # Chercher des mots-clés pour chaque modèle
-    scores = {}
-    for model_key, model_info in MODELS.items():
-        if model_key == "auto" or "keywords" not in model_info:
-            continue
-        score = 0
-        for keyword in model_info.get("keywords", []):
-            if keyword in message_lower:
-                score += 1
-        scores[model_key] = score
-    
-    # Choisir le modèle avec le meilleur score
-    if scores:
-        best_model = max(scores, key=scores.get)
-        if scores[best_model] > 0:
-            return MODELS[best_model]["model"]
-    
-    # Par défaut: qwen-coder (le plus polyvalent)
+    # Toujours utiliser le modèle cloud par défaut (plus rapide et intelligent)
     return DEFAULT_MODEL
 
 # ===== GESTION DES FICHIERS =====
@@ -893,24 +874,30 @@ async def react_loop(
         for name, info in TOOLS.items()
     ])
     
-    system_prompt = f"""Agent IA pour 4LB.ca (Ubuntu 10.10.10.46). RÉPONDS RAPIDEMENT.
-Tu as accès au serveur Ubuntu (10.10.10.46), Docker, UDM-Pro UniFi, et Ollama.
+    system_prompt = f"""Tu es un assistant qui exécute des commandes sur un serveur Ubuntu.
 
-OUTILS
-
+OUTILS DISPONIBLES:
 {tools_desc}
 
-RÈGLES:
-- UNE action par réponse avec syntaxe: tool_name(param="valeur")
-- Pour bash: execute_command(command="ta_commande")
-- TERMINE par: final_answer(answer="réponse")
-- Max {MAX_ITERATIONS} itérations - SOIS RAPIDE
+RÈGLES STRICTES:
+1. Réponds UNIQUEMENT avec: THINK: [réflexion courte] puis ACTION: outil(param="valeur")
+2. Après avoir obtenu un résultat, tu DOIS conclure avec: final_answer(answer="ta réponse complète")
+3. Maximum 3-4 actions avant de conclure. Ne fais PAS d'exploration excessive.
+4. Si tu as assez d'infos pour répondre, utilise IMMÉDIATEMENT final_answer()
 {files_context}
-EXEMPLES RAPIDES:
-- "uptime" → execute_command(command="uptime") puis final_answer()
-- "docker" → docker_status() puis final_answer()
+EXEMPLES:
+User: "uptime du serveur"
+THINK: Je vais exécuter uptime
+ACTION: execute_command(command="uptime")
+[Après résultat]
+THINK: J'ai le résultat, je conclus
+ACTION: final_answer(answer="Le serveur est actif depuis X jours...")
 
-FORMAT: THINK: [bref] ACTION: outil()"""
+User: "bonjour"
+THINK: Simple salutation, je réponds directement
+ACTION: final_answer(answer="Bonjour ! Comment puis-je vous aider ?")
+
+IMPORTANT: Ne fais JAMAIS plus de 4 actions. Conclus TOUJOURS avec final_answer()."""
 
     messages = [{"role": "system", "content": system_prompt}]
     messages.append({"role": "user", "content": user_message})
@@ -923,7 +910,7 @@ FORMAT: THINK: [bref] ACTION: outil()"""
         
         # Envoyer le statut via WebSocket
         if websocket:
-            await websocket.send_json({
+            print(f"📤 WS SEND: ", end=""); await websocket.send_json({
                 "type": "thinking",
                 "iteration": iterations,
                 "content": f"🔄 Itération {iterations}/{MAX_ITERATIONS}..."
@@ -941,7 +928,7 @@ FORMAT: THINK: [bref] ACTION: outil()"""
                         "stream": False,
                         "options": {
                             "temperature": 0.3,
-                            "num_predict": 1000,
+                            "num_predict": 4000,
                             "num_ctx": 8192
                         }
                     },
@@ -949,18 +936,19 @@ FORMAT: THINK: [bref] ACTION: outil()"""
                 )
                 data = response.json()
                 assistant_text = data.get("message", {}).get("content", "")
+                print(f"🤖 LLM Response ({len(assistant_text)} chars): {assistant_text[:100]}...")
         except Exception as e:
             error_msg = f"Erreur LLM: {str(e)}"
             if websocket:
-                await websocket.send_json({"type": "error", "message": error_msg})
+                print(f"📤 WS SEND: ", end=""); await websocket.send_json({"type": "error", "message": error_msg})
             return error_msg
         
         full_response += f"\n---\n**Itération {iterations}**\n{assistant_text}\n"
         
         # Envoyer la réponse partielle
         if websocket:
-            await websocket.send_json({
-                "type": "thinking",
+            print(f"📤 WS SEND: ", end=""); await websocket.send_json({
+                "type": "step",
                 "iteration": iterations,
                 "content": assistant_text
             })
@@ -991,9 +979,9 @@ FORMAT: THINK: [bref] ACTION: outil()"""
                 if tool_name == "final_answer":
                     final = params.get("answer", assistant_text)
                     if websocket:
-                        await websocket.send_json({
-                            "type": "response",
-                            "content": final,
+                        print(f"📤 WS SEND: ", end=""); await websocket.send_json({
+                            "type": "complete",
+                            "answer": final,
                             "iterations": iterations,
                             "model": model
                         })
@@ -1001,7 +989,7 @@ FORMAT: THINK: [bref] ACTION: outil()"""
                 
                 # Exécuter l'outil
                 if websocket:
-                    await websocket.send_json({
+                    print(f"📤 WS SEND: ", end=""); await websocket.send_json({
                         "type": "tool_call",
                         "tool": tool_name,
                         "params": params
@@ -1011,10 +999,14 @@ FORMAT: THINK: [bref] ACTION: outil()"""
                 
                 # Ajouter au contexte
                 messages.append({"role": "assistant", "content": assistant_text})
-                messages.append({"role": "user", "content": f"OBSERVATION:\n{result}\n\nContinue ton analyse ou utilise final_answer() si tu as terminé."})
+                # Message différent selon l'itération
+                if iterations >= 4:
+                    messages.append({"role": "user", "content": f"RÉSULTAT:\n{result}\n\n⚠️ URGENT: Tu as déjà fait {iterations} itérations. Tu DOIS conclure MAINTENANT avec final_answer(answer=\"résumé de tes découvertes\"). Plus d'exploration!"})
+                else:
+                    messages.append({"role": "user", "content": f"RÉSULTAT:\n{result}\n\nRÉPONDS avec final_answer(answer=\"ta réponse\") ou fais UNE autre action si vraiment nécessaire."})
                 
                 if websocket:
-                    await websocket.send_json({
+                    print(f"📤 WS SEND: ", end=""); await websocket.send_json({
                         "type": "tool_result",
                         "tool": tool_name,
                         "result": result[:1000]
@@ -1030,9 +1022,9 @@ FORMAT: THINK: [bref] ACTION: outil()"""
     # Max iterations atteint
     timeout_msg = f"Maximum d'itérations atteint ({MAX_ITERATIONS}). Dernière réponse:\n{assistant_text}"
     if websocket:
-        await websocket.send_json({
-            "type": "response",
-            "content": timeout_msg,
+        print(f"📤 WS SEND: ", end=""); await websocket.send_json({
+            "type": "complete",
+            "answer": timeout_msg,
             "iterations": iterations,
             "model": model
         })
@@ -1269,7 +1261,7 @@ async def websocket_chat(websocket: WebSocket):
             # Sélection du modèle
             if model_key == "auto":
                 model = auto_select_model(message, has_image)
-                await websocket.send_json({
+                print(f"📤 WS SEND: ", end=""); await websocket.send_json({
                     "type": "model_selected",
                     "model": model,
                     "reason": "image attachée" if has_image else "analyse automatique"
@@ -1280,7 +1272,7 @@ async def websocket_chat(websocket: WebSocket):
             # Créer conversation si nécessaire
             if not conv_id:
                 conv_id = create_conversation()
-                await websocket.send_json({
+                print(f"📤 WS SEND: ", end=""); await websocket.send_json({
                     "type": "conversation_created",
                     "conversation_id": conv_id
                 })
@@ -1303,7 +1295,7 @@ async def websocket_chat(websocket: WebSocket):
     except WebSocketDisconnect:
         pass
     except Exception as e:
-        await websocket.send_json({"type": "error", "message": str(e)})
+        print(f"📤 WS SEND: ", end=""); await websocket.send_json({"type": "error", "message": str(e)})
 
 # ===== ENDPOINTS HISTORIQUE =====
 
