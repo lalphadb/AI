@@ -29,7 +29,7 @@ from pydantic import BaseModel
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://10.10.10.46:11434")
 DB_PATH = "/data/orchestrator.db"
 UPLOAD_DIR = "/data/uploads"
-MAX_ITERATIONS = 12
+MAX_ITERATIONS = 25
 
 # Modèles disponibles avec leurs spécialités
 MODELS = {
@@ -90,7 +90,7 @@ MODELS = {
     }
 }
 
-DEFAULT_MODEL = "qwen3-coder:480b-cloud"
+DEFAULT_MODEL = "qwen2.5-coder:32b-instruct-q4_K_M"
 
 # ===== DÉFINITION DES OUTILS =====
 
@@ -320,9 +320,31 @@ def get_db():
 # ===== SÉLECTION AUTOMATIQUE DE MODÈLE =====
 
 def auto_select_model(message: str, has_image: bool = False) -> str:
-    """Toujours utiliser le modele cloud sauf pour les images"""
+    """Sélectionner automatiquement le meilleur modèle selon la tâche"""
+    message_lower = message.lower()
+    
+    # Si une image est attachée, utiliser le modèle vision
     if has_image:
         return MODELS["llama-vision"]["model"]
+    
+    # Chercher des mots-clés pour chaque modèle
+    scores = {}
+    for model_key, model_info in MODELS.items():
+        if model_key == "auto" or "keywords" not in model_info:
+            continue
+        score = 0
+        for keyword in model_info.get("keywords", []):
+            if keyword in message_lower:
+                score += 1
+        scores[model_key] = score
+    
+    # Choisir le modèle avec le meilleur score
+    if scores:
+        best_model = max(scores, key=scores.get)
+        if scores[best_model] > 0:
+            return MODELS[best_model]["model"]
+    
+    # Par défaut: qwen-coder (le plus polyvalent)
     return DEFAULT_MODEL
 
 # ===== GESTION DES FICHIERS =====
@@ -825,85 +847,23 @@ async def execute_tool(tool_name: str, params: dict, uploaded_files: dict = None
 # ===== PARSING DES ACTIONS =====
 
 def parse_action(text: str) -> tuple:
-    """Parser une action du format: tool_name(param="value")"""
-    text = text.strip()
+    """Parser une action du format: tool_name(param="value", param2="value2")"""
+    # Pattern pour capturer tool_name(...)
+    pattern = r'(\w+)\s*\((.*?)\)\s*$'
+    match = re.search(pattern, text.strip(), re.DOTALL)
     
-    # CAS SPECIAL: final_answer
-    if "final_answer" in text:
-        # Méthode 1: Chercher answer="..." avec guillemets doubles
-        match = re.search(r'final_answer\s*\(\s*answer\s*=\s*"(.*)"?\s*\)?$', text, re.DOTALL)
-        if match:
-            answer = match.group(1)
-            # Nettoyage robuste de la fin
-            answer = answer.rstrip()
-            while answer and answer[-1] in '")\'\\':
-                answer = answer[:-1]
-            answer = answer.rstrip()
-            print(f"🎯 PARSE final_answer (method1): {len(answer)} chars")
-            return "final_answer", {"answer": answer}
-        
-        # Méthode 2: Chercher après answer=" jusqu'à la fin
-        idx = text.find('answer="')
-        if idx >= 0:
-            content_start = idx + 8  # len('answer="')
-            content = text[content_start:]
-            # Enlever ") ou " à la fin
-            content = content.rstrip()
-            if content.endswith('")'):
-                content = content[:-2]
-            elif content.endswith('"'):
-                content = content[:-1]
-            elif content.endswith(')'):
-                content = content[:-1]
-            print(f"🎯 PARSE final_answer (method2): {len(content)} chars")
-            # Nettoyage final - enlever ") ou ' ou " à la fin
-            content = content.rstrip()
-            if content.endswith('")'):
-                content = content[:-2]
-            elif content.endswith('"'):
-                content = content[:-1]
-            elif content.endswith("')"):
-                content = content[:-2]
-            elif content.endswith("'"):
-                content = content[:-1]
-            return "final_answer", {"answer": content.strip()}
-        
-        # Méthode 3: guillemets simples
-        idx = text.find("answer='")
-        if idx >= 0:
-            content_start = idx + 8
-            content = text[content_start:]
-            content = content.rstrip()
-            if content.endswith("')"):
-                content = content[:-2]
-            elif content.endswith("'"):
-                content = content[:-1]
-            print(f"🎯 PARSE final_answer (method3): {len(content)} chars")
-            # Nettoyage final - enlever ") ou ' ou " à la fin
-            content = content.rstrip()
-            if content.endswith('")'):
-                content = content[:-2]
-            elif content.endswith('"'):
-                content = content[:-1]
-            elif content.endswith("')"):
-                content = content[:-2]
-            elif content.endswith("'"):
-                content = content[:-1]
-            return "final_answer", {"answer": content.strip()}
-    
-    # Pattern standard pour les autres outils
-    match = re.search(r'(\w+)\s*\(([^)]*)\)', text)
     if not match:
         return None, {}
     
     tool_name = match.group(1)
     params_str = match.group(2)
     
+    # Parser les paramètres
     params = {}
     if params_str.strip():
-        for m in re.finditer(r'(\w+)\s*=\s*"([^"]*)"', params_str):
-            params[m.group(1)] = m.group(2)
-        for m in re.finditer(r"(\w+)\s*=\s*'([^']*)'", params_str):
+        # Pattern pour key="value" ou key='value'
+        param_pattern = r'(\w+)\s*=\s*["\'](.+?)["\']'
+        for m in re.finditer(param_pattern, params_str, re.DOTALL):
             params[m.group(1)] = m.group(2)
     
     return tool_name, params
@@ -933,27 +893,50 @@ async def react_loop(
         for name, info in TOOLS.items()
     ])
     
-    system_prompt = f"""Tu es un assistant pour le serveur 4LB.ca (Ubuntu).
+    system_prompt = f"""Tu es un agent IA autonome pour l'infrastructure de 4LB.ca.
+Tu as accès au serveur Ubuntu (10.10.10.46), Docker, UDM-Pro UniFi, et Ollama.
 
-OUTILS:
+## STRUCTURE DES PROJETS
+
+### Projets Clients
+- **JSR DEV**: /home/lalpha/projets/clients/jsr/JSR/ → https://jsr.4lb.ca
+- **JSR PROD**: /home/lalpha/projets/clients/jsr/JSR-solutions/ → https://jsr-solutions.ca
+
+### Projets AI
+- **AI Orchestrator**: /home/lalpha/projets/ai-tools/ai-orchestrator/
+- **MCP Servers**: /home/lalpha/projets/ai-tools/mcp-servers/
+
+### Infrastructure
+- **Unified Stack**: /home/lalpha/projets/infrastructure/unified-stack/
+- Gestion: ./stack.sh (up, down, status, restart, logs, test)
+
+## MÉTHODOLOGIE REACT
+
+Tu dois suivre strictement ce cycle:
+1. **THINK**: Réfléchis à ce que tu dois faire
+2. **ACTION**: Exécute UNE SEULE action avec la syntaxe exacte
+3. **OBSERVE**: Analyse le résultat
+4. **REPEAT**: Continue jusqu'à avoir la réponse finale
+
+## OUTILS DISPONIBLES
+
 {tools_desc}
 
-RÈGLES:
-1. UNE action par réponse: tool_name(param="valeur")
-2. JAMAIS sudo (tu es déjà root)
-3. Maximum 3-4 actions puis CONCLUS avec final_answer()
-4. Si tu as l'info demandée, RÉPONDS IMMÉDIATEMENT
+## RÈGLES STRICTES
+
+1. **UNE SEULE ACTION PAR RÉPONSE** - Jamais plusieurs outils à la fois
+2. **SYNTAXE EXACTE**: tool_name(param="valeur") - Les guillemets sont obligatoires
+3. **FINAL_ANSWER OBLIGATOIRE**: Termine TOUJOURS par final_answer(answer="...")
+4. **Maximum {MAX_ITERATIONS} itérations**
+5. **JAMAIS SUDO** - Tu tournes en root, sudo n'existe pas dans le conteneur
 {files_context}
-FORMAT:
-THINK: [réflexion courte]
-ACTION: outil(param="valeur")
+## FORMAT DE RÉPONSE
 
-EXEMPLES:
-- "uptime" → execute_command(command="uptime") puis final_answer(answer="Le serveur...")
-- "bonjour" → final_answer(answer="Bonjour! Comment puis-je aider?")
-- Tâche complexe → 2-3 actions max puis final_answer avec résumé
+THINK: [ta réflexion]
 
-⚠️ NE FAIS PAS plus de 4 actions. Conclus TOUJOURS avec final_answer()."""
+ACTION: tool_name(param="valeur")
+
+Puis attends le résultat avant de continuer."""
 
     messages = [{"role": "system", "content": system_prompt}]
     messages.append({"role": "user", "content": user_message})
@@ -1050,18 +1033,9 @@ EXEMPLES:
                 
                 result = await execute_tool(tool_name, params, uploaded_files)
                 
-                # Ajouter au contexte avec urgence progressive
+                # Ajouter au contexte
                 messages.append({"role": "assistant", "content": assistant_text})
-                
-                if iterations >= 5:
-                    msg = f"RÉSULTAT: {result[:500]}\n\n🚨 DERNIER TOUR! Réponds MAINTENANT: final_answer(answer=\"résumé de tes découvertes\")"
-                elif iterations >= 4:
-                    msg = f"RÉSULTAT: {result[:800]}\n\n⚠️ Plus que 2 tours! Conclus avec final_answer(answer=\"ta réponse\")"
-                elif iterations >= 3:
-                    msg = f"RÉSULTAT: {result}\n\n⚡ Tu as assez d'infos. Utilise final_answer(answer=\"ta réponse\") maintenant."
-                else:
-                    msg = f"RÉSULTAT: {result}\n\nContinue ou conclus avec final_answer(answer=\"ta réponse\")."
-                messages.append({"role": "user", "content": msg})
+                messages.append({"role": "user", "content": f"OBSERVATION:\n{result}\n\nContinue ton analyse ou utilise final_answer() si tu as terminé."})
                 
                 if websocket:
                     await websocket.send_json({
@@ -1077,14 +1051,8 @@ EXEMPLES:
             messages.append({"role": "assistant", "content": assistant_text})
             messages.append({"role": "user", "content": "Continue avec une ACTION ou utilise final_answer() pour conclure."})
     
-    # Max iterations atteint - extraire une réponse utile
-    # Chercher si le LLM a donné des infos dans son dernier message
-    if "THINK:" in assistant_text:
-        # Extraire juste la partie après THINK
-        think_part = assistant_text.split("THINK:")[-1].split("ACTION:")[0].strip()
-        timeout_msg = f"Voici ce que j'ai trouvé (analyse interrompue):\n{think_part[:500]}"
-    else:
-        timeout_msg = f"Analyse interrompue après {MAX_ITERATIONS} itérations. Derniers éléments analysés disponibles dans l'Activity Log."
+    # Max iterations atteint
+    timeout_msg = f"Maximum d'itérations atteint ({MAX_ITERATIONS}). Dernière réponse:\n{assistant_text}"
     if websocket:
         await websocket.send_json({
             "type": "complete",

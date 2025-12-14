@@ -196,3 +196,36 @@
 
 ==================================================
 ✅ Analyse terminée
+🧠 Self-Improvement Analyzer v2.0
+==================================================
+
+📊 Collecte des métriques...
+   ✅ 11 métriques collectées
+
+🔍 Analyse des seuils...
+   ✅ Score: 100/100 (excellent)
+   ✅ 0 alerte(s)
+
+🤖 Analyse LLM...
+   ✅ 0 recommandations
+
+💾 Rapport: /home/lalpha/projets/ai-tools/self-improvement/reports/report_20251213_060002.json
+
+==================================================
+📈 RÉSUMÉ
+==================================================
+
+🌟 Status: EXCELLENT (100/100)
+
+📊 Métriques clés:
+   CPU:    N/A%
+   RAM:    N/A%
+   Disque: N/A%
+   GPU:    2.0% (VRAM: 5.1%, Temp: 31.0°C)
+   Docker: 14 running, 0 stopped
+
+📈 Tendances (vs 7 derniers jours):
+   score: → stable
+
+==================================================
+✅ Analyse terminée

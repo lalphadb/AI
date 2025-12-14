@@ -1,0 +1,101 @@
+{
+  "timestamp": "2025-12-13T06:00:02.209358",
+  "score": 100,
+  "status": "excellent",
+  "metrics": {
+    "docker": {
+      "total": 14,
+      "running": 14,
+      "stopped": 0,
+      "unhealthy": 0,
+      "containers": [
+        {
+          "name": "ai-orchestrator-backend",
+          "status": "Up 10 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "ai-orchestrator-frontend",
+          "status": "Up 17 hours",
+          "state": "running"
+        },
+        {
+          "name": "open-webui",
+          "status": "Up 4 days (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "grafana",
+          "status": "Up 4 days",
+          "state": "running"
+        },
+        {
+          "name": "code-server",
+          "status": "Up 4 days",
+          "state": "running"
+        },
+        {
+          "name": "jsr-solutions",
+          "status": "Up 37 hours",
+          "state": "running"
+        },
+        {
+          "name": "jsr-dev",
+          "status": "Up 4 days",
+          "state": "running"
+        },
+        {
+          "name": "prometheus",
+          "status": "Up 4 days",
+          "state": "running"
+        },
+        {
+          "name": "cadvisor",
+          "status": "Up 4 days (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "node-exporter",
+          "status": "Up 4 days",
+          "state": "running"
+        },
+        {
+          "name": "chromadb",
+          "status": "Up 4 days",
+          "state": "running"
+        },
+        {
+          "name": "postgres",
+          "status": "Up 4 days (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "traefik",
+          "status": "Up 4 days (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "redis",
+          "status": "Up 4 days (healthy)",
+          "state": "running"
+        }
+      ]
+    },
+    "uptime_days": 13.5,
+    "load_1m": 0.42,
+    "load_5m": 0.71,
+    "load_15m": 0.55,
+    "gpu_util": 2.0,
+    "gpu_mem_used": 838.0,
+    "gpu_mem_total": 16303.0,
+    "gpu_temp": 31.0,
+    "gpu_mem_percent": 5.140158253082254,
+    "collected_at": "2025-12-13T06:00:02.203637"
+  },
+  "alerts": [],
+  "recommendations": [],
+  "auto_actions": [],
+  "trends": {
+    "score": "\u2192 stable"
+  }
+}
