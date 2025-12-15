@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Orchestrateur IA 4LB.ca - Backend FastAPI v3.0
+Orchestrateur IA 4LB.ca - Backend FastAPI v2.0
 Agent autonome avec boucle ReAct, sélection auto de modèle, upload fichiers
-Sécurité: JWT, Rate Limiting, Validation commandes/chemins
 """
 
 import os
@@ -20,136 +19,16 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Form, Depends, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
-import chromadb
-from chromadb.config import Settings
-
-# ===== MODULES DE SÉCURITÉ v3.0 =====
-try:
-    from security import (
-        validate_command,
-        validate_path,
-        is_path_allowed,
-        CommandNotAllowedError,
-        PathNotAllowedError,
-        audit_log,
-        get_security_config,
-    )
-    SECURITY_ENABLED = True
-except ImportError:
-    SECURITY_ENABLED = False
-    print("⚠️ Module security non disponible - Validation désactivée")
-
-try:
-    from auth import (
-        get_current_user,
-        get_current_active_user,
-        get_optional_user,
-        get_current_admin_user,
-        require_scope,
-        create_access_token,
-        create_refresh_token,
-        verify_refresh_token,
-        revoke_refresh_token,
-        authenticate_user,
-        create_user,
-        update_user,
-        get_user,
-        check_login_rate_limit,
-        record_login_attempt,
-        create_api_key,
-        init_auth_db,
-        Token,
-        User,
-        UserCreate,
-        UserUpdate,
-        APIKey,
-        AUTH_ENABLED,
-    )
-except ImportError:
-    AUTH_ENABLED = False
-    print("⚠️ Module auth non disponible - Authentification désactivée")
-
-try:
-    from rate_limiter import RateLimitMiddleware, rate_limiter, get_rate_limit_stats, cleanup_task
-    RATE_LIMIT_ENABLED = True
-except ImportError:
-    RATE_LIMIT_ENABLED = False
-    print("⚠️ Module rate_limiter non disponible - Rate limiting désactivé")
-
-try:
-    from config import get_settings, get_cors_config, MODELS as CONFIG_MODELS
-    CONFIG_ENABLED = True
-except ImportError:
-    CONFIG_ENABLED = False
-    print("⚠️ Module config non disponible - Configuration par défaut")
-
-# Helper pour protection optionnelle des endpoints
-def optional_auth():
-    """Retourne une dépendance d'auth si AUTH_ENABLED, sinon None"""
-    if AUTH_ENABLED:
-        return Depends(get_optional_user)
-    return None
-
-# Désactiver la télémétrie ChromaDB pour éviter l'erreur capture()
-import os
-os.environ["ANONYMIZED_TELEMETRY"] = "False"
-
-# Patch posthog pour éviter l'erreur "capture() takes 1 positional argument but 3 were given"
-try:
-    import posthog
-    posthog.disabled = True
-    # Remplacer capture par une fonction vide
-    posthog.capture = lambda *args, **kwargs: None
-except ImportError:
-    pass
-
-# Module d'auto-apprentissage
-try:
-    from auto_learn import (
-        auto_learn_from_message,
-        save_conversation_summary,
-        get_relevant_context,
-        get_user_preferences,
-        get_memory_stats
-    )
-    AUTO_LEARN_ENABLED = True
-except ImportError:
-    AUTO_LEARN_ENABLED = False
-    print("⚠️ Module auto_learn non disponible")
 
 # ===== CONFIGURATION =====
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://10.10.10.46:11434")
 DB_PATH = "/data/orchestrator.db"
 UPLOAD_DIR = "/data/uploads"
-# ChromaDB pour mémoire sémantique
-CHROMADB_HOST = os.getenv("CHROMADB_HOST", "chromadb")
-CHROMADB_PORT = int(os.getenv("CHROMADB_PORT", "8000"))
-
-def get_chroma_client():
-    """Obtenir le client ChromaDB"""
-    try:
-        client = chromadb.HttpClient(host=CHROMADB_HOST, port=CHROMADB_PORT)
-        return client
-    except Exception as e:
-        print(f"Erreur ChromaDB: {e}")
-        return None
-
-def get_memory_collection():
-    """Obtenir ou créer la collection de mémoire"""
-    client = get_chroma_client()
-    if client:
-        return client.get_or_create_collection(
-            name="ai_orchestrator_memory",
-            metadata={"description": "Mémoire sémantique de l'AI Orchestrator"}
-        )
-    return None
-
 MAX_ITERATIONS = 12
 
 # Modèles disponibles avec leurs spécialités
@@ -352,19 +231,14 @@ TOOLS = {
         "example": "git_pull(path=\"/home/lalpha/projets/ai-tools\")"
     },
     "memory_store": {
-        "description": "IMPORTANT: Stocker une information importante en mémoire sémantique. Utilise cet outil pour mémoriser: les préférences utilisateur, les contextes de projets, les décisions importantes, les faits clés. La mémoire persiste entre les conversations!",
-        "parameters": {"key": "string - Catégorie/sujet (ex: projet_actuel, preference, fait_important)", "value": "string - Information détaillée à mémoriser"},
-        "example": "memory_store(key=\"utilisateur\", value=\"Lalpha travaille sur un homelab IA avec Ollama et ChromaDB\")"
+        "description": "Stocker une information en mémoire persistante",
+        "parameters": {"key": "string - Clé", "value": "string - Valeur"},
+        "example": "memory_store(key=\"projet\", value=\"Migration Docker\")"
     },
     "memory_recall": {
-        "description": "IMPORTANT: Rechercher dans la mémoire sémantique. Utilise 'all' pour voir toutes les mémoires récentes, ou une question/mot-clé pour une recherche sémantique. TOUJOURS utiliser au début d'une conversation pour se rappeler du contexte!",
-        "parameters": {"query": "string - 'all' pour tout voir, ou question/mot-clé pour recherche sémantique"},
-        "example": "memory_recall(query=\"projets en cours\")"
-    },
-    "memory_stats": {
-        "description": "Afficher les statistiques de la mémoire: nombre total de souvenirs, répartition par type (base, auto_learned, conversation_summary, solved_issue) et par catégorie (user_fact, project, preference, tech_fact)",
-        "parameters": {},
-        "example": "memory_stats()"
+        "description": "Rappeler une information de la mémoire",
+        "parameters": {"key": "string - Clé (ou 'all' pour tout)"},
+        "example": "memory_recall(key=\"projet\")"
     },
     "web_request": {
         "description": "Faire une requête HTTP GET/POST",
@@ -601,14 +475,6 @@ async def execute_tool(tool_name: str, params: dict, uploaded_files: dict = None
             cmd = params.get("command", "")
             if not cmd:
                 return "Erreur: commande vide"
-
-            # Validation de sécurité v3.0
-            if SECURITY_ENABLED:
-                allowed, reason = validate_command(cmd)
-                audit_log.log_command(cmd, allowed=allowed, reason=reason)
-                if not allowed:
-                    return f"🚫 Commande bloquée pour des raisons de sécurité: {reason}"
-
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60)
             output = result.stdout or result.stderr or "(aucune sortie)"
             return f"Commande: {cmd}\nSortie:\n{output[:3000]}"
@@ -689,19 +555,7 @@ async def execute_tool(tool_name: str, params: dict, uploaded_files: dict = None
         
         elif tool_name == "read_file":
             path = params.get("path", "")
-            if not path:
-                return "Erreur: chemin requis"
-
-            # Validation de sécurité v3.0
-            if SECURITY_ENABLED:
-                try:
-                    path = validate_path(path, write=False)
-                    audit_log.log_file_access(path, "read", allowed=True)
-                except PathNotAllowedError as e:
-                    audit_log.log_file_access(path, "read", allowed=False, reason=str(e))
-                    return f"🚫 Accès refusé: {e}"
-
-            if not os.path.exists(path):
+            if not path or not os.path.exists(path):
                 return f"Erreur: fichier non trouvé: {path}"
             try:
                 with open(path, 'r', encoding='utf-8') as f:
@@ -715,16 +569,6 @@ async def execute_tool(tool_name: str, params: dict, uploaded_files: dict = None
             content = params.get("content", "")
             if not path:
                 return "Erreur: chemin requis"
-
-            # Validation de sécurité v3.0
-            if SECURITY_ENABLED:
-                try:
-                    path = validate_path(path, write=True)
-                    audit_log.log_file_access(path, "write", allowed=True)
-                except PathNotAllowedError as e:
-                    audit_log.log_file_access(path, "write", allowed=False, reason=str(e))
-                    return f"🚫 Accès refusé: {e}"
-
             try:
                 os.makedirs(os.path.dirname(path), exist_ok=True)
                 with open(path, 'w', encoding='utf-8') as f:
@@ -927,70 +771,32 @@ async def execute_tool(tool_name: str, params: dict, uploaded_files: dict = None
             value = params.get("value", "")
             if not key:
                 return "Erreur: clé requise"
-            try:
-                # ChromaDB - mémoire sémantique
-                chroma_client = chromadb.HttpClient(host="chromadb", port=8000, settings=Settings(anonymized_telemetry=False))
-                collection = chroma_client.get_or_create_collection(
-                    name="ai_orchestrator_memory",
-                    metadata={"description": "Mémoire sémantique de l'AI Orchestrator"}
-                )
-                # Upsert avec le document formaté
-                doc_content = f"{key}: {value}"
-                collection.upsert(
-                    documents=[doc_content],
-                    ids=[f"mem_{key}"],
-                    metadatas=[{"key": key, "type": "user", "timestamp": datetime.now().isoformat()}]
-                )
-                # Backup SQLite aussi
-                conn = get_db()
-                c = conn.cursor()
-                c.execute('INSERT OR REPLACE INTO memory (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
-                          (key, value))
-                conn.commit()
-                conn.close()
-                return f"✅ Mémorisé dans mémoire sémantique: {key} = {value[:100]}..."
-            except Exception as e:
-                return f"Erreur mémoire: {str(e)}"
+            conn = get_db()
+            c = conn.cursor()
+            c.execute('INSERT OR REPLACE INTO memory (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+                      (key, value))
+            conn.commit()
+            conn.close()
+            return f"Mémoire stockée: {key} = {value[:100]}..."
         
         elif tool_name == "memory_recall":
-            query = params.get("query", params.get("key", "all"))
-            try:
-                chroma_client = chromadb.HttpClient(host="chromadb", port=8000, settings=Settings(anonymized_telemetry=False))
-                collection = chroma_client.get_or_create_collection(name="ai_orchestrator_memory")
-                
-                if query.lower() == "all":
-                    # Récupérer toutes les mémoires
-                    results = collection.get(limit=20, include=["documents", "metadatas"])
-                    if results and results.get("documents"):
-                        memories = []
-                        for i, doc in enumerate(results["documents"]):
-                            meta = results["metadatas"][i] if results.get("metadatas") else {}
-                            mem_type = meta.get("type", "unknown")
-                            memories.append(f"🧠 [{mem_type}] {doc}")
-                        return "📚 Mémoires disponibles:\n" + "\n".join(memories)
-                    return "Mémoire vide"
-                else:
-                    # Recherche sémantique
-                    results = collection.query(query_texts=[query], n_results=5, include=["documents", "metadatas", "distances"])
-                    if results and results.get("documents") and results["documents"][0]:
-                        memories = []
-                        for i, doc in enumerate(results["documents"][0]):
-                            distance = results["distances"][0][i] if results.get("distances") else 0
-                            # Convertir distance en score de similarité (plus petit = plus similaire)
-                            similarity = max(0, 100 - (distance * 50))
-                            memories.append(f"🧠 [{similarity:.1f}%] {doc}")
-                        return f"🔍 Recherche '{query}':\n" + "\n".join(memories)
-                    return f"Aucune mémoire trouvée pour: {query}"
-            except Exception as e:
-                # Fallback SQLite
-                conn = get_db()
-                c = conn.cursor()
+            key = params.get("key", "all")
+            conn = get_db()
+            c = conn.cursor()
+            if key == "all":
                 c.execute('SELECT key, value FROM memory ORDER BY updated_at DESC LIMIT 20')
                 rows = c.fetchall()
                 conn.close()
                 if rows:
-                    return "Mémoire (SQLite fallback):\n" + "\n".join([f"- {r[0]}: {r[1][:100]}" for r in rows])
-                return f"Erreur ChromaDB: {str(e)}"
+                    return "Mémoire:\n" + "\n".join([f"- {r[0]}: {r[1][:100]}" for r in rows])
+                return "Mémoire vide"
+            else:
+                c.execute('SELECT value FROM memory WHERE key = ?', (key,))
+                row = c.fetchone()
+                conn.close()
+                if row:
+                    return f"Mémoire [{key}]: {row[0]}"
+                return f"Clé non trouvée: {key}"
         
         elif tool_name == "web_request":
             url = params.get("url", "")
@@ -1004,16 +810,6 @@ async def execute_tool(tool_name: str, params: dict, uploaded_files: dict = None
                 else:
                     resp = await client.get(url, timeout=30)
                 return f"HTTP {resp.status_code}:\n{resp.text[:2000]}"
-        
-        elif tool_name == "memory_stats":
-            if AUTO_LEARN_ENABLED:
-                stats = get_memory_stats()
-                result = f"📊 Statistiques mémoire:\n"
-                result += f"   Total: {stats.get('total', 0)} souvenirs\n"
-                result += f"   Par type: {stats.get('by_type', {})}\n"
-                result += f"   Par catégorie: {stats.get('by_category', {})}"
-                return result
-            return "Auto-apprentissage non activé"
         
         elif tool_name == "final_answer":
             return params.get("answer", "")
@@ -1137,45 +933,27 @@ async def react_loop(
         for name, info in TOOLS.items()
     ])
     
-    system_prompt = f"""Tu es un assistant IA intelligent avec AUTO-APPRENTISSAGE pour le serveur 4LB.ca.
-Tu APPRENDS AUTOMATIQUEMENT des conversations et tu MÉMORISES les informations importantes.
+    system_prompt = f"""Tu es un assistant pour le serveur 4LB.ca (Ubuntu).
 
-🧠 MÉMOIRE INTELLIGENTE (v3.0):
-Le système extrait AUTOMATIQUEMENT les faits de chaque message:
-- Quand l'utilisateur dit "Je suis..." ou "Je travaille sur..." → mémorisé automatiquement
-- Quand l'utilisateur exprime une préférence → mémorisée
-- Quand un problème est résolu → la solution est sauvegardée
-
-📚 CONTEXTE AUTOMATIQUE:
-Tu reçois automatiquement le contexte pertinent basé sur la question posée.
-Si tu vois [CONTEXTE MÉMOIRE]...[/CONTEXTE], ce sont des informations que tu as apprises précédemment.
-
-🔧 OUTILS MÉMOIRE:
-- memory_recall(query="all") → Voir TOUTES les mémoires
-- memory_recall(query="projet") → Recherche sémantique
-- memory_store(key="sujet", value="info") → Mémoriser manuellement
-- memory_stats() → Statistiques de la mémoire
-
-TOUS LES OUTILS:
+OUTILS:
 {tools_desc}
 
 RÈGLES:
 1. UNE action par réponse: tool_name(param="valeur")
 2. JAMAIS sudo (tu es déjà root)
 3. Maximum 3-4 actions puis CONCLUS avec final_answer()
-4. Si tu as l'info dans le CONTEXTE, utilise-la directement!
-5. L'apprentissage est AUTOMATIQUE, pas besoin de tout mémoriser manuellement
+4. Si tu as l'info demandée, RÉPONDS IMMÉDIATEMENT
 {files_context}
 FORMAT:
-THINK: [réflexion + ce que tu sais déjà sur l'utilisateur grâce au contexte]
+THINK: [réflexion courte]
 ACTION: outil(param="valeur")
 
-COMPORTEMENT INTELLIGENT:
-- Si le contexte contient la réponse → Réponds directement sans outils
-- Si tu vois des préférences de l'utilisateur → Adapte ton style
-- Si une question ressemble à un problème déjà résolu → Mentionne la solution passée
+EXEMPLES:
+- "uptime" → execute_command(command="uptime") puis final_answer(answer="Le serveur...")
+- "bonjour" → final_answer(answer="Bonjour! Comment puis-je aider?")
+- Tâche complexe → 2-3 actions max puis final_answer avec résumé
 
-⚠️ Maximum 4 actions. TOUJOURS finir par final_answer()."""
+⚠️ NE FAIS PAS plus de 4 actions. Conclus TOUJOURS avec final_answer()."""
 
     messages = [{"role": "system", "content": system_prompt}]
     messages.append({"role": "user", "content": user_message})
@@ -1322,20 +1100,6 @@ COMPORTEMENT INTELLIGENT:
 async def lifespan(app: FastAPI):
     """Initialisation au démarrage"""
     init_db()
-
-    # Initialiser la base d'authentification
-    if AUTH_ENABLED:
-        try:
-            init_auth_db()
-            print("✅ Base d'authentification initialisée")
-        except Exception as e:
-            print(f"⚠️ Erreur init auth DB: {e}")
-
-    # Démarrer la tâche de nettoyage du rate limiter
-    if RATE_LIMIT_ENABLED:
-        asyncio.create_task(cleanup_task())
-        print("✅ Rate limiter démarré")
-
     yield
 
 app = FastAPI(
@@ -1345,23 +1109,13 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Configuration CORS sécurisée
-if CONFIG_ENABLED:
-    cors_config = get_cors_config()
-    app.add_middleware(CORSMiddleware, **cors_config)
-else:
-    # Fallback: CORS restrictif par défaut
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["https://ai.4lb.ca", "https://4lb.ca", "http://localhost:3000"],
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["*"]
-    )
-
-# Rate Limiting middleware
-if RATE_LIMIT_ENABLED:
-    app.add_middleware(RateLimitMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 # ===== MODÈLES PYDANTIC =====
 
@@ -1378,146 +1132,17 @@ class ConversationUpdate(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "service": "AI Orchestrator v3.0", "tools": len(TOOLS)}
+    return {"status": "ok", "service": "AI Orchestrator v2.0", "tools": len(TOOLS)}
 
 @app.get("/health")
 async def health():
     return {
         "status": "healthy",
-        "version": "3.0.0",
+        "version": "2.0.0",
         "tools_count": len(TOOLS),
         "models_count": len(MODELS),
-        "ollama_url": OLLAMA_URL,
-        "security_enabled": SECURITY_ENABLED,
-        "auth_enabled": AUTH_ENABLED,
-        "rate_limit_enabled": RATE_LIMIT_ENABLED,
+        "ollama_url": OLLAMA_URL
     }
-
-# ===== ENDPOINTS D'AUTHENTIFICATION v3.0 =====
-
-@app.post("/api/auth/login", response_model=Token if AUTH_ENABLED else None)
-async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
-    """Authentification et obtention d'un token JWT"""
-    if not AUTH_ENABLED:
-        raise HTTPException(status_code=501, detail="Authentication not enabled")
-
-    ip = request.client.host if request.client else "unknown"
-
-    # Rate limiting pour les tentatives de login
-    if not check_login_rate_limit(form_data.username, ip):
-        raise HTTPException(
-            status_code=429,
-            detail="Too many login attempts. Try again in 15 minutes."
-        )
-
-    # Authentification
-    user = authenticate_user(form_data.username, form_data.password)
-    record_login_attempt(form_data.username, ip, success=user is not None)
-
-    if SECURITY_ENABLED:
-        audit_log.log_auth(form_data.username, success=user is not None, ip=ip)
-
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-
-    if user.disabled:
-        raise HTTPException(status_code=403, detail="Account disabled")
-
-    # Créer les tokens
-    access_token = create_access_token(
-        data={"sub": user.username, "scopes": user.scopes}
-    )
-    refresh_token = create_refresh_token(
-        user_id=1,
-        ip_address=ip,
-        user_agent=request.headers.get("User-Agent", "")
-    )
-
-    return Token(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-        expires_in=3600
-    )
-
-@app.post("/api/auth/refresh")
-async def refresh_token_endpoint(refresh_token: str):
-    """Renouveler un token d'accès"""
-    if not AUTH_ENABLED:
-        raise HTTPException(status_code=501, detail="Authentication not enabled")
-
-    user_id = verify_refresh_token(refresh_token)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
-
-    # Récupérer l'utilisateur (simplifié - à améliorer avec l'ID réel)
-    user = get_user("admin")
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-
-    access_token = create_access_token(
-        data={"sub": user.username, "scopes": user.scopes}
-    )
-
-    return {"access_token": access_token, "token_type": "bearer", "expires_in": 3600}
-
-@app.post("/api/auth/logout")
-async def logout(refresh_token: str):
-    """Révoquer un refresh token"""
-    if not AUTH_ENABLED:
-        raise HTTPException(status_code=501, detail="Authentication not enabled")
-
-    revoke_refresh_token(refresh_token)
-    return {"message": "Logged out successfully"}
-
-@app.get("/api/auth/me")
-async def get_me(current_user = Depends(get_current_active_user) if AUTH_ENABLED else None):
-    """Obtenir les informations de l'utilisateur courant"""
-    if not AUTH_ENABLED:
-        return {"username": "anonymous", "scopes": ["admin"]}
-    return current_user
-
-@app.post("/api/auth/users")
-async def create_new_user(
-    user_data: UserCreate,
-    current_user = Depends(get_current_admin_user) if AUTH_ENABLED else None
-):
-    """Créer un nouvel utilisateur (admin requis)"""
-    if not AUTH_ENABLED:
-        raise HTTPException(status_code=501, detail="Authentication not enabled")
-    return create_user(user_data)
-
-@app.post("/api/auth/apikeys")
-async def create_new_api_key(
-    name: str,
-    scopes: List[str],
-    expires_days: Optional[int] = None,
-    current_user = Depends(get_current_admin_user) if AUTH_ENABLED else None
-):
-    """Créer une nouvelle API key (admin requis)"""
-    if not AUTH_ENABLED:
-        raise HTTPException(status_code=501, detail="Authentication not enabled")
-
-    key = create_api_key(name, user_id=1, scopes=scopes, expires_days=expires_days)
-    return {"key": key, "name": name, "scopes": scopes}
-
-@app.get("/api/security/config")
-async def get_security_config_endpoint(
-    current_user = Depends(get_current_admin_user) if AUTH_ENABLED else None
-):
-    """Obtenir la configuration de sécurité (admin requis)"""
-    if not SECURITY_ENABLED:
-        return {"error": "Security module not enabled"}
-    return get_security_config()
-
-@app.get("/api/security/rate-limit-stats")
-async def get_rate_limit_stats_endpoint(
-    current_user = Depends(get_current_admin_user) if AUTH_ENABLED else None
-):
-    """Obtenir les statistiques de rate limiting (admin requis)"""
-    if not RATE_LIMIT_ENABLED:
-        return {"error": "Rate limiting not enabled"}
-    return await get_rate_limit_stats()
 
 @app.get("/api/models")
 async def list_models():
@@ -1718,36 +1343,9 @@ async def websocket_chat(websocket: WebSocket):
             # Sauvegarder message utilisateur
             add_message(conv_id, "user", message)
             
-            # 🧠 AUTO-APPRENTISSAGE: Extraire et mémoriser les faits
-            learned_facts = []
-            if AUTO_LEARN_ENABLED:
-                try:
-                    learned_facts = auto_learn_from_message(message, conv_id)
-                    if learned_facts:
-                        await websocket.send_json({
-                            "type": "activity",
-                            "action": f"🧠 Auto-apprentissage: {len(learned_facts)} fait(s) mémorisé(s)",
-                            "details": ", ".join(learned_facts)
-                        })
-                except Exception as e:
-                    print(f"Erreur auto-learn: {e}")
-            
-            # 🔍 Charger le contexte pertinent
-            relevant_context = []
-            if AUTO_LEARN_ENABLED:
-                try:
-                    relevant_context = get_relevant_context(message, limit=3)
-                except Exception as e:
-                    print(f"Erreur context: {e}")
-            
-            # Exécuter la boucle ReAct avec contexte
-            context_enhanced_message = message
-            if relevant_context:
-                context_str = "\n".join(relevant_context)
-                context_enhanced_message = f"[CONTEXTE MÉMOIRE]\n{context_str}\n[/CONTEXTE]\n\n{message}"
-            
+            # Exécuter la boucle ReAct
             response = await react_loop(
-                user_message=context_enhanced_message,
+                user_message=message,
                 model=model,
                 conversation_id=conv_id,
                 uploaded_files=uploaded_files,
@@ -1758,14 +1356,7 @@ async def websocket_chat(websocket: WebSocket):
             add_message(conv_id, "assistant", response, model)
             
     except WebSocketDisconnect:
-        # Sauvegarder résumé de conversation à la déconnexion
-        if AUTO_LEARN_ENABLED and conv_id:
-            try:
-                messages = get_conversation_messages(conv_id)
-                if messages and len(messages) >= 2:
-                    save_conversation_summary(messages, conv_id)
-            except Exception as e:
-                print(f"Erreur sauvegarde résumé: {e}")
+        pass
     except Exception as e:
         await websocket.send_json({"type": "error", "message": str(e)})
 

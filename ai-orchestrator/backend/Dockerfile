@@ -18,8 +18,13 @@ RUN git config --global --add safe.directory '*'
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copier l'application
+# Copier l'application et tous les modules v3.0
 COPY main.py .
+COPY auto_learn.py .
+COPY security.py .
+COPY auth.py .
+COPY rate_limiter.py .
+COPY config.py .
 
 # Créer le dossier data
 RUN mkdir -p /data
