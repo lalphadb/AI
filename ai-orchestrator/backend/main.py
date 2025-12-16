@@ -128,7 +128,9 @@ try:
     AUTO_LEARN_ENABLED = True
 except ImportError:
     AUTO_LEARN_ENABLED = False
-    print("⚠️ Module auto_learn non disponible")
+
+# Module de prompts v4.0
+from prompts import build_system_prompt, get_urgency_message, detect_task_type, REFLECTION_PROMPT
 
 # ===== CONFIGURATION =====
 
