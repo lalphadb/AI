@@ -1,42 +1,42 @@
 {
-  "timestamp": "2025-12-15T03:00:05.232162",
+  "timestamp": "2025-12-16T03:00:03.950586",
   "backups": [
     {
-      "name": "docker-compose_20251215_030001.tar",
+      "name": "docker-compose_20251216_030001.tar",
       "size_mb": 1.6420602798461914,
-      "path": "/home/lalpha/projets/ai-tools/backup-system/local/docker-compose_20251215_030001.tar.gz"
+      "path": "/home/lalpha/projets/ai-tools/backup-system/local/docker-compose_20251216_030001.tar.gz"
     },
     {
-      "name": "ai-orchestrator_20251215_030001.tar",
-      "size_mb": 1.436483383178711,
-      "path": "/home/lalpha/projets/ai-tools/backup-system/local/ai-orchestrator_20251215_030001.tar.gz"
+      "name": "ai-orchestrator_20251216_030001.tar",
+      "size_mb": 1.466090202331543,
+      "path": "/home/lalpha/projets/ai-tools/backup-system/local/ai-orchestrator_20251216_030001.tar.gz"
     },
     {
-      "name": "mcp-servers_20251215_030001.tar",
+      "name": "mcp-servers_20251216_030001.tar",
       "size_mb": 0.07707786560058594,
-      "path": "/home/lalpha/projets/ai-tools/backup-system/local/mcp-servers_20251215_030001.tar.gz"
+      "path": "/home/lalpha/projets/ai-tools/backup-system/local/mcp-servers_20251216_030001.tar.gz"
     },
     {
-      "name": "documentation_20251215_030001.tar",
-      "size_mb": 0.0627279281616211,
-      "path": "/home/lalpha/projets/ai-tools/backup-system/local/documentation_20251215_030001.tar.gz"
+      "name": "documentation_20251216_030001.tar",
+      "size_mb": 0.0634603500366211,
+      "path": "/home/lalpha/projets/ai-tools/backup-system/local/documentation_20251216_030001.tar.gz"
     },
     {
-      "name": "scripts_20251215_030001.tar",
+      "name": "scripts_20251216_030001.tar",
       "size_mb": 0.032169342041015625,
-      "path": "/home/lalpha/projets/ai-tools/backup-system/local/scripts_20251215_030001.tar.gz"
+      "path": "/home/lalpha/projets/ai-tools/backup-system/local/scripts_20251216_030001.tar.gz"
     },
     {
-      "name": "postgres_20251215_030001.sql",
+      "name": "postgres_20251216_030001.sql",
       "size_mb": 1.9073486328125e-05,
-      "path": "/home/lalpha/projets/ai-tools/backup-system/local/postgres_20251215_030001.sql.gz"
+      "path": "/home/lalpha/projets/ai-tools/backup-system/local/postgres_20251216_030001.sql.gz"
     },
     {
-      "name": "self-improvement-reports_20251215_030002.tar",
-      "size_mb": 0.0036830902099609375,
-      "path": "/home/lalpha/projets/ai-tools/backup-system/local/self-improvement-reports_20251215_030002.tar.gz"
+      "name": "self-improvement-reports_20251216_030001.tar",
+      "size_mb": 0.0038499832153320312,
+      "path": "/home/lalpha/projets/ai-tools/backup-system/local/self-improvement-reports_20251216_030001.tar.gz"
     }
   ],
-  "total_size_mb": 3.254220962524414,
+  "total_size_mb": 3.284727096557617,
   "r2_bucket": "ai4lb-backups"
 }
