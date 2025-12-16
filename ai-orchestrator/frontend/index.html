@@ -796,10 +796,26 @@
         function checkAuth() {
             if (!authToken) {
                 showLogin();
-            } else {
-                hideLogin();
-                initApp();
+                return;
             }
+            
+            // Vérifier si le token est encore valide
+            try {
+                const payload = JSON.parse(atob(authToken.split('.')[1]));
+                const now = Math.floor(Date.now() / 1000);
+                if (payload.exp && payload.exp < now) {
+                    console.log('⚠️ Token expiré, redirection vers login');
+                    doLogout();
+                    return;
+                }
+            } catch (e) {
+                console.error('Erreur parsing token:', e);
+                doLogout();
+                return;
+            }
+            
+            hideLogin();
+            initApp();
         }
         
         function showLogin() {
@@ -1199,9 +1215,17 @@
                 addActivity('info', '🟢 WebSocket connecté', 'Prêt à recevoir des commandes');
             };
             
-            ws.onclose = () => {
+            ws.onclose = (event) => {
                 document.getElementById('status-dot').classList.remove('connected');
                 document.getElementById('status-text').textContent = 'Déconnecté';
+                
+                // Si code 4001 ou 403, c'est un problème d'auth
+                if (event.code === 4001 || event.code === 1008 || event.code === 403) {
+                    addActivity('error', '🔐 Session expirée', 'Reconnexion requise');
+                    doLogout();
+                    return;
+                }
+                
                 addActivity('error', '🔴 WebSocket déconnecté', 'Tentative de reconnexion...');
                 setTimeout(connectWebSocket, 3000);
             };

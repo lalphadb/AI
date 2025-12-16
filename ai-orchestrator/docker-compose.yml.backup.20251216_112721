@@ -16,9 +16,8 @@ services:
     volumes:
       - ai-orchestrator-data:/data
       - /var/run/docker.sock:/var/run/docker.sock
+      - /home/lalpha/.ssh/id_rsa_udm:/home/lalpha/.ssh/id_rsa_udm:ro
       - /tmp/gpu-stats.txt:/tmp/gpu-stats.txt:ro
-      # Accès complet à /home/lalpha
-      - /home/lalpha:/home/lalpha
     networks:
       - unified-net
     healthcheck:

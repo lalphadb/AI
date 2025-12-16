@@ -25,6 +25,7 @@ COPY security.py .
 COPY auth.py .
 COPY rate_limiter.py .
 COPY config.py .
+COPY prompts.py .
 
 # Créer le dossier data
 RUN mkdir -p /data

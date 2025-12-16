@@ -389,22 +389,6 @@ TOOLS = {
         "parameters": {"step_description": "string - Ce qui devait être fait", "expected_result": "string - Résultat attendu"},
         "example": "validate_step(step_description=\"Créer le dossier\", expected_result=\"Dossier existe\")"
     },
-    # ===== OUTILS AVANCÉS v4.0 =====
-    "analyze_project": {
-        "description": "Analyse complète d'un projet (structure, dépendances, fichiers clés). Retourne un rapport détaillé.",
-        "parameters": {"path": "string - Chemin du projet"},
-        "example": "analyze_project(path=\"/home/lalpha/projets/clients/jsr/JSR-solutions\")"
-    },
-    "search_in_files": {
-        "description": "Recherche un pattern/texte dans tous les fichiers d'un dossier",
-        "parameters": {"path": "string - Dossier de recherche", "pattern": "string - Texte à chercher", "extensions": "string - Extensions (ex: .py,.ts,.js)"},
-        "example": "search_in_files(path=\"/home/lalpha/projets\", pattern=\"TODO\", extensions=\".py,.ts\")"
-    },
-    "batch_read_files": {
-        "description": "Lit plusieurs fichiers en une seule action (max 5 fichiers)",
-        "parameters": {"paths": "string - Chemins séparés par des virgules"},
-        "example": "batch_read_files(paths=\"/path/package.json,/path/README.md,/path/src/App.tsx\")"
-    },
     "final_answer": {
         "description": "Fournir la réponse finale à l'utilisateur",
         "parameters": {"answer": "string - La réponse complète et structurée"},
@@ -1039,135 +1023,6 @@ async def execute_tool(tool_name: str, params: dict, uploaded_files: dict = None
                 return result
             return "Auto-apprentissage non activé"
         
-        # ===== OUTILS AVANCÉS v4.0 =====
-        elif tool_name == "analyze_project":
-            path = params.get("path", "")
-            if not path or not os.path.isdir(path):
-                return f"Erreur: Dossier non trouvé: {path}"
-            
-            result = f"## 📁 Analyse du Projet: {os.path.basename(path)}\n\n"
-            
-            # Structure du projet
-            result += "### Structure\n```\n"
-            for root, dirs, files in os.walk(path):
-                # Ignorer node_modules, .git, __pycache__
-                dirs[:] = [d for d in dirs if d not in ['node_modules', '.git', '__pycache__', 'dist', 'build', '.next']]
-                level = root.replace(path, '').count(os.sep)
-                indent = '  ' * level
-                result += f"{indent}{os.path.basename(root)}/\n"
-                if level < 2:  # Limiter la profondeur
-                    for file in files[:10]:  # Max 10 fichiers par dossier
-                        result += f"{indent}  {file}\n"
-            result += "```\n\n"
-            
-            # package.json si existe
-            pkg_path = os.path.join(path, "package.json")
-            if os.path.exists(pkg_path):
-                try:
-                    import json
-                    with open(pkg_path, 'r') as f:
-                        pkg = json.load(f)
-                    result += "### Dépendances (package.json)\n"
-                    result += f"**Nom**: {pkg.get('name', 'N/A')}\n"
-                    result += f"**Version**: {pkg.get('version', 'N/A')}\n"
-                    deps = pkg.get('dependencies', {})
-                    result += f"**Dependencies**: {', '.join(list(deps.keys())[:10])}\n"
-                    devDeps = pkg.get('devDependencies', {})
-                    result += f"**DevDependencies**: {', '.join(list(devDeps.keys())[:10])}\n\n"
-                except:
-                    pass
-            
-            # requirements.txt si existe
-            req_path = os.path.join(path, "requirements.txt")
-            if os.path.exists(req_path):
-                try:
-                    with open(req_path, 'r') as f:
-                        reqs = f.read().strip().split('\n')[:15]
-                    result += f"### Dépendances Python\n{chr(10).join(reqs)}\n\n"
-                except:
-                    pass
-            
-            # Dockerfile si existe
-            docker_path = os.path.join(path, "Dockerfile")
-            if os.path.exists(docker_path):
-                result += "### 🐳 Dockerfile présent\n"
-                try:
-                    with open(docker_path, 'r') as f:
-                        dockerfile = f.read()[:500]
-                    result += f"```dockerfile\n{dockerfile}\n```\n\n"
-                except:
-                    pass
-            
-            # README si existe
-            for readme in ["README.md", "readme.md", "README.txt"]:
-                readme_path = os.path.join(path, readme)
-                if os.path.exists(readme_path):
-                    try:
-                        with open(readme_path, 'r') as f:
-                            readme_content = f.read()[:1000]
-                        result += f"### 📖 README (extrait)\n{readme_content}\n\n"
-                    except:
-                        pass
-                    break
-            
-            return result
-        
-        elif tool_name == "search_in_files":
-            path = params.get("path", "/home/lalpha/projets")
-            pattern = params.get("pattern", "")
-            extensions = params.get("extensions", ".py,.ts,.js,.tsx,.jsx")
-            
-            if not pattern:
-                return "Erreur: pattern requis"
-            
-            ext_list = [e.strip() for e in extensions.split(",")]
-            results = []
-            
-            try:
-                for root, dirs, files in os.walk(path):
-                    dirs[:] = [d for d in dirs if d not in ['node_modules', '.git', '__pycache__', 'dist']]
-                    for file in files:
-                        if any(file.endswith(ext) for ext in ext_list):
-                            filepath = os.path.join(root, file)
-                            try:
-                                with open(filepath, 'r', errors='ignore') as f:
-                                    for i, line in enumerate(f, 1):
-                                        if pattern.lower() in line.lower():
-                                            results.append(f"{filepath}:{i}: {line.strip()[:100]}")
-                                            if len(results) >= 20:
-                                                break
-                            except:
-                                pass
-                    if len(results) >= 20:
-                        break
-            except Exception as e:
-                return f"Erreur: {str(e)}"
-            
-            if results:
-                return f"🔍 {len(results)} résultats pour '{pattern}':\n" + "\n".join(results)
-            return f"Aucun résultat pour '{pattern}'"
-        
-        elif tool_name == "batch_read_files":
-            paths = params.get("paths", "")
-            if not paths:
-                return "Erreur: paths requis (chemins séparés par des virgules)"
-            
-            file_list = [p.strip() for p in paths.split(",")][:5]  # Max 5 fichiers
-            results = []
-            
-            for filepath in file_list:
-                if os.path.exists(filepath):
-                    try:
-                        with open(filepath, 'r', errors='ignore') as f:
-                            content = f.read()[:3000]  # Max 3000 chars par fichier
-                        results.append(f"\n### 📄 {os.path.basename(filepath)}\n```\n{content}\n```")
-                    except Exception as e:
-                        results.append(f"\n### ❌ {filepath}\nErreur: {str(e)}")
-                else:
-                    results.append(f"\n### ❌ {filepath}\nFichier non trouvé")
-            
-            return f"## Lecture de {len(file_list)} fichiers" + "".join(results)
-        
         elif tool_name == "final_answer":
             return params.get("answer", "")
         
@@ -1290,10 +1145,46 @@ async def react_loop(
         for name, info in TOOLS.items()
     ])
     
-   
-    # Utiliser le nouveau système de prompts (v4.0)
-    system_prompt = build_system_prompt(tools_desc, files_context)
-    
+    system_prompt = f"""Tu es un assistant IA intelligent avec AUTO-APPRENTISSAGE pour le serveur 4LB.ca.
+Tu APPRENDS AUTOMATIQUEMENT des conversations et tu MÉMORISES les informations importantes.
+
+🧠 MÉMOIRE INTELLIGENTE (v3.0):
+Le système extrait AUTOMATIQUEMENT les faits de chaque message:
+- Quand l'utilisateur dit "Je suis..." ou "Je travaille sur..." → mémorisé automatiquement
+- Quand l'utilisateur exprime une préférence → mémorisée
+- Quand un problème est résolu → la solution est sauvegardée
+
+📚 CONTEXTE AUTOMATIQUE:
+Tu reçois automatiquement le contexte pertinent basé sur la question posée.
+Si tu vois [CONTEXTE MÉMOIRE]...[/CONTEXTE], ce sont des informations que tu as apprises précédemment.
+
+🔧 OUTILS MÉMOIRE:
+- memory_recall(query="all") → Voir TOUTES les mémoires
+- memory_recall(query="projet") → Recherche sémantique
+- memory_store(key="sujet", value="info") → Mémoriser manuellement
+- memory_stats() → Statistiques de la mémoire
+
+TOUS LES OUTILS:
+{tools_desc}
+
+RÈGLES:
+1. UNE action par réponse: tool_name(param="valeur")
+2. JAMAIS sudo (tu es déjà root)
+3. Maximum 3-4 actions puis CONCLUS avec final_answer()
+4. Si tu as l'info dans le CONTEXTE, utilise-la directement!
+5. L'apprentissage est AUTOMATIQUE, pas besoin de tout mémoriser manuellement
+{files_context}
+FORMAT:
+THINK: [réflexion + ce que tu sais déjà sur l'utilisateur grâce au contexte]
+ACTION: outil(param="valeur")
+
+COMPORTEMENT INTELLIGENT:
+- Si le contexte contient la réponse → Réponds directement sans outils
+- Si tu vois des préférences de l'utilisateur → Adapte ton style
+- Si une question ressemble à un problème déjà résolu → Mentionne la solution passée
+
+⚠️ Maximum 4 actions. TOUJOURS finir par final_answer()."""
+
     messages = [{"role": "system", "content": system_prompt}]
     messages.append({"role": "user", "content": user_message})
     
@@ -1392,8 +1283,14 @@ async def react_loop(
                 # Ajouter au contexte avec urgence progressive
                 messages.append({"role": "assistant", "content": assistant_text})
                 
-                # Message d'urgence progressif (v4.0)
-                msg = get_urgency_message(iterations, MAX_ITERATIONS, result)
+                if iterations >= 5:
+                    msg = f"RÉSULTAT: {result[:500]}\n\n🚨 DERNIER TOUR! Réponds MAINTENANT: final_answer(answer=\"résumé de tes découvertes\")"
+                elif iterations >= 4:
+                    msg = f"RÉSULTAT: {result[:800]}\n\n⚠️ Plus que 2 tours! Conclus avec final_answer(answer=\"ta réponse\")"
+                elif iterations >= 3:
+                    msg = f"RÉSULTAT: {result}\n\n⚡ Tu as assez d'infos. Utilise final_answer(answer=\"ta réponse\") maintenant."
+                else:
+                    msg = f"RÉSULTAT: {result}\n\nContinue ou conclus avec final_answer(answer=\"ta réponse\")."
                 messages.append({"role": "user", "content": msg})
                 
                 if websocket:
