@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🤖 AI Orchestrator v3.0 - 4LB.ca</title>
+    <title>🤖 AI Orchestrator v2.5 - 4LB.ca</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
@@ -505,115 +505,9 @@
             .stats-bar { flex-wrap: wrap; }
             .stat-card { min-width: 100px; }
         }
-
-        /* === LOGIN MODAL === */
-        .login-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        }
-        .login-overlay.hidden { display: none; }
-        
-        .login-box {
-            background: var(--bg-secondary);
-            padding: 40px;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            width: 100%;
-            max-width: 400px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-        }
-        
-        .login-box h2 {
-            color: var(--accent);
-            margin-bottom: 10px;
-            font-size: 1.5rem;
-        }
-        
-        .login-box p {
-            color: var(--text-secondary);
-            margin-bottom: 30px;
-            font-size: 0.9rem;
-        }
-        
-        .login-box input {
-            width: 100%;
-            padding: 14px;
-            margin-bottom: 15px;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text-primary);
-            font-size: 1rem;
-        }
-        
-        .login-box input:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-        
-        .login-box button {
-            width: 100%;
-            padding: 14px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .login-box button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(0, 217, 255, 0.3);
-        }
-        
-        .login-error {
-            color: var(--error);
-            margin-bottom: 15px;
-            font-size: 0.85rem;
-            display: none;
-        }
-        
-        .login-error.show { display: block; }
-        
-        .logout-btn {
-            background: transparent;
-            border: 1px solid var(--error);
-            color: var(--error);
-            padding: 6px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            margin-left: 10px;
-        }
-        .logout-btn:hover { background: var(--error); color: white; }
-    
     </style>
 </head>
 <body>
-
-    <!-- Login Modal -->
-    <div class="login-overlay" id="loginOverlay">
-        <div class="login-box">
-            <h2>🔐 Connexion</h2>
-            <p>AI Orchestrator v3.0 - Authentification requise</p>
-            <div class="login-error" id="loginError"></div>
-            <input type="text" id="loginUsername" placeholder="Nom d'utilisateur" value="admin">
-            <input type="password" id="loginPassword" placeholder="Mot de passe">
-            <button onclick="doLogin()">Se connecter</button>
-        </div>
-    </div>
-
     <div class="container">
         <!-- Sidebar -->
         <aside class="sidebar">
@@ -735,7 +629,7 @@
             
             <div class="messages" id="messages">
                 <div class="message system">
-                    👋 Bienvenue sur AI Orchestrator v3.0 ! 
+                    👋 Bienvenue sur AI Orchestrator v2.5 ! 
                     Nouvelles fonctionnalités : graphiques temps réel, Docker/Git visuel, terminal intégré, mode clair/sombre.
                 </div>
             </div>
@@ -787,109 +681,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
     
     <script>
-
-        // === AUTHENTIFICATION ===
-        let authToken = localStorage.getItem('ai_orchestrator_token');
-        let refreshToken = localStorage.getItem('ai_orchestrator_refresh');
-        
-        // Vérifier si connecté au démarrage
-        function checkAuth() {
-            if (!authToken) {
-                showLogin();
-            } else {
-                hideLogin();
-                initApp();
-            }
-        }
-        
-        function showLogin() {
-            document.getElementById('loginOverlay').classList.remove('hidden');
-        }
-        
-        function hideLogin() {
-            document.getElementById('loginOverlay').classList.add('hidden');
-        }
-        
-        async function doLogin() {
-            const username = document.getElementById('loginUsername').value;
-            const password = document.getElementById('loginPassword').value;
-            const errorEl = document.getElementById('loginError');
-            
-            try {
-                const response = await fetch(`${API_URL}/api/auth/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    authToken = data.access_token;
-                    refreshToken = data.refresh_token;
-                    localStorage.setItem('ai_orchestrator_token', authToken);
-                    localStorage.setItem('ai_orchestrator_refresh', refreshToken);
-                    
-                    errorEl.classList.remove('show');
-                    hideLogin();
-                    initApp();
-                } else {
-                    const error = await response.json();
-                    errorEl.textContent = error.detail || 'Identifiants incorrects';
-                    errorEl.classList.add('show');
-                }
-            } catch (e) {
-                errorEl.textContent = 'Erreur de connexion au serveur';
-                errorEl.classList.add('show');
-            }
-        }
-        
-        function doLogout() {
-            authToken = null;
-            refreshToken = null;
-            localStorage.removeItem('ai_orchestrator_token');
-            localStorage.removeItem('ai_orchestrator_refresh');
-            if (ws) ws.close();
-            showLogin();
-        }
-        
-        // Helper pour fetch avec auth
-        async function authFetch(url, options = {}) {
-            if (!options.headers) options.headers = {};
-            if (authToken) {
-                options.headers['Authorization'] = `Bearer ${authToken}`;
-            }
-            
-            const response = await fetch(url, options);
-            
-            // Si 401, essayer de refresh le token ou montrer login
-            if (response.status === 401) {
-                // Pour l'instant, juste rediriger vers login
-                doLogout();
-                throw new Error('Session expirée');
-            }
-            
-            return response;
-        }
-        
-        // Enter pour login
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('loginPassword').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') doLogin();
-            });
-        });
-        
-        // Appeler checkAuth au chargement
-        document.addEventListener('DOMContentLoaded', checkAuth);
-        
-        // Fonction d'initialisation (appelée après login réussi)
-        function initApp() {
-            console.log('🚀 initApp() - Initialisation avec token');
-            connectWebSocket();
-            loadConversations();
-            fetchStats();
-            setInterval(fetchStats, 5000);
-        }
-        
         // ==========================================
         // AI ORCHESTRATOR v2.5 - JAVASCRIPT
         // ==========================================
@@ -975,7 +766,7 @@
         // ==========================================
         async function fetchStats() {
             try {
-                const response = await authFetch(`${API_URL}/api/stats`);
+                const response = await fetch(`${API_URL}/api/stats`);
                 if (!response.ok) return;
                 
                 const data = await response.json();
@@ -1025,7 +816,7 @@
             grid.innerHTML = '<div style="color: var(--text-secondary); padding: 20px;">Chargement...</div>';
             
             try {
-                const response = await authFetch(`${API_URL}/api/stats`);
+                const response = await fetch(`${API_URL}/api/stats`);
                 const data = await response.json();
                 
                 const running = data.docker?.running || 0;
@@ -1139,7 +930,7 @@
                 
                 try {
                     // Send command via chat API
-                    const response = await authFetch(`${API_URL}/api/chat`, {
+                    const response = await fetch(`${API_URL}/api/chat`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1191,7 +982,7 @@
         // ==========================================
         function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${window.location.host}/ws/chat?token=${authToken}`);
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/chat`);
             
             ws.onopen = () => {
                 document.getElementById('status-dot').classList.add('connected');
@@ -1440,7 +1231,7 @@
         // ==========================================
         async function loadConversations() {
             try {
-                const response = await authFetch(`${API_URL}/api/conversations`);
+                const response = await fetch(`${API_URL}/api/conversations`);
                 const conversations = await response.json();
                 
                 const list = document.getElementById('conversations-list');
@@ -1464,7 +1255,7 @@
         async function loadConversation(id) {
             currentConversationId = id;
             try {
-                const response = await authFetch(`${API_URL}/api/conversations/${id}`);
+                const response = await fetch(`${API_URL}/api/conversations/${id}`);
                 const conv = await response.json();
                 
                 const messages = document.getElementById('messages');
@@ -1495,7 +1286,7 @@
             if (!confirm('Supprimer cette conversation ?')) return;
             
             try {
-                await authFetch(`${API_URL}/api/conversations/${id}`, { method: 'DELETE' });
+                await fetch(`${API_URL}/api/conversations/${id}`, { method: 'DELETE' });
                 if (id === currentConversationId) {
                     newConversation();
                 }
@@ -1521,13 +1312,15 @@
         });
         
         // ==========================================
-        // INITIALIZATION (via checkAuth -> initApp)
+        // INITIALIZATION
         // ==========================================
-        // Note: L'initialisation principale passe par checkAuth() qui appelle initApp()
-        // après vérification de l'authentification
-        
         document.addEventListener('DOMContentLoaded', () => {
-            // checkAuth() est déjà appelé via un autre listener
+            connectWebSocket();
+            loadConversations();
+            fetchStats();
+            
+            // Fetch stats every 5 seconds
+            setInterval(fetchStats, 5000);
             
             // Keyboard shortcut: Ctrl+Enter to send
             document.addEventListener('keydown', (e) => {

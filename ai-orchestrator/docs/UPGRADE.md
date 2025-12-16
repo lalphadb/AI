@@ -290,7 +290,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /home/lalpha/.ssh/id_rsa_udm:/home/lalpha/.ssh/id_rsa_udm:ro
     networks:
-      - traefik-net
+      - unified-net
     # ... reste de la config
 ```
 

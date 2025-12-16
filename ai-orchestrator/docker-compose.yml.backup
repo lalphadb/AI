@@ -5,19 +5,12 @@ services:
       dockerfile: Dockerfile
     container_name: ai-orchestrator-backend
     restart: unless-stopped
-    env_file:
-      - ./backend/.env
     environment:
-      - OLLAMA_URL=http://host.docker.internal:11434
-      - CHROMADB_HOST=chromadb
-      - CHROMADB_PORT=8000
-    extra_hosts:
-      - "host.docker.internal:10.10.10.46"
+      - OLLAMA_URL=http://10.10.10.46:11434
     volumes:
       - ai-orchestrator-data:/data
       - /var/run/docker.sock:/var/run/docker.sock
       - /home/lalpha/.ssh/id_rsa_udm:/home/lalpha/.ssh/id_rsa_udm:ro
-      - /tmp/gpu-stats.txt:/tmp/gpu-stats.txt:ro
     networks:
       - unified-net
     healthcheck:

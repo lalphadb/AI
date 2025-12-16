@@ -227,7 +227,12 @@ pytest tests/ --cov=. --cov-report=html
 
 ## Changelog
 
-### v3.0.0 (2024-12-14)
+### v3.0.1 (2025-12-15)
+- Fix: UnboundLocalError sur conv_id dans WebSocket
+- Fix: docker-compose.yml utilise unified-net (au lieu de traefik-net)
+- Fix: Suppression de l'attribut version obsolète dans docker-compose
+
+### v3.0.0 (2025-12-14)
 - Authentification JWT et API keys
 - Rate limiting configurable
 - Validation de sécurité des commandes

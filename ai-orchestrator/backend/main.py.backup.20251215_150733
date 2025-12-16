@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Form, Depends, Request, Query
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Form, Depends, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
@@ -47,7 +47,6 @@ except ImportError:
 try:
     from auth import (
         get_current_user,
-        verify_token,
         get_current_active_user,
         get_optional_user,
         get_current_admin_user,
@@ -96,13 +95,6 @@ def optional_auth():
         return Depends(get_optional_user)
     return None
 
-
-# Helper pour protection obligatoire des endpoints
-def require_auth():
-    """Retourne une dépendance d'auth obligatoire si AUTH_ENABLED"""
-    if AUTH_ENABLED:
-        return Depends(get_current_active_user)
-    return None
 # Désactiver la télémétrie ChromaDB pour éviter l'erreur capture()
 import os
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
@@ -1631,7 +1623,7 @@ async def upload_file(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/chat")
-async def chat(request: ChatRequest, current_user = Depends(get_current_active_user) if AUTH_ENABLED else None):
+async def chat(request: ChatRequest):
     """Endpoint chat synchrone"""
     # Déterminer le modèle
     has_image = False
@@ -1680,20 +1672,8 @@ async def chat(request: ChatRequest, current_user = Depends(get_current_active_u
     }
 
 @app.websocket("/ws/chat")
-async def websocket_chat(websocket: WebSocket, token: str = Query(None)):
-    """WebSocket pour chat en temps réel (authentification requise si AUTH_ENABLED)"""
-    
-    # Vérification du token si AUTH_ENABLED
-    if AUTH_ENABLED:
-        if not token:
-            await websocket.close(code=4001, reason="Token required")
-            return
-        
-        token_data = verify_token(token)
-        if not token_data:
-            await websocket.close(code=4001, reason="Invalid token")
-            return
-    
+async def websocket_chat(websocket: WebSocket):
+    """WebSocket pour chat en temps réel"""
     await websocket.accept()
 
     conv_id = None  # Initialiser pour éviter UnboundLocalError
