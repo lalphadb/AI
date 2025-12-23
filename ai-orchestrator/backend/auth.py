@@ -316,7 +316,7 @@ def verify_token(token: str) -> Optional[TokenData]:
         return TokenData(username=username, scopes=scopes)
     except jwt.ExpiredSignatureError:
         return None
-    except jwt.JWTError:
+    except jwt.PyJWTError:
         return None
 
 def verify_refresh_token(token: str) -> Optional[int]:

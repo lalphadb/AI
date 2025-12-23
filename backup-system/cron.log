@@ -424,3 +424,32 @@
 🧹 7 anciens backups locaux supprimés
 
 📁 Backups locaux: /home/lalpha/projets/ai-tools/backup-system/local
+💾 Backup System v2.0 (Cloudflare R2)
+==================================================
+📅 2025-12-22 03:00:01
+
+📦 Création des backups...
+   ⚠️ Répertoire non trouvé: /home/lalpha/projets/infrastructure/4lb-docker-stack
+   ✅ ai-orchestrator: 1.50 MB
+   ✅ mcp-servers: 0.08 MB
+   ✅ documentation: 0.06 MB
+   ✅ scripts: 0.03 MB
+   ✅ postgres: 0.00 MB
+   ✅ self-improvement-reports: 0.00 MB
+
+✅ 6 backups créés
+📊 Taille totale: 1.68 MB
+
+☁️ Upload vers R2 (ai4lb-backups)...
+   ✅ ai-orchestrator_20251222_030001.tar.gz (1.50 MB)
+   ✅ mcp-servers_20251222_030001.tar.gz (0.08 MB)
+   ✅ documentation_20251222_030001.tar.gz (0.06 MB)
+   ✅ scripts_20251222_030001.tar.gz (0.03 MB)
+   ✅ postgres_20251222_030001.sql.gz (0.00 MB)
+   ✅ self-improvement-reports_20251222_030001.tar.gz (0.00 MB)
+
+✅ 6/6 fichiers uploadés vers R2
+
+🧹 7 anciens backups locaux supprimés
+
+📁 Backups locaux: /home/lalpha/projets/ai-tools/backup-system/local

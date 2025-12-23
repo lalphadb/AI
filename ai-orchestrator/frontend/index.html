@@ -1236,8 +1236,14 @@
             };
             
             ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === "auth_error") {
+                    console.log("🔐 Auth error:", data.message);
+                    addActivity("error", "🔐 " + data.message, "Reconnexion requise");
+                    doLogout();
+                    return;
+                }
                 try {
-                    const data = JSON.parse(event.data);
                     handleWebSocketMessage(data);
                 } catch (e) {
                     console.error('Parse error:', e);

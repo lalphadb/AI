@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""
+Orchestrateur IA 4LB.ca - Backend FastAPI v4.0 FINAL OPTIMISÉ
+"""
+
+import os
+import json
+import asyncio
+import sqlite3
+import httpx
+import subprocess
+import re
+import base64
+import uuid
+import logging
+from datetime import datetime
+from typing import Optional, List, Dict, Any
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Form, Depends, Request, Query
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+# Imports MCP (Nouveau v4.0)
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+# Configuration du Logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("4lb-orchestrator")
+
+# ===== CONFIGURATION & GLOBALES =====
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://10.10.10.46:11434")
+DB_PATH = "/data/orchestrator.db"
+UPLOAD_DIR = "/data/uploads"
+MAX_ITERATIONS = 20
+DEFAULT_MODEL = "qwen3-coder:480b-cloud"
+
+# Paramètres du serveur MCP local
+MCP_PARAMS = StdioServerParameters(
+    command="/home/lalpha/projets/ai-tools/mcp-servers/custom-admin-mcp/venv/bin/python",
+    args=["/home/lalpha/projets/ai-tools/mcp-servers/custom-admin-mcp/server.py"]
+)
+
+# ===== CLIENT MCP BRIDGE =====
+
+async def call_mcp_tool(tool_name: str, arguments: dict) -> str:
+    """Appelle un outil sur le serveur MCP 4LB local"""
+    try:
+        async with stdio_client(MCP_PARAMS) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool(tool_name, arguments)
+                return str(result)
+    except Exception as e:
+        return f"Erreur MCP: {str(e)}"
+
+# ===== BOUCLE REACT OPTIMISÉE (v4.0) =====
+
+async def react_loop(
+    user_message: str,
+    model: str,
+    conversation_id: str,
+    uploaded_files: list = None,
+    websocket: WebSocket = None
+):
+    """Boucle ReAct avec streaming et gestion robuste des erreurs"""
+    
+    # Imports dynamiques pour éviter les cycles
+    from prompts import build_system_prompt, get_urgency_message
+    from main_tools import TOOLS # Supposant que les outils sont exportés
+    
+    tools_desc = "\n".join([f"- {n}: {i['description']}" for n, i in TOOLS.items()])
+    system_prompt = build_system_prompt(tools_desc)
+    
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message}
+    ]
+    
+    iterations = 0
+    
+    # Client HTTP avec timeout étendu (300s) pour éviter les réponses vides
+    async with httpx.AsyncClient(timeout=300.0) as client:
+        while iterations < MAX_ITERATIONS:
+            iterations += 1
+            
+            if websocket:
+                await websocket.send_json({"type": "thinking", "iteration": iterations})
+
+            try:
+                # Appel Ollama
+                resp = await client.post(
+                    f"{OLLAMA_URL}/api/chat",
+                    json={
+                        "model": model,
+                        "messages": messages,
+                        "stream": False,
+                        "options": {"temperature": 0.2, "num_ctx": 32768}
+                    }
+                )
+                resp.raise_for_status()
+                assistant_text = resp.json().get("message", {}).get("content", "")
+                
+                if not assistant_text:
+                    raise ValueError("Le modèle a renvoyé une réponse vide")
+
+            except Exception as e:
+                logger.error(f"Erreur Inférence: {e}")
+                if websocket: await websocket.send_json({"type": "error", "message": str(e)})
+                return f"Erreur critique: {e}"
+
+            # Extraction de l'action
+            from main_parsers import parse_action # On utilise ton parser robuste
+            tool_name, params = parse_action(assistant_text)
+            
+            if websocket:
+                await websocket.send_json({"type": "step", "content": assistant_text})
+
+            if tool_name == "final_answer":
+                answer = params.get("answer", assistant_text)
+                if websocket:
+                    await websocket.send_json({"type": "complete", "answer": answer, "iterations": iterations})
+                return answer
+
+            # Exécution de l'outil (Priorité MCP si outil admin)
+            if tool_name in ["get_gpu_status", "clean_docker_logs"]:
+                result = await call_mcp_tool(tool_name, params)
+            else:
+                from main_tools_exec import execute_tool_v4
+                result = await execute_tool_v4(tool_name, params)
+
+            # Mise à jour du contexte
+            messages.append({"role": "assistant", "content": assistant_text})
+            messages.append({"role": "user", "content": f"RÉSULTAT: {result}\nContinue ou conclus."})
+            
+            if websocket:
+                await websocket.send_json({"type": "result", "tool": tool_name, "result": result[:500]})
+
+    return "Max iterations atteint."
+
+# ===== FASTAPI BOILERPLATE (v4.0) =====
+
+app = FastAPI(title="AI Orchestrator 4LB v4.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # À restreindre en prod selon SECURITY.md
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.websocket("/ws/chat")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_json()
+            message = data.get("message")
+            model = data.get("model", DEFAULT_MODEL)
+            conv_id = data.get("conversation_id") or str(uuid.uuid4())
+            
+            await react_loop(
+                user_message=message,
+                model=model,
+                conversation_id=conv_id,
+                websocket=websocket
+            )
+    except WebSocketDisconnect:
+        logger.info("Client déconnecté")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8001)

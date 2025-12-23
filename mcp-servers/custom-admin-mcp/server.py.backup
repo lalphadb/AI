@@ -1,0 +1,27 @@
+from mcp.server.fastmcp import FastMCP
+import subprocess
+import os
+
+mcp = FastMCP("4LB-Admin-Server")
+
+@mcp.tool()
+def get_gpu_status() -> str:
+    """Récupère l'état détaillé de la RTX 5070 Ti."""
+    try:
+        result = subprocess.check_output(["nvidia-smi", "--query-gpu=utilization.gpu,memory.total,memory.used,temp.gpu", "--format=csv,noheader,nounits"])
+        return f"Utilisation GPU: {result.decode().strip()}"
+    except Exception as e:
+        return f"Erreur GPU: {str(e)}"
+
+@mcp.tool()
+def clean_docker_logs(container_name: str) -> str:
+    """Nettoie les logs d'un container spécifique."""
+    try:
+        cmd = f"docker inspect --format='{{{{.LogPath}}}}' {container_name} | xargs truncate -s 0"
+        subprocess.run(cmd, shell=True, check=True)
+        return f"✅ Logs de {container_name} vidés."
+    except Exception as e:
+        return f"❌ Erreur: {str(e)}"
+
+if __name__ == "__main__":
+    mcp.run()
