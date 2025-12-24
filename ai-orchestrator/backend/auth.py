@@ -16,17 +16,22 @@ from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm, APIKeyHeader
 from pydantic import BaseModel
 import jwt
+from dotenv import load_dotenv
+
+# Charger les variables d'environnement
+load_dotenv()
 
 # ===== CONFIGURATION =====
 
 # Clé secrète pour JWT - DOIT être changée en production
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(32))
+print(f"🔐 AUTH: Loaded SECRET_KEY starting with {SECRET_KEY[:5]}...")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 # Base de données des utilisateurs
-AUTH_DB_PATH = os.getenv("AUTH_DB_PATH", "/data/auth.db")
+AUTH_DB_PATH = os.getenv("AUTH_DB_PATH", "data/auth.db")
 
 # API Key header pour les intégrations
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)

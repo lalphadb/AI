@@ -22,11 +22,11 @@ class Settings(BaseSettings):
     port: int = 8001
 
     # === BASE DE DONNÉES ===
-    db_path: str = "/data/orchestrator.db"
-    auth_db_path: str = "/data/auth.db"
+    db_path: str = "data/orchestrator.db"
+    auth_db_path: str = "data/auth.db"
 
     # === UPLOADS ===
-    upload_dir: str = "/data/uploads"
+    upload_dir: str = "data/uploads"
     max_upload_size: int = 50 * 1024 * 1024  # 50MB
 
     # === OLLAMA ===
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     llm_timeout: int = 180
 
     # === CHROMADB ===
-    chromadb_host: str = "chromadb"
+    chromadb_host: str = "localhost"
     chromadb_port: int = 8000
 
     # === SÉCURITÉ ===
@@ -69,7 +69,7 @@ class Settings(BaseSettings):
 
     # === LOGGING ===
     log_level: str = "INFO"
-    audit_log_path: str = "/data/audit.log"
+    audit_log_path: str = "data/audit.log"
 
     class Config:
         env_prefix = "AI_"

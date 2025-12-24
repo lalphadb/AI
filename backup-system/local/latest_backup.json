@@ -1,37 +1,37 @@
 {
-  "timestamp": "2025-12-22T03:00:03.307174",
+  "timestamp": "2025-12-23T03:00:08.909397",
   "backups": [
     {
-      "name": "ai-orchestrator_20251222_030001.tar",
-      "size_mb": 1.5029573440551758,
-      "path": "/home/lalpha/projets/ai-tools/backup-system/local/ai-orchestrator_20251222_030001.tar.gz"
+      "name": "ai-orchestrator_20251223_030001.tar",
+      "size_mb": 1.5249814987182617,
+      "path": "/home/lalpha/projets/ai-tools/backup-system/local/ai-orchestrator_20251223_030001.tar.gz"
     },
     {
-      "name": "mcp-servers_20251222_030001.tar",
-      "size_mb": 0.07707786560058594,
-      "path": "/home/lalpha/projets/ai-tools/backup-system/local/mcp-servers_20251222_030001.tar.gz"
+      "name": "mcp-servers_20251223_030001.tar",
+      "size_mb": 18.756360054016113,
+      "path": "/home/lalpha/projets/ai-tools/backup-system/local/mcp-servers_20251223_030001.tar.gz"
     },
     {
-      "name": "documentation_20251222_030001.tar",
-      "size_mb": 0.0634603500366211,
-      "path": "/home/lalpha/projets/ai-tools/backup-system/local/documentation_20251222_030001.tar.gz"
+      "name": "documentation_20251223_030003.tar",
+      "size_mb": 0.06439971923828125,
+      "path": "/home/lalpha/projets/ai-tools/backup-system/local/documentation_20251223_030003.tar.gz"
     },
     {
-      "name": "scripts_20251222_030001.tar",
+      "name": "scripts_20251223_030003.tar",
       "size_mb": 0.032169342041015625,
-      "path": "/home/lalpha/projets/ai-tools/backup-system/local/scripts_20251222_030001.tar.gz"
+      "path": "/home/lalpha/projets/ai-tools/backup-system/local/scripts_20251223_030003.tar.gz"
     },
     {
-      "name": "postgres_20251222_030001.sql",
+      "name": "postgres_20251223_030003.sql",
       "size_mb": 1.9073486328125e-05,
-      "path": "/home/lalpha/projets/ai-tools/backup-system/local/postgres_20251222_030001.sql.gz"
+      "path": "/home/lalpha/projets/ai-tools/backup-system/local/postgres_20251223_030003.sql.gz"
     },
     {
-      "name": "self-improvement-reports_20251222_030001.tar",
-      "size_mb": 0.0048923492431640625,
-      "path": "/home/lalpha/projets/ai-tools/backup-system/local/self-improvement-reports_20251222_030001.tar.gz"
+      "name": "self-improvement-reports_20251223_030003.tar",
+      "size_mb": 0.005068778991699219,
+      "path": "/home/lalpha/projets/ai-tools/backup-system/local/self-improvement-reports_20251223_030003.tar.gz"
     }
   ],
-  "total_size_mb": 1.6805763244628906,
+  "total_size_mb": 20.3829984664917,
   "r2_bucket": "ai4lb-backups"
 }

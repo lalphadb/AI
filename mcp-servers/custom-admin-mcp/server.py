@@ -1,43 +1,43 @@
 #!/usr/bin/env python3
 """
-MCP Server 4LB.ca v2.1 - Accès complet pour Gemini + REST API
-Outils de lecture, écriture, modification et administration
-Supporte MCP (SSE) ET REST API directe
+MCP Server 4LB.ca v2.2 - Double interface: MCP SSE + REST API
+Pour Gemini (MCP) ET pour l'Orchestrateur (REST)
 """
 
 from mcp.server.fastmcp import FastMCP
+import subprocess
+import os
+import shutil
+from datetime import datetime
+from pathlib import Path
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
-import subprocess
-import os
-import shutil
-import uvicorn
-from datetime import datetime
-from pathlib import Path
+import threading
+import asyncio
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
 
 HOST = "0.0.0.0"
-PORT = 8888
+MCP_PORT = 8888   # Pour Gemini (MCP SSE)
+REST_PORT = 8889  # Pour l'Orchestrateur (REST API)
 
-# Chemins autorisés pour lecture/écriture
 ALLOWED_PATHS = [
+    "/home/lalpha",
     "/home/lalpha/projets",
     "/home/lalpha/scripts",
     "/home/lalpha/documentation",
     "/tmp"
 ]
 
-# Chemins interdits
 FORBIDDEN_PATHS = [".env", "id_rsa", "id_ed25519", ".ssh/", "secrets", ".git/objects"]
 FORBIDDEN_EXTENSIONS = [".key", ".pem", ".p12"]
 
-def is_path_allowed(path: str, write: bool = False) -> tuple[bool, str]:
-    """Vérifie si un chemin est autorisé"""
+def is_path_allowed(path: str, write: bool = False) -> tuple:
     try:
         abs_path = os.path.abspath(os.path.expanduser(path))
         for forbidden in FORBIDDEN_PATHS:
@@ -55,52 +55,7 @@ def is_path_allowed(path: str, write: bool = False) -> tuple[bool, str]:
         return False, f"Erreur: {str(e)}"
 
 # ============================================================
-# APPLICATION FASTAPI + MCP
-# ============================================================
-
-app = FastAPI(title="4LB MCP Server v2.1", description="MCP + REST API")
-
-# CORS pour accès externe
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# MCP Server
-mcp = FastMCP("4LB-Admin-Server-v2", host=HOST, port=PORT)
-
-# ============================================================
-# MODÈLES PYDANTIC POUR REST API
-# ============================================================
-
-class FileReadRequest(BaseModel):
-    path: str
-    lines: int = 0
-
-class FileWriteRequest(BaseModel):
-    path: str
-    content: str
-    backup: bool = True
-
-class FilePatchRequest(BaseModel):
-    path: str
-    old_text: str
-    new_text: str
-    backup: bool = True
-
-class CommandRequest(BaseModel):
-    command: str
-    cwd: str = "/home/lalpha"
-
-class GitCommitRequest(BaseModel):
-    repo_path: str
-    message: str
-    add_all: bool = True
-
-# ============================================================
-# FONCTIONS OUTILS (partagées entre MCP et REST)
+# FONCTIONS OUTILS (partagées)
 # ============================================================
 
 def _get_gpu_status() -> str:
@@ -111,12 +66,7 @@ def _get_gpu_status() -> str:
             "--format=csv,noheader"
         ])
         data = result.decode().strip().split(", ")
-        return f"""🎮 GPU Status:
-- Modèle: {data[0]}
-- Utilisation: {data[1]}%
-- VRAM: {data[3]} / {data[2]} ({data[4]} libre)
-- Température: {data[5]}°C
-- Consommation: {data[6]}W"""
+        return f"🎮 GPU: {data[0]} | {data[1]}% | VRAM: {data[3]}/{data[2]} | {data[5]}°C | {data[6]}W"
     except Exception as e:
         return f"❌ Erreur GPU: {str(e)}"
 
@@ -126,26 +76,13 @@ def _get_system_status() -> str:
         load = subprocess.check_output(["cat", "/proc/loadavg"]).decode().strip()
         mem = subprocess.check_output(["free", "-h", "--si"]).decode()
         disk = subprocess.check_output(["df", "-h", "/"]).decode()
-        uptime = subprocess.check_output(["uptime", "-p"]).decode().strip()
-        return f"""🖥️ System Status:
-- CPU Cores: {cpu}
-- Load: {load}
-- Uptime: {uptime}
-
-📊 Mémoire:
-{mem}
-
-💾 Disque:
-{disk}"""
+        return f"🖥️ CPU: {cpu} cores | Load: {load}\n📊 Mémoire:\n{mem}\n💾 Disque:\n{disk}"
     except Exception as e:
         return f"❌ Erreur: {str(e)}"
 
-def _get_docker_status(all_containers: bool = False) -> str:
+def _get_docker_status() -> str:
     try:
-        cmd = ["docker", "ps", "--format", "table {{.Names}}\t{{.Status}}\t{{.Ports}}"]
-        if all_containers:
-            cmd.insert(2, "-a")
-        result = subprocess.check_output(cmd)
+        result = subprocess.check_output(["docker", "ps", "--format", "table {{.Names}}\t{{.Status}}\t{{.Ports}}"])
         return f"🐳 Docker:\n{result.decode()}"
     except Exception as e:
         return f"❌ Erreur: {str(e)}"
@@ -163,8 +100,7 @@ def _read_file(path: str, lines: int = 0) -> str:
                 content = ''.join(f.readlines()[:lines])
             else:
                 content = f.read()
-        size = os.path.getsize(abs_path)
-        return f"📄 {abs_path} ({size} bytes):\n\n{content}"
+        return f"📄 {abs_path} ({os.path.getsize(abs_path)} bytes):\n\n{content}"
     except Exception as e:
         return f"❌ Erreur: {str(e)}"
 
@@ -207,7 +143,7 @@ def _patch_file(path: str, old_text: str, new_text: str, backup: bool = True) ->
     except Exception as e:
         return f"❌ Erreur: {str(e)}"
 
-def _list_directory(path: str, recursive: bool = False) -> str:
+def _list_directory(path: str) -> str:
     allowed, msg = is_path_allowed(path, write=False)
     if not allowed:
         return f"❌ {msg}"
@@ -299,8 +235,10 @@ def _python_check_syntax(path: str) -> str:
         return f"❌ Erreur: {str(e)}"
 
 # ============================================================
-# OUTILS MCP (décorateurs @mcp.tool)
+# MCP SERVER (Port 8888 pour Gemini)
 # ============================================================
+
+mcp = FastMCP("4LB-Admin-Server-v2", host=HOST, port=MCP_PORT)
 
 @mcp.tool()
 def get_gpu_status() -> str:
@@ -313,29 +251,29 @@ def get_system_status() -> str:
     return _get_system_status()
 
 @mcp.tool()
-def get_docker_status(all_containers: bool = False) -> str:
+def get_docker_status() -> str:
     """Liste les containers Docker."""
-    return _get_docker_status(all_containers)
+    return _get_docker_status()
 
 @mcp.tool()
 def read_file(path: str, lines: int = 0) -> str:
-    """Lire un fichier. lines=0 pour tout."""
+    """Lire un fichier."""
     return _read_file(path, lines)
 
 @mcp.tool()
 def write_file(path: str, content: str, backup: bool = True) -> str:
-    """Écrire un fichier avec backup automatique."""
+    """Écrire un fichier avec backup."""
     return _write_file(path, content, backup)
 
 @mcp.tool()
 def patch_file(path: str, old_text: str, new_text: str, backup: bool = True) -> str:
-    """Modifier du texte dans un fichier (search/replace)."""
+    """Modifier du texte (search/replace)."""
     return _patch_file(path, old_text, new_text, backup)
 
 @mcp.tool()
-def list_directory(path: str, recursive: bool = False) -> str:
+def list_directory(path: str) -> str:
     """Lister un répertoire."""
-    return _list_directory(path, recursive)
+    return _list_directory(path)
 
 @mcp.tool()
 def run_command(command: str, cwd: str = "/home/lalpha") -> str:
@@ -368,79 +306,125 @@ def python_check_syntax(path: str) -> str:
     return _python_check_syntax(path)
 
 # ============================================================
-# ENDPOINTS REST API (pour accès HTTP direct)
+# REST API SERVER (Port 8889 pour l'Orchestrateur)
 # ============================================================
 
-@app.get("/")
+rest_app = FastAPI(title="4LB MCP REST API", version="2.2")
+
+rest_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Modèles Pydantic
+class CommandRequest(BaseModel):
+    command: str
+    cwd: str = "/home/lalpha"
+
+class FileReadRequest(BaseModel):
+    path: str
+    lines: int = 0
+
+class FileWriteRequest(BaseModel):
+    path: str
+    content: str
+    backup: bool = True
+
+class FilePatchRequest(BaseModel):
+    path: str
+    old_text: str
+    new_text: str
+    backup: bool = True
+
+class DockerRequest(BaseModel):
+    container: str
+    lines: int = 50
+
+class GitCommitRequest(BaseModel):
+    repo_path: str
+    message: str
+    add_all: bool = True
+
+# Endpoints REST
+@rest_app.get("/")
 def root():
-    return {"server": "4LB MCP Server v2.1", "status": "running", "mcp": "/sse", "api": "/api/*"}
+    return {"server": "4LB MCP REST API v2.2", "status": "running"}
 
-@app.get("/api/status")
-def api_status():
-    return {"gpu": _get_gpu_status(), "system": _get_system_status(), "docker": _get_docker_status()}
+@rest_app.get("/health")
+def health():
+    return {"status": "ok"}
 
-@app.get("/api/gpu")
-def api_gpu():
-    return {"result": _get_gpu_status()}
-
-@app.get("/api/system")
-def api_system():
-    return {"result": _get_system_status()}
-
-@app.get("/api/docker")
-def api_docker():
-    return {"result": _get_docker_status()}
-
-@app.post("/api/read_file")
-def api_read_file(req: FileReadRequest):
-    return {"result": _read_file(req.path, req.lines)}
-
-@app.post("/api/write_file")
-def api_write_file(req: FileWriteRequest):
-    return {"result": _write_file(req.path, req.content, req.backup)}
-
-@app.post("/api/patch_file")
-def api_patch_file(req: FilePatchRequest):
-    return {"result": _patch_file(req.path, req.old_text, req.new_text, req.backup)}
-
-@app.post("/api/run_command")
+@rest_app.post("/tools/run_command")
 def api_run_command(req: CommandRequest):
     return {"result": _run_command(req.command, req.cwd)}
 
-@app.get("/api/list/{path:path}")
-def api_list(path: str):
-    return {"result": _list_directory(f"/{path}")}
+@rest_app.post("/tools/read_file")
+def api_read_file(req: FileReadRequest):
+    return {"result": _read_file(req.path, req.lines)}
 
-@app.get("/api/docker/logs/{container}")
-def api_docker_logs(container: str, lines: int = 50):
-    return {"result": _docker_logs(container, lines)}
+@rest_app.post("/tools/write_file")
+def api_write_file(req: FileWriteRequest):
+    return {"result": _write_file(req.path, req.content, req.backup)}
 
-@app.post("/api/docker/restart/{container}")
+@rest_app.post("/tools/patch_file")
+def api_patch_file(req: FilePatchRequest):
+    return {"result": _patch_file(req.path, req.old_text, req.new_text, req.backup)}
+
+@rest_app.post("/tools/list_directory")
+def api_list_directory(path: str = "/home/lalpha"):
+    return {"result": _list_directory(path)}
+
+@rest_app.get("/tools/get_gpu_status")
+def api_gpu():
+    return {"result": _get_gpu_status()}
+
+@rest_app.get("/tools/get_system_status")
+def api_system():
+    return {"result": _get_system_status()}
+
+@rest_app.get("/tools/get_docker_status")
+def api_docker():
+    return {"result": _get_docker_status()}
+
+@rest_app.post("/tools/docker_logs")
+def api_docker_logs(req: DockerRequest):
+    return {"result": _docker_logs(req.container, req.lines)}
+
+@rest_app.post("/tools/docker_restart")
 def api_docker_restart(container: str):
     return {"result": _docker_restart(container)}
 
-@app.get("/api/git/status")
+@rest_app.get("/tools/git_status")
 def api_git_status(repo: str = "/home/lalpha/projets"):
     return {"result": _git_status(repo)}
 
-@app.post("/api/git/commit")
+@rest_app.post("/tools/git_commit")
 def api_git_commit(req: GitCommitRequest):
     return {"result": _git_commit(req.repo_path, req.message, req.add_all)}
 
-@app.get("/api/python/check/{path:path}")
+@rest_app.post("/tools/python_check_syntax")
 def api_python_check(path: str):
-    return {"result": _python_check_syntax(f"/{path}")}
+    return {"result": _python_check_syntax(path)}
 
 # ============================================================
-# POINT D'ENTRÉE
+# LANCEMENT DUAL (MCP + REST)
 # ============================================================
+
+def run_rest_server():
+    """Lance le serveur REST en thread séparé"""
+    uvicorn.run(rest_app, host=HOST, port=REST_PORT, log_level="warning")
 
 if __name__ == "__main__":
-    print("🚀 MCP Server 4LB v2.1 - Démarrage...")
-    print(f"📡 MCP SSE: http://{HOST}:{PORT}/sse")
-    print(f"🌐 REST API: http://{HOST}:{PORT}/api/*")
+    print("🚀 MCP Server 4LB v2.2 - Double interface")
+    print(f"📡 MCP SSE (Gemini): http://{HOST}:{MCP_PORT}/sse")
+    print(f"🌐 REST API (Orchestrateur): http://{HOST}:{REST_PORT}/tools/*")
     print(f"📁 Chemins autorisés: {ALLOWED_PATHS}")
     
-    # Lancer avec les deux interfaces
-    # Note: FastMCP gère /sse, FastAPI gère le reste
+    # Lancer REST API en thread séparé
+    rest_thread = threading.Thread(target=run_rest_server, daemon=True)
+    rest_thread.start()
+    
+    # Lancer MCP en principal
     mcp.run(transport="sse")

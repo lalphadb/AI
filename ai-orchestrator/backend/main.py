@@ -21,7 +21,8 @@ from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Form, Depends, Request, Query
-from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
@@ -89,6 +90,20 @@ except ImportError:
     CONFIG_ENABLED = False
     print("⚠️ Module config non disponible - Configuration par défaut")
 
+try:
+    from prompts import build_system_prompt, get_urgency_message
+    PROMPTS_ENABLED = True
+except ImportError:
+    PROMPTS_ENABLED = False
+    print("⚠️ Module prompts non disponible - Prompts par défaut")
+
+try:
+    from dynamic_context import get_dynamic_context
+    DYNAMIC_CONTEXT_ENABLED = True
+except ImportError:
+    DYNAMIC_CONTEXT_ENABLED = False
+    print("⚠️ Module dynamic_context non disponible")
+
 # Helper pour protection optionnelle des endpoints
 def optional_auth():
     """Retourne une dépendance d'auth si AUTH_ENABLED, sinon None"""
@@ -133,10 +148,10 @@ except ImportError:
 # ===== CONFIGURATION =====
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://10.10.10.46:11434")
-DB_PATH = "/data/orchestrator.db"
-UPLOAD_DIR = "/data/uploads"
+DB_PATH = "data/orchestrator.db"
+UPLOAD_DIR = "data/uploads"
 # ChromaDB pour mémoire sémantique
-CHROMADB_HOST = os.getenv("CHROMADB_HOST", "chromadb")
+CHROMADB_HOST = os.getenv("CHROMADB_HOST", "localhost")
 CHROMADB_PORT = int(os.getenv("CHROMADB_PORT", "8000"))
 
 def get_chroma_client():
@@ -158,7 +173,7 @@ def get_memory_collection():
         )
     return None
 
-MAX_ITERATIONS = 12
+MAX_ITERATIONS = 20
 
 # Modèles disponibles avec leurs spécialités
 MODELS = {
@@ -833,7 +848,7 @@ async def execute_tool(tool_name: str, params: dict, uploaded_files: dict = None
                         "images": [content],
                         "stream": False
                     },
-                    timeout=300
+                    timeout=180
                 )
                 data = resp.json()
                 return f"Analyse de l'image:\n{data.get('response', 'Erreur analyse')}"
@@ -1042,6 +1057,28 @@ def parse_action(text: str) -> tuple:
     
     # CAS SPECIAL: final_answer
     if "final_answer" in text:
+        # Support des triple quotes avec regex pour gérer les espaces
+        # Ex: final_answer(answer = """...""")
+        triple_match = re.search(r'answer\s*=\s*"""(.*?)"""', text, re.DOTALL)
+        if triple_match:
+            content = triple_match.group(1)
+            content = content.replace('\\n', '\n')
+            print(f"🎯 PARSE final_answer (triple quotes regex): {len(content)} chars")
+            return "final_answer", {"answer": content.strip()}
+
+        # Support des triple quotes méthode manuelle (fallback)
+        if '"""' in text:
+            start_marker = '"""'
+            start_idx = text.find(start_marker)
+            if start_idx != -1:
+                # Chercher la fin
+                end_idx = text.rfind(start_marker)
+                if end_idx > start_idx:
+                    content = text[start_idx + 3 : end_idx]
+                    content = content.replace('\\n', '\n')
+                    print(f"🎯 PARSE final_answer (triple quotes manual): {len(content)} chars")
+                    return "final_answer", {"answer": content.strip()}
+
         # Méthode 1: Chercher answer="..." avec guillemets doubles
         match = re.search(r'final_answer\s*\(\s*answer\s*=\s*"(.*)"?\s*\)?$', text, re.DOTALL)
         if match:
@@ -1051,6 +1088,8 @@ def parse_action(text: str) -> tuple:
             while answer and answer[-1] in '")\'\\':
                 answer = answer[:-1]
             answer = answer.rstrip()
+            # Remplacer les sauts de ligne échappés
+            answer = answer.replace('\\n', '\n')
             print(f"🎯 PARSE final_answer (method1): {len(answer)} chars")
             return "final_answer", {"answer": answer}
         
@@ -1059,25 +1098,23 @@ def parse_action(text: str) -> tuple:
         if idx >= 0:
             content_start = idx + 8  # len('answer="')
             content = text[content_start:]
-            # Enlever ") ou " à la fin
-            content = content.rstrip()
-            if content.endswith('")'):
-                content = content[:-2]
+            
+            # Nettoyage robuste de la fin (enlever les fermetures de fonction)
+            # On cherche la dernière occurrence de ") qui ferme probablement la fonction
+            last_quote_paren = content.rfind('")')
+            if last_quote_paren != -1:
+                content = content[:last_quote_paren]
             elif content.endswith('"'):
                 content = content[:-1]
-            elif content.endswith(')'):
-                content = content[:-1]
+            
+            # Si le contenu commence par "", c'était peut-être des triple quotes mal parsées
+            if content.startswith('""'):
+                content = content[2:]
+            
+            # Remplacer les sauts de ligne échappés par de vrais sauts de ligne
+            content = content.replace('\\n', '\n')
+            
             print(f"🎯 PARSE final_answer (method2): {len(content)} chars")
-            # Nettoyage final - enlever ") ou ' ou " à la fin
-            content = content.rstrip()
-            if content.endswith('")'):
-                content = content[:-2]
-            elif content.endswith('"'):
-                content = content[:-1]
-            elif content.endswith("')"):
-                content = content[:-2]
-            elif content.endswith("'"):
-                content = content[:-1]
             return "final_answer", {"answer": content.strip()}
         
         # Méthode 3: guillemets simples
@@ -1145,109 +1182,22 @@ async def react_loop(
         for name, info in TOOLS.items()
     ])
     
-    system_prompt = f"""Tu es un EXPERT DevOps/SysAdmin/Développeur pour le serveur 4LB.ca.
+    if PROMPTS_ENABLED:
+        dynamic_ctx = ""
+        if DYNAMIC_CONTEXT_ENABLED:
+            dynamic_ctx = get_dynamic_context()
+        system_prompt = build_system_prompt(tools_desc, files_context, dynamic_ctx)
+    else:
+        system_prompt = f"""Tu es un assistant IA expert pour l'infrastructure 4LB.ca.
 
-## 🖥️ INFRASTRUCTURE 4LB.ca
-- **Serveur**: Ubuntu 25.10, AMD Ryzen 9 7900X (12 cores), RTX 5070 Ti 16GB, 64GB RAM
-- **Projets**: /home/lalpha/projets/ (ai-tools/, clients/, infrastructure/)
-- **Clients**: /home/lalpha/projets/clients/jsr/ (JSR, JSR-solutions)
-- **Docker**: unified-stack (14 services sur unified-net)
-- **Domaines**: ai.4lb.ca, llm.4lb.ca, grafana.4lb.ca, jsr.4lb.ca
-- **LLM**: Ollama avec qwen2.5-coder:32b, deepseek-coder:33b, qwen3-vl:32b
-
-## 🎯 MÉTHODOLOGIE OBLIGATOIRE
-
-### Pour ANALYSER un projet:
-1. **PLAN**: Décris en 3 lignes ce que tu vas faire
-2. **STRUCTURE**: list_directory() pour voir l'arborescence
-3. **FICHIERS CLÉS**: read_file() sur package.json, README.md, Dockerfile, fichiers source principaux
-4. **SYNTHÈSE**: Compte-rendu STRUCTURÉ avec le format ci-dessous
-
-### FORMAT DE COMPTE-RENDU:
-```
-## Résumé Exécutif
-[2-3 phrases sur le projet]
-
-## Stack Technique  
-- Frontend: [React, Vue, etc.]
-- Backend: [Python, Node, etc.]
-- Base de données: [si applicable]
-- Déploiement: [Docker, etc.]
-
-## Architecture
-[Organisation du code, patterns utilisés]
-
-## Points Forts
-- [Élément positif 1]
-- [Élément positif 2]
-
-## Points d'Attention
-- [Problème ou risque identifié]
-
-## Recommandations
-- [Action concrète à prendre]
-```
-
-## ⚠️ RÈGLES CRITIQUES
-1. **LIS** les fichiers importants, ne te contente PAS de les lister
-2. Tu as **12 itérations** - utilise-les TOUTES si nécessaire
-3. Ne conclus **JAMAIS** avant d'avoir lu les fichiers clés
-4. Réponds de manière **COMPLÈTE et PROFESSIONNELLE**
-5. TOUJOURS finir par final_answer() avec le format ci-dessus
-
-🎯 PRINCIPES:
-1. TOUJOURS lire les fichiers importants AVANT de répondre (package.json, README, fichiers principaux)
-2. Fournir des analyses COMPLÈTES, pas superficielles
-3. Utiliser TOUS les outils nécessaires - pas de limite artificielle
-4. Donner des INSIGHTS concrets, pas des généralités
-
-📂 POUR ANALYSER UN PROJET:
-1. list_directory(path="...") - Vue d'ensemble de la structure
-2. read_file() sur les fichiers clés: package.json, README.md, .env.example, Dockerfile
-3. read_file() sur les fichiers source principaux (App.tsx, main.py, index.js, etc.)
-4. Synthétiser avec un compte-rendu STRUCTURÉ
-
-📊 FORMAT DE COMPTE-RENDU PROFESSIONNEL:
-## Résumé Exécutif
-[1-2 phrases sur le projet]
-
-## Stack Technique
-- Frontend: [technologies]
-- Backend: [technologies]
-- Base de données: [si applicable]
-- Déploiement: [Docker, etc.]
-
-## Architecture
-[Description de l'organisation du code]
-
-## Points Forts
-- [Point 1]
-- [Point 2]
-
-## Points d'Attention
-- [Problème potentiel 1]
-- [Amélioration suggérée]
-
-## Recommandations
-[Actions concrètes à prendre]
-
-🔧 OUTILS DISPONIBLES:
+Outils disponibles:
 {tools_desc}
-
-🧠 MÉMOIRE:
-- memory_recall(query="...") → Rechercher dans la mémoire
-- memory_store(key="...", value="...") → Sauvegarder une info
 {files_context}
 
-FORMAT D'ACTION:
-THINK: [Réflexion sur ce qu'il faut faire]
-ACTION: outil(param="valeur")
-
-⚠️ IMPORTANT:
-- Tu peux faire jusqu'à 12 itérations si nécessaire
-- Ne conclus PAS avant d'avoir assez d'informations
-- LIS les fichiers, ne te contente pas de les lister
-- TOUJOURS finir par final_answer() avec une réponse COMPLÈTE"""
+Utilise le format:
+THINK: [Réflexion]
+ACTION: tool(param="valeur")
+"""
 
     messages = [{"role": "system", "content": system_prompt}]
     messages.append({"role": "user", "content": user_message})
@@ -1280,7 +1230,7 @@ ACTION: outil(param="valeur")
                             "num_predict": 2000
                         }
                     },
-                    timeout=300
+                    timeout=180
                 )
                 data = response.json()
                 assistant_text = data.get("message", {}).get("content", "")
@@ -1448,7 +1398,7 @@ class ConversationUpdate(BaseModel):
 
 # ===== ENDPOINTS API =====
 
-@app.get("/")
+@app.get("/api/status")
 async def root():
     return {"status": "ok", "service": "AI Orchestrator v3.0", "tools": len(TOOLS)}
 
@@ -1747,21 +1697,18 @@ async def chat(request: ChatRequest, current_user = Depends(get_current_active_u
 async def websocket_chat(websocket: WebSocket, token: str = Query(None)):
     """WebSocket pour chat en temps réel (authentification requise si AUTH_ENABLED)"""
     
-    # TOUJOURS accepter d'abord, puis vérifier le token
-    await websocket.accept()
-    
     # Vérification du token si AUTH_ENABLED
     if AUTH_ENABLED:
         if not token:
-            await websocket.send_json({"type": "auth_error", "message": "Token required"})
             await websocket.close(code=4001, reason="Token required")
             return
         
         token_data = verify_token(token)
         if not token_data:
-            await websocket.send_json({"type": "auth_error", "message": "Token expired or invalid"})
-            await websocket.close(code=4001, reason="Invalid or expired token")
+            await websocket.close(code=4001, reason="Invalid token")
             return
+    
+    await websocket.accept()
 
     conv_id = None  # Initialiser pour éviter UnboundLocalError
 
@@ -1884,6 +1831,12 @@ async def delete_conv(conversation_id: str):
     """Supprimer une conversation"""
     delete_conversation(conversation_id)
     return {"success": True}
+
+# Servir le frontend
+try:
+    app.mount("/", StaticFiles(directory="../frontend", html=True), name="frontend")
+except Exception as e:
+    print(f"⚠️ Impossible de monter le frontend: {e}")
 
 # ===== POINT D'ENTRÉE =====
 
