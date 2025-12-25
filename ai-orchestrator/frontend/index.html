@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr" class="dark">
 <head>
+    <!-- v4.0.1766609221 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Orchestrator v4.0</title>
@@ -147,7 +148,7 @@
         }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-200 h-screen flex overflow-hidden selection:bg-primary-500/30">
+<body class="bg-slate-950 text-slate-200 h-screen flex overflow-hidden selection:bg-primary-500 selection:text-white">
 
     <!-- Sidebar -->
     <aside id="sidebar" class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 transform translate-x-0">
@@ -261,7 +262,7 @@
 
         <!-- Chat Area -->
         <div id="chat-container" class="flex-1 overflow-y-auto p-4 scroll-smooth">
-            <div class="max-w-3xl mx-auto space-y-6 pb-4" id="messages">
+            <div class="max-w-6xl mx-auto space-y-6 pb-4" id="messages">
                 <!-- Welcome Message -->
                 <div class="flex flex-col items-center justify-center h-full text-center space-y-4 mt-20 opacity-50">
                     <div class="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mb-4">
@@ -278,7 +279,7 @@
 
         <!-- Input Area -->
         <div class="p-4 border-t border-slate-800 bg-slate-950">
-            <div class="max-w-3xl mx-auto">
+            <div class="max-w-6xl mx-auto">
                 <!-- Attachments Preview -->
                 <div id="attachments-preview" class="flex flex-wrap gap-2 mb-2 empty:hidden"></div>
                 
@@ -428,7 +429,7 @@
 
             const bubbleClass = role === 'user'
                 ? 'bg-primary-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%]'
-                : 'bg-slate-900 border border-slate-800 rounded-2xl rounded-tl-sm px-6 py-4 w-full max-w-3xl shadow-sm';
+                : 'bg-slate-900 border border-slate-800 rounded-2xl rounded-tl-sm px-6 py-4 w-full max-w-6xl shadow-sm relative group';
 
             let innerContent = '';
             
@@ -537,6 +538,14 @@
                 markdownBody.querySelectorAll('pre code').forEach((block) => {
                     hljs.highlightElement(block);
                 });
+
+                // Add Copy Button
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'absolute top-2 right-2 p-2 text-slate-500 hover:text-white bg-slate-800/50 hover:bg-slate-700 rounded-lg opacity-0 group-hover:opacity-100 transition-all';
+                copyBtn.innerHTML = '<i class="ri-file-copy-line"></i>';
+                copyBtn.title = 'Copier la réponse';
+                copyBtn.onclick = () => copyToClipboard(cleanContent, copyBtn);
+                msgDiv.querySelector('.bg-slate-900').appendChild(copyBtn);
             }
             
             // Stop pulsing dot
@@ -558,6 +567,21 @@
             
             if (!message || isProcessing) return;
             
+            // Check WS connection before sending
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                console.log("WS not connected, trying to reconnect...");
+                connectWebSocket();
+                // Wait a bit
+                await new Promise(r => setTimeout(r, 1000));
+                
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    addMessage('user', message);
+                    const errDiv = addMessage('assistant', '...');
+                    finalizeMessage(errDiv, "❌ Erreur: WebSocket non connecté. Tentative de reconnexion en cours... Réessayez dans quelques secondes.");
+                    return;
+                }
+            }
+            
             // UI Updates
             isProcessing = true;
             document.getElementById('send-btn').disabled = true;
@@ -570,7 +594,7 @@
             const assistantMsgDiv = addMessage('assistant', '...');
             
             // Send via WebSocket
-            if (ws && ws.readyState === WebSocket.OPEN) {
+            try {
                 const payload = {
                     message: message,
                     model: document.getElementById('model-select').value,
@@ -585,8 +609,8 @@
                 // Clear attachments
                 attachedFiles = [];
                 document.getElementById('attachments-preview').innerHTML = '';
-            } else {
-                finalizeMessage(assistantMsgDiv, "❌ Erreur: WebSocket non connecté. Veuillez rafraîchir la page.");
+            } catch (e) {
+                finalizeMessage(assistantMsgDiv, "❌ Erreur d'envoi: " + e.message);
                 isProcessing = false;
                 document.getElementById('send-btn').disabled = false;
             }
@@ -609,6 +633,12 @@
             };
             
             ws.onclose = (event) => {
+                // Code 4001 = token invalide ou expiré - forcer la déconnexion
+                if (event.code === 4001) {
+                    console.log("🔒 Token invalide/expiré, déconnexion...");
+                    doLogout();
+                    return;
+                }
                 console.log('🔴 WS Disconnected', event.code, event.reason);
                 // Si le code est 1006 (abnormal) ou si la connexion est rejetée immédiatement
                 // On ne peut pas lire le code HTTP 403 directement via l'API WebSocket JS standard
@@ -770,7 +800,7 @@
 
         async function loadSystemStats() {
             try {
-                const res = await authFetch(`${API_URL}/api/stats`);
+                const res = await fetch(`${API_URL}/api/stats`);
                 const data = await res.json();
                 
                 // Header stats
@@ -808,6 +838,19 @@
             // Show badge if panel closed
             if (document.getElementById('activity-panel').classList.contains('translate-x-full')) {
                 document.getElementById('activity-badge').classList.remove('hidden');
+            }
+        }
+
+        async function copyToClipboard(text, btn) {
+            try {
+                await navigator.clipboard.writeText(text);
+                const originalIcon = btn.innerHTML;
+                btn.innerHTML = '<i class="ri-check-line text-green-400"></i>';
+                setTimeout(() => {
+                    btn.innerHTML = originalIcon;
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
             }
         }
 

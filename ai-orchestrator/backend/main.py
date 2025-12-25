@@ -91,11 +91,21 @@ except ImportError:
     print("⚠️ Module config non disponible - Configuration par défaut")
 
 try:
-    from prompts import build_system_prompt, get_urgency_message
+    from prompts import build_system_prompt, get_urgency_message, get_initial_memory_prompt
     PROMPTS_ENABLED = True
 except ImportError:
     PROMPTS_ENABLED = False
     print("⚠️ Module prompts non disponible - Prompts par défaut")
+
+# ===== NOUVEAUX MODULES v4.0 =====
+try:
+    from tools import execute_tool as tools_execute_tool, get_tools_description, TOOLS_DEFINITIONS
+    from utils.async_subprocess import run_command_async, run_multiple_commands
+    TOOLS_MODULE_ENABLED = True
+    print("✅ Modules tools v4.0 chargés")
+except ImportError as e:
+    TOOLS_MODULE_ENABLED = False
+    print(f"⚠️ Modules tools v4.0 non disponibles: {e}")
 
 try:
     from dynamic_context import get_dynamic_context
@@ -617,7 +627,39 @@ def delete_conversation(conversation_id: str):
 # ===== EXÉCUTION DES OUTILS =====
 
 async def execute_tool(tool_name: str, params: dict, uploaded_files: dict = None) -> str:
-    """Exécuter un outil et retourner le résultat"""
+    """
+    Exécuter un outil - Version v4.0 avec modules découpés
+    Dispatch vers tools/ pour les nouveaux outils async
+    """
+    
+    # Si le nouveau module est disponible, l'utiliser
+    if TOOLS_MODULE_ENABLED:
+        try:
+            # Préparer les validateurs de sécurité
+            security_validator = None
+            audit_logger_instance = None
+            
+            if SECURITY_ENABLED:
+                security_validator = validate_command
+                audit_logger_instance = audit_log
+            
+            result = await tools_execute_tool(
+                tool_name, 
+                params, 
+                uploaded_files=uploaded_files,
+                security_validator=security_validator,
+                audit_logger=audit_logger_instance
+            )
+            return result
+        except Exception as e:
+            print(f"⚠️ Erreur module tools v4.0: {e}, fallback vers legacy")
+    
+    # Fallback: ancien code si module non disponible
+    return await execute_tool_legacy(tool_name, params, uploaded_files)
+
+
+async def execute_tool_legacy(tool_name: str, params: dict, uploaded_files: dict = None) -> str:
+    """Ancienne implémentation execute_tool (fallback)"""
     
     try:
         if tool_name == "execute_command":
@@ -659,397 +701,20 @@ async def execute_tool(tool_name: str, params: dict, uploaded_files: dict = None
             )
             return f"Conteneurs Docker:\n{result.stdout or result.stderr}"
         
-        elif tool_name == "docker_logs":
-            container = params.get("container", "")
-            lines = params.get("lines", 50)
-            if not container:
-                return "Erreur: nom du conteneur requis"
-            result = subprocess.run(
-                f"docker logs --tail {lines} {container} 2>&1",
-                shell=True, capture_output=True, text=True, timeout=30
-            )
-            return f"Logs de {container}:\n{result.stdout or result.stderr}"
-        
-        elif tool_name == "docker_restart":
-            container = params.get("container", "")
-            if not container:
-                return "Erreur: nom du conteneur requis"
-            result = subprocess.run(
-                f"docker restart {container}",
-                shell=True, capture_output=True, text=True, timeout=60
-            )
-            return f"Redémarrage de {container}: {result.stdout or result.stderr}"
-        
-        elif tool_name == "disk_usage":
-            path = params.get("path", "/")
-            result = subprocess.run(
-                f"du -sh {path}/* 2>/dev/null | sort -rh | head -20",
-                shell=True, capture_output=True, text=True, timeout=30
-            )
-            df_result = subprocess.run(f"df -h {path}", shell=True, capture_output=True, text=True, timeout=10)
-            return f"Espace disque:\n{df_result.stdout}\n\nDétail:\n{result.stdout}"
-        
-        elif tool_name == "service_status":
-            service = params.get("service", "")
-            if not service:
-                return "Erreur: nom du service requis"
-            result = subprocess.run(
-                f"systemctl status {service} --no-pager",
-                shell=True, capture_output=True, text=True, timeout=10
-            )
-            return f"Statut de {service}:\n{result.stdout or result.stderr}"
-        
-        elif tool_name == "service_control":
-            service = params.get("service", "")
-            action = params.get("action", "")
-            if not service or action not in ["start", "stop", "restart"]:
-                return "Erreur: service et action (start/stop/restart) requis"
-            result = subprocess.run(
-                f"sudo systemctl {action} {service}",
-                shell=True, capture_output=True, text=True, timeout=30
-            )
-            return f"Action {action} sur {service}: {result.stdout or result.stderr or 'OK'}"
-        
-        elif tool_name == "read_file":
-            path = params.get("path", "")
-            if not path:
-                return "Erreur: chemin requis"
-
-            # Validation de sécurité v3.0
-            if SECURITY_ENABLED:
-                try:
-                    path = validate_path(path, write=False)
-                    audit_log.log_file_access(path, "read", allowed=True)
-                except PathNotAllowedError as e:
-                    audit_log.log_file_access(path, "read", allowed=False, reason=str(e))
-                    return f"🚫 Accès refusé: {e}"
-
-            if not os.path.exists(path):
-                return f"Erreur: fichier non trouvé: {path}"
-            try:
-                with open(path, 'r', encoding='utf-8') as f:
-                    content = f.read(10000)
-                return f"Contenu de {path}:\n{content}"
-            except Exception as e:
-                return f"Erreur lecture: {e}"
-        
-        elif tool_name == "write_file":
-            path = params.get("path", "")
-            content = params.get("content", "")
-            if not path:
-                return "Erreur: chemin requis"
-
-            # Validation de sécurité v3.0
-            if SECURITY_ENABLED:
-                try:
-                    path = validate_path(path, write=True)
-                    audit_log.log_file_access(path, "write", allowed=True)
-                except PathNotAllowedError as e:
-                    audit_log.log_file_access(path, "write", allowed=False, reason=str(e))
-                    return f"🚫 Accès refusé: {e}"
-
-            try:
-                os.makedirs(os.path.dirname(path), exist_ok=True)
-                with open(path, 'w', encoding='utf-8') as f:
-                    f.write(content)
-                return f"Fichier écrit: {path} ({len(content)} caractères)"
-            except Exception as e:
-                return f"Erreur écriture: {e}"
-        
-        elif tool_name == "list_directory":
-            path = params.get("path", "/home/lalpha")
-            if not os.path.exists(path):
-                return f"Erreur: répertoire non trouvé: {path}"
-            result = subprocess.run(
-                f"ls -la {path}",
-                shell=True, capture_output=True, text=True, timeout=10
-            )
-            return f"Contenu de {path}:\n{result.stdout}"
-        
-        elif tool_name == "search_files":
-            pattern = params.get("pattern", "*")
-            path = params.get("path", "/home/lalpha")
-            content_search = params.get("content", False)
-            if content_search:
-                result = subprocess.run(
-                    f"grep -r '{pattern}' {path} 2>/dev/null | head -50",
-                    shell=True, capture_output=True, text=True, timeout=30
-                )
-            else:
-                result = subprocess.run(
-                    f"find {path} -name '{pattern}' 2>/dev/null | head -50",
-                    shell=True, capture_output=True, text=True, timeout=30
-                )
-            return f"Recherche '{pattern}':\n{result.stdout or 'Aucun résultat'}"
-        
-        elif tool_name == "udm_status":
-            result = subprocess.run(
-                "ssh -i /home/lalpha/.ssh/id_rsa_udm -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@10.10.10.1 'uptime; echo; cat /etc/version; echo; df -h /'",
-                shell=True, capture_output=True, text=True, timeout=15
-            )
-            return f"UDM-Pro Status:\n{result.stdout or result.stderr}"
-        
-        elif tool_name == "udm_network_info":
-            result = subprocess.run(
-                "ssh -i /home/lalpha/.ssh/id_rsa_udm -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@10.10.10.1 'ip addr show; echo; cat /run/dnsmasq.conf.d/*.conf 2>/dev/null | head -50'",
-                shell=True, capture_output=True, text=True, timeout=15
-            )
-            return f"UDM-Pro Network:\n{result.stdout or result.stderr}"
-        
-        elif tool_name == "udm_clients":
-            result = subprocess.run(
-                "ssh -i /home/lalpha/.ssh/id_rsa_udm -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@10.10.10.1 'cat /proc/net/arp'",
-                shell=True, capture_output=True, text=True, timeout=15
-            )
-            return f"Clients connectés:\n{result.stdout or result.stderr}"
-        
-        elif tool_name == "network_scan":
-            result = subprocess.run(
-                "ss -tlnp | head -30",
-                shell=True, capture_output=True, text=True, timeout=10
-            )
-            return f"Ports ouverts:\n{result.stdout}"
-        
-        elif tool_name == "ollama_list":
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(f"{OLLAMA_URL}/api/tags", timeout=10)
-                data = resp.json()
-                models = [f"- {m['name']} ({m.get('size', 'N/A')})" for m in data.get('models', [])]
-                return f"Modèles Ollama:\n" + "\n".join(models)
-        
-        elif tool_name == "ollama_run":
-            model = params.get("model", DEFAULT_MODEL)
-            prompt = params.get("prompt", "")
-            if not prompt:
-                return "Erreur: prompt requis"
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(
-                    f"{OLLAMA_URL}/api/generate",
-                    json={"model": model, "prompt": prompt, "stream": False},
-                    timeout=120
-                )
-                data = resp.json()
-                return f"Réponse de {model}:\n{data.get('response', 'Erreur')}"
-        
-        elif tool_name == "analyze_image":
-            image_id = params.get("image_id", "")
-            question = params.get("question", "Décris cette image en détail")
-            
-            content, ftype = get_file_content(image_id)
-            if not content or ftype != 'image':
-                return f"Erreur: image non trouvée ou invalide: {image_id}"
-            
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(
-                    f"{OLLAMA_URL}/api/generate",
-                    json={
-                        "model": MODELS["llama-vision"]["model"],
-                        "prompt": question,
-                        "images": [content],
-                        "stream": False
-                    },
-                    timeout=180
-                )
-                data = resp.json()
-                return f"Analyse de l'image:\n{data.get('response', 'Erreur analyse')}"
-        
-        elif tool_name == "analyze_file":
-            file_id = params.get("file_id", "")
-            content, ftype = get_file_content(file_id)
-            if not content:
-                return f"Erreur: fichier non trouvé: {file_id}"
-            
-            info = get_upload_info(file_id)
-            if ftype == 'image':
-                return f"C'est une image ({info['filename']}). Utilise analyze_image() pour l'analyser."
-            else:
-                preview = content[:5000] if len(content) > 5000 else content
-                return f"Fichier: {info['filename']}\nType: {ftype}\nTaille: {info['filesize']} bytes\n\nContenu:\n{preview}"
-        
-        elif tool_name == "create_script":
-            path = params.get("path", "")
-            content = params.get("content", "")
-            if not path or not content:
-                return "Erreur: path et content requis"
-            try:
-                os.makedirs(os.path.dirname(path), exist_ok=True)
-                with open(path, 'w') as f:
-                    f.write(content)
-                os.chmod(path, 0o755)
-                return f"Script créé: {path} (exécutable)"
-            except Exception as e:
-                return f"Erreur création script: {e}"
-        
-        elif tool_name == "git_status":
-            path = params.get("path", "/home/lalpha/projets")
-            result = subprocess.run(
-                f"cd {path} && git status && git log --oneline -5",
-                shell=True, capture_output=True, text=True, timeout=10
-            )
-            return f"Git status de {path}:\n{result.stdout or result.stderr}"
-        elif tool_name == "git_diff":
-            path = params.get("path", "/home/lalpha/projets")
-            result = subprocess.run(
-                f"cd {path} && git diff --stat && echo '\n=== Détails ===' && git diff",
-                shell=True, capture_output=True, text=True, timeout=30
-            )
-            output = result.stdout or result.stderr
-            if not output.strip():
-                return f"Aucune modification dans {path}"
-            return f"Git diff de {path}:\n{output[:3000]}"
-        
-        elif tool_name == "git_log":
-            path = params.get("path", "/home/lalpha/projets")
-            n = params.get("n", 10)
-            result = subprocess.run(
-                f"cd {path} && git log --oneline --graph -n {n}",
-                shell=True, capture_output=True, text=True, timeout=10
-            )
-            return f"Git log de {path} ({n} derniers commits):\n{result.stdout or result.stderr}"
-        
-        elif tool_name == "git_commit":
-            path = params.get("path", "/home/lalpha/projets")
-            message = params.get("message", "")
-            add_all = params.get("add_all", True)
-            if not message:
-                return "Erreur: message de commit requis"
-            add_cmd = "git add -A && " if add_all else ""
-            result = subprocess.run(
-                f'cd {path} && {add_cmd}git commit -m "{message}"',
-                shell=True, capture_output=True, text=True, timeout=30
-            )
-            return f"Git commit dans {path}:\n{result.stdout or result.stderr}"
-        
-        elif tool_name == "git_branch":
-            path = params.get("path", "/home/lalpha/projets")
-            branch = params.get("branch", "")
-            if branch:
-                result = subprocess.run(
-                    f"cd {path} && git checkout {branch}",
-                    shell=True, capture_output=True, text=True, timeout=10
-                )
-                return f"Switch vers branche {branch}:\n{result.stdout or result.stderr}"
-            else:
-                result = subprocess.run(
-                    f"cd {path} && git branch -a",
-                    shell=True, capture_output=True, text=True, timeout=10
-                )
-                return f"Branches dans {path}:\n{result.stdout or result.stderr}"
-        
-        elif tool_name == "git_pull":
-            path = params.get("path", "/home/lalpha/projets")
-            result = subprocess.run(
-                f"cd {path} && git pull",
-                shell=True, capture_output=True, text=True, timeout=60
-            )
-            return f"Git pull dans {path}:\n{result.stdout or result.stderr}"
-
-        
-        elif tool_name == "memory_store":
-            key = params.get("key", "")
-            value = params.get("value", "")
-            if not key:
-                return "Erreur: clé requise"
-            try:
-                # ChromaDB - mémoire sémantique
-                chroma_client = chromadb.HttpClient(host="chromadb", port=8000, settings=Settings(anonymized_telemetry=False))
-                collection = chroma_client.get_or_create_collection(
-                    name="ai_orchestrator_memory",
-                    metadata={"description": "Mémoire sémantique de l'AI Orchestrator"}
-                )
-                # Upsert avec le document formaté
-                doc_content = f"{key}: {value}"
-                collection.upsert(
-                    documents=[doc_content],
-                    ids=[f"mem_{key}"],
-                    metadatas=[{"key": key, "type": "user", "timestamp": datetime.now().isoformat()}]
-                )
-                # Backup SQLite aussi
-                conn = get_db()
-                c = conn.cursor()
-                c.execute('INSERT OR REPLACE INTO memory (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
-                          (key, value))
-                conn.commit()
-                conn.close()
-                return f"✅ Mémorisé dans mémoire sémantique: {key} = {value[:100]}..."
-            except Exception as e:
-                return f"Erreur mémoire: {str(e)}"
-        
-        elif tool_name == "memory_recall":
-            query = params.get("query", params.get("key", "all"))
-            try:
-                chroma_client = chromadb.HttpClient(host="chromadb", port=8000, settings=Settings(anonymized_telemetry=False))
-                collection = chroma_client.get_or_create_collection(name="ai_orchestrator_memory")
-                
-                if query.lower() == "all":
-                    # Récupérer toutes les mémoires
-                    results = collection.get(limit=20, include=["documents", "metadatas"])
-                    if results and results.get("documents"):
-                        memories = []
-                        for i, doc in enumerate(results["documents"]):
-                            meta = results["metadatas"][i] if results.get("metadatas") else {}
-                            mem_type = meta.get("type", "unknown")
-                            memories.append(f"🧠 [{mem_type}] {doc}")
-                        return "📚 Mémoires disponibles:\n" + "\n".join(memories)
-                    return "Mémoire vide"
-                else:
-                    # Recherche sémantique
-                    results = collection.query(query_texts=[query], n_results=5, include=["documents", "metadatas", "distances"])
-                    if results and results.get("documents") and results["documents"][0]:
-                        memories = []
-                        for i, doc in enumerate(results["documents"][0]):
-                            distance = results["distances"][0][i] if results.get("distances") else 0
-                            # Convertir distance en score de similarité (plus petit = plus similaire)
-                            similarity = max(0, 100 - (distance * 50))
-                            memories.append(f"🧠 [{similarity:.1f}%] {doc}")
-                        return f"🔍 Recherche '{query}':\n" + "\n".join(memories)
-                    return f"Aucune mémoire trouvée pour: {query}"
-            except Exception as e:
-                # Fallback SQLite
-                conn = get_db()
-                c = conn.cursor()
-                c.execute('SELECT key, value FROM memory ORDER BY updated_at DESC LIMIT 20')
-                rows = c.fetchall()
-                conn.close()
-                if rows:
-                    return "Mémoire (SQLite fallback):\n" + "\n".join([f"- {r[0]}: {r[1][:100]}" for r in rows])
-                return f"Erreur ChromaDB: {str(e)}"
-        
-        elif tool_name == "web_request":
-            url = params.get("url", "")
-            method = params.get("method", "GET").upper()
-            data = params.get("data", None)
-            if not url:
-                return "Erreur: URL requise"
-            async with httpx.AsyncClient() as client:
-                if method == "POST":
-                    resp = await client.post(url, json=json.loads(data) if data else None, timeout=30)
-                else:
-                    resp = await client.get(url, timeout=30)
-                return f"HTTP {resp.status_code}:\n{resp.text[:2000]}"
-        
-        elif tool_name == "memory_stats":
-            if AUTO_LEARN_ENABLED:
-                stats = get_memory_stats()
-                result = f"📊 Statistiques mémoire:\n"
-                result += f"   Total: {stats.get('total', 0)} souvenirs\n"
-                result += f"   Par type: {stats.get('by_type', {})}\n"
-                result += f"   Par catégorie: {stats.get('by_category', {})}"
-                return result
-            return "Auto-apprentissage non activé"
-        
         elif tool_name == "final_answer":
-            return params.get("answer", "")
+            answer = params.get("answer", "")
+            return answer if answer else "Réponse vide"
         
         else:
-            return f"Outil inconnu: {tool_name}"
-    
+            return f"❌ Outil '{tool_name}' non disponible en mode legacy. Activez tools v4.0."
+            
     except subprocess.TimeoutExpired:
         return f"Timeout: l'outil {tool_name} a pris trop de temps"
     except Exception as e:
         return f"Erreur lors de l'exécution de {tool_name}: {str(e)}"
 
-# ===== PARSING DES ACTIONS =====
+
+# ===== PARSING DES ACTIONS =====# ===== PARSING DES ACTIONS =====
 
 def parse_action(text: str) -> tuple:
     """Parser une action du format: tool_name(param="value")"""
@@ -1700,11 +1365,13 @@ async def websocket_chat(websocket: WebSocket, token: str = Query(None)):
     # Vérification du token si AUTH_ENABLED
     if AUTH_ENABLED:
         if not token:
+            await websocket.accept()
             await websocket.close(code=4001, reason="Token required")
             return
         
         token_data = verify_token(token)
         if not token_data:
+            await websocket.accept()
             await websocket.close(code=4001, reason="Invalid token")
             return
     
