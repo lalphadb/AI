@@ -11,6 +11,9 @@ services:
       - OLLAMA_URL=http://host.docker.internal:11434
       - CHROMADB_HOST=chromadb
       - CHROMADB_PORT=8000
+      - AUTONOMOUS_MODE=true
+      - HOST_IP=host.docker.internal
+      - HOST_USER=lalpha
     extra_hosts:
       - "host.docker.internal:10.10.10.46"
     volumes:
@@ -19,6 +22,8 @@ services:
       - /tmp/gpu-stats.txt:/tmp/gpu-stats.txt:ro
       # Accès complet à /home/lalpha
       - /home/lalpha:/home/lalpha
+      # Clé SSH accessible pour root dans le container
+      - /home/lalpha/.ssh-orchestrator/id_ed25519:/root/.ssh/id_ed25519:ro
     networks:
       - unified-net
     healthcheck:
