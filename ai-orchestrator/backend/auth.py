@@ -217,6 +217,38 @@ def get_user(username: str) -> Optional[UserInDB]:
         )
     return None
 
+def get_user_by_id(user_id: int) -> Optional[User]:
+    """Récupérer un utilisateur par son ID"""
+    conn = get_auth_db()
+    c = conn.cursor()
+    c.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+    row = c.fetchone()
+    conn.close()
+
+    if row:
+        import json
+        return User(
+            username=row['username'],
+            email=row['email'],
+            full_name=row['full_name'],
+            disabled=bool(row['disabled']),
+            is_admin=bool(row['is_admin']),
+            scopes=json.loads(row['scopes'] or '[]')
+        )
+    return None
+
+def get_user_id(username: str) -> Optional[int]:
+    """Récupérer l'ID d'un utilisateur par son username"""
+    conn = get_auth_db()
+    c = conn.cursor()
+    c.execute('SELECT id FROM users WHERE username = ?', (username,))
+    row = c.fetchone()
+    conn.close()
+
+    if row:
+        return row['id']
+    return None
+
 def create_user(user: UserCreate, is_admin: bool = False) -> User:
     """Créer un nouvel utilisateur"""
     conn = get_auth_db()

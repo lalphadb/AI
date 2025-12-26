@@ -3,3 +3,13 @@
 2025-12-25 17:53:44,358 [INFO] httpx: HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
 2025-12-25 17:53:44,359 [INFO] httpx: HTTP Request: GET http://testserver/tools "HTTP/1.1 200 OK"
 2025-12-25 17:53:44,360 [INFO] httpx: HTTP Request: GET http://testserver/api/models "HTTP/1.1 200 OK"
+2025-12-26 02:18:58,883 [WARNING] api: ⚠️ Module auth non disponible - Authentification désactivée
+2025-12-26 02:18:58,893 [INFO] api: ✅ Modules tools v4.0 chargés
+2025-12-26 02:19:11,436 [WARNING] api: ⚠️ Module auth non disponible - Authentification désactivée
+2025-12-26 02:19:11,443 [INFO] api: ✅ Modules tools v4.0 chargés
+2025-12-26 02:20:13,382 [INFO] api: ✅ Modules tools v4.0 chargés
+2025-12-26 02:20:13,425 [INFO] httpx: HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+2025-12-26 02:20:13,426 [INFO] httpx: HTTP Request: GET http://testserver/tools "HTTP/1.1 200 OK"
+2025-12-26 02:20:13,427 [INFO] httpx: HTTP Request: GET http://testserver/api/models "HTTP/1.1 200 OK"
+2025-12-26 02:20:13,428 [INFO] httpx: HTTP Request: GET http://testserver/api/status "HTTP/1.1 200 OK"
+2025-12-26 02:20:13,430 [INFO] httpx: HTTP Request: GET http://testserver/api/conversations "HTTP/1.1 200 OK"

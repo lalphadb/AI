@@ -473,14 +473,30 @@ def update_conversation_title(conversation_id: str, title: str):
     conn.close()
 
 def delete_conversation(conversation_id: str):
-    """Supprimer une conversation et ses messages"""
+    """Supprimer une conversation, ses messages et les fichiers uploadés"""
     conn = get_db()
     c = conn.cursor()
+    
+    # 1. Récupérer les chemins des fichiers à supprimer
+    c.execute('SELECT filepath FROM uploads WHERE conversation_id = ?', (conversation_id,))
+    files_to_delete = [row[0] for row in c.fetchall()]
+    
+    # 2. Supprimer les entrées DB
     c.execute('DELETE FROM messages WHERE conversation_id = ?', (conversation_id,))
     c.execute('DELETE FROM uploads WHERE conversation_id = ?', (conversation_id,))
     c.execute('DELETE FROM conversations WHERE id = ?', (conversation_id,))
     conn.commit()
     conn.close()
+    
+    # 3. Supprimer les fichiers physiques
+    import os
+    for filepath in files_to_delete:
+        try:
+            if filepath and os.path.exists(filepath):
+                os.remove(filepath)
+                logger.info(f"🗑️ Fichier supprimé: {filepath}")
+        except Exception as e:
+            logger.warning(f"⚠️ Erreur suppression {filepath}: {e}")
 
 # ===== EXÉCUTION DES OUTILS =====
 
@@ -1018,6 +1034,35 @@ async def delete_conv(conversation_id: str):
     """Supprimer une conversation"""
     delete_conversation(conversation_id)
     return {"success": True}
+
+
+@app.get("/api/docker/status")
+async def get_docker_status():
+    """Statut des conteneurs Docker pour le frontend"""
+    import subprocess
+    import json as json_module
+    try:
+        result = subprocess.run(
+            ["docker", "ps", "-a", "--format", "{{json .}}"],
+            capture_output=True, text=True, timeout=10
+        )
+        containers = []
+        for line in result.stdout.strip().split('\n'):
+            if line:
+                try:
+                    c = json_module.loads(line)
+                    containers.append({
+                        "name": c.get("Names", "unknown"),
+                        "status": c.get("Status", "unknown"),
+                        "image": c.get("Image", ""),
+                        "ports": c.get("Ports", "")
+                    })
+                except:
+                    pass
+        return containers
+    except Exception as e:
+        logger.error(f"Erreur docker status: {e}")
+        return []
 
 # Servir le frontend
 try:
