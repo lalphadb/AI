@@ -1,0 +1,111 @@
+{
+  "timestamp": "2025-12-25T06:00:01.379322",
+  "score": 100,
+  "status": "excellent",
+  "metrics": {
+    "docker": {
+      "total": 16,
+      "running": 16,
+      "stopped": 0,
+      "unhealthy": 0,
+      "containers": [
+        {
+          "name": "ai-orchestrator-frontend",
+          "status": "Up 13 hours",
+          "state": "running"
+        },
+        {
+          "name": "ai-orchestrator-backend",
+          "status": "Up 13 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "traefik",
+          "status": "Up 19 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "jsr-dev",
+          "status": "Up 19 hours",
+          "state": "running"
+        },
+        {
+          "name": "jsr-solutions",
+          "status": "Up 19 hours",
+          "state": "running"
+        },
+        {
+          "name": "open-webui",
+          "status": "Up 19 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "code-server",
+          "status": "Up 19 hours",
+          "state": "running"
+        },
+        {
+          "name": "prometheus",
+          "status": "Up 19 hours",
+          "state": "running"
+        },
+        {
+          "name": "grafana",
+          "status": "Up 19 hours",
+          "state": "running"
+        },
+        {
+          "name": "chromadb",
+          "status": "Up 19 hours",
+          "state": "running"
+        },
+        {
+          "name": "cadvisor",
+          "status": "Up 19 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "node-exporter",
+          "status": "Up 19 hours",
+          "state": "running"
+        },
+        {
+          "name": "redis",
+          "status": "Up 19 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "postgres",
+          "status": "Up 19 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "crowdsec",
+          "status": "Up 19 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "jsr-solutions-prod",
+          "status": "Up 36 hours",
+          "state": "running"
+        }
+      ]
+    },
+    "uptime_days": 5.2,
+    "load_1m": 3.18,
+    "load_5m": 2.29,
+    "load_15m": 2.11,
+    "gpu_util": 15.0,
+    "gpu_mem_used": 798.0,
+    "gpu_mem_total": 16303.0,
+    "gpu_temp": 35.0,
+    "gpu_mem_percent": 4.8948046371833405,
+    "collected_at": "2025-12-25T06:00:01.373552"
+  },
+  "alerts": [],
+  "recommendations": [],
+  "auto_actions": [],
+  "trends": {
+    "score": "\u2192 stable"
+  }
+}

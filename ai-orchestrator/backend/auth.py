@@ -24,8 +24,12 @@ load_dotenv()
 # ===== CONFIGURATION =====
 
 # Clé secrète pour JWT - DOIT être changée en production
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(32))
-print(f"🔐 AUTH: Loaded SECRET_KEY starting with {SECRET_KEY[:5]}...")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not SECRET_KEY:
+    SECRET_KEY = secrets.token_urlsafe(32)
+    print("⚠️ WARNING: JWT_SECRET_KEY not set! Using random key.")
+else:
+    print("🔐 AUTH: JWT secret loaded from environment")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
 REFRESH_TOKEN_EXPIRE_DAYS = 7
@@ -141,14 +145,15 @@ def init_auth_db():
     # Créer l'utilisateur admin par défaut s'il n'existe pas
     c.execute('SELECT COUNT(*) FROM users WHERE username = ?', ('admin',))
     if c.fetchone()[0] == 0:
-        admin_password = os.getenv("ADMIN_PASSWORD", "changeme123")
+        from config import get_settings
+        admin_password = get_settings().admin_password
         hashed = hash_password(admin_password)
         c.execute('''INSERT INTO users (username, hashed_password, is_admin, scopes)
                      VALUES (?, ?, TRUE, ?)''',
                   ('admin', hashed, '["admin", "read", "write", "execute"]'))
         conn.commit()
-        print(f"Admin user created. Password: {admin_password}")
-        print("IMPORTANT: Change the admin password immediately!")
+        print(f"Admin user created.")
+        print("IMPORTANT: Change the admin password if you haven't set it in .env!")
 
     conn.close()
 

@@ -6,8 +6,28 @@ Outils Docker pour AI Orchestrator v4.0
 - docker_compose
 """
 
+import re
 from tools import register_tool
 from utils.async_subprocess import run_command_async
+
+def sanitize_container_name(name: str) -> str:
+    """
+    Valide et nettoie un nom de conteneur Docker.
+    Noms valides: lettres, chiffres, underscores, tirets, points.
+    Doit commencer par une lettre ou un chiffre.
+    """
+    if not name:
+        raise ValueError("Container name cannot be empty")
+    
+    # Pattern Docker officiel pour les noms
+    if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9_.-]*$', name):
+        raise ValueError(f"Invalid container name: {name}")
+    
+    # Longueur max
+    if len(name) > 128:
+        raise ValueError(f"Container name too long: {len(name)} > 128")
+    
+    return name
 
 
 @register_tool("docker_status")
@@ -29,6 +49,12 @@ async def docker_logs(params: dict) -> str:
     if not container:
         return "Erreur: nom du conteneur requis"
     
+    # Sanitization
+    try:
+        container = sanitize_container_name(container)
+    except ValueError as e:
+        return f"❌ {str(e)}"
+    
     # Validation du nombre de lignes
     try:
         lines = min(int(lines), 500)  # Max 500 lignes
@@ -49,6 +75,12 @@ async def docker_restart(params: dict) -> str:
     
     if not container:
         return "Erreur: nom du conteneur requis"
+    
+    # Sanitization
+    try:
+        container = sanitize_container_name(container)
+    except ValueError as e:
+        return f"❌ {str(e)}"
     
     output, code = await run_command_async(
         f"docker restart {container}",
@@ -96,6 +128,12 @@ async def docker_exec(params: dict) -> str:
     
     if not container or not command:
         return "Erreur: container et command requis"
+    
+    # Sanitization
+    try:
+        container = sanitize_container_name(container)
+    except ValueError as e:
+        return f"❌ {str(e)}"
     
     output, code = await run_command_async(
         f"docker exec {container} {command}",

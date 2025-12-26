@@ -34,8 +34,16 @@ async def run_command_async(
         - return_code = -2 pour erreur d'exécution
     """
     try:
-        process = await asyncio.create_subprocess_shell(
-            command,
+        # SÉCURITÉ : Ne jamais utiliser shell=True pour éviter les injections de commandes
+        # Si la commande est une string, on tente de la split proprement
+        if isinstance(command, str):
+            import shlex
+            args = shlex.split(command)
+        else:
+            args = command
+
+        process = await asyncio.create_subprocess_exec(
+            *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,

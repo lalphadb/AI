@@ -47,7 +47,15 @@ class Settings(BaseSettings):
 
     # Auth
     auth_enabled: bool = True
-    admin_password: str = "changeme123"  # À changer!
+    
+    @property
+    def admin_password(self) -> str:
+        pwd = os.getenv("ADMIN_PASSWORD")
+        if not pwd:
+            if self.debug:
+                 return "changeme123" # Fallback en dev uniquement
+            raise ValueError("CRITICAL: ADMIN_PASSWORD must be set in .env for production!")
+        return pwd
 
     # CORS
     cors_origins: List[str] = [
@@ -75,6 +83,7 @@ class Settings(BaseSettings):
         env_prefix = "AI_"
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"  # Ignorer les champs non définis comme ADMIN_PASSWORD (utilisé via @property)
 
 @lru_cache()
 def get_settings() -> Settings:

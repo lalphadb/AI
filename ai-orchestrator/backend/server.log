@@ -1,0 +1,5 @@
+2025-12-25 17:53:13,110 [INFO] api: ✅ Modules tools v4.0 chargés
+2025-12-25 17:53:44,318 [INFO] api: ✅ Modules tools v4.0 chargés
+2025-12-25 17:53:44,358 [INFO] httpx: HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+2025-12-25 17:53:44,359 [INFO] httpx: HTTP Request: GET http://testserver/tools "HTTP/1.1 200 OK"
+2025-12-25 17:53:44,360 [INFO] httpx: HTTP Request: GET http://testserver/api/models "HTTP/1.1 200 OK"

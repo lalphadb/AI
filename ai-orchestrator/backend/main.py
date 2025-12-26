@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 
+import logging
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Form, Depends, Request, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, FileResponse
@@ -28,6 +29,17 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 import chromadb
 from chromadb.config import Settings
+
+# ===== LOGGING CONFIGURATION =====
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler("server.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger("api")
 
 # ===== MODULES DE SÉCURITÉ v3.0 =====
 try:
@@ -43,7 +55,7 @@ try:
     SECURITY_ENABLED = True
 except ImportError:
     SECURITY_ENABLED = False
-    print("⚠️ Module security non disponible - Validation désactivée")
+    logger.warning("⚠️ Module security non disponible - Validation désactivée")
 
 try:
     from auth import (
@@ -58,6 +70,8 @@ try:
         verify_refresh_token,
         revoke_refresh_token,
         authenticate_user,
+        get_user_by_id,
+        get_user_id,
         create_user,
         update_user,
         get_user,
@@ -74,45 +88,45 @@ try:
     )
 except ImportError:
     AUTH_ENABLED = False
-    print("⚠️ Module auth non disponible - Authentification désactivée")
+    logger.warning("⚠️ Module auth non disponible - Authentification désactivée")
 
 try:
     from rate_limiter import RateLimitMiddleware, rate_limiter, get_rate_limit_stats, cleanup_task
     RATE_LIMIT_ENABLED = True
 except ImportError:
     RATE_LIMIT_ENABLED = False
-    print("⚠️ Module rate_limiter non disponible - Rate limiting désactivé")
+    logger.warning("⚠️ Module rate_limiter non disponible - Rate limiting désactivé")
 
 try:
     from config import get_settings, get_cors_config, MODELS as CONFIG_MODELS
     CONFIG_ENABLED = True
 except ImportError:
     CONFIG_ENABLED = False
-    print("⚠️ Module config non disponible - Configuration par défaut")
+    logger.warning("⚠️ Module config non disponible - Configuration par défaut")
 
 try:
     from prompts import build_system_prompt, get_urgency_message, get_initial_memory_prompt
     PROMPTS_ENABLED = True
 except ImportError:
     PROMPTS_ENABLED = False
-    print("⚠️ Module prompts non disponible - Prompts par défaut")
+    logger.warning("⚠️ Module prompts non disponible - Prompts par défaut")
 
 # ===== NOUVEAUX MODULES v4.0 =====
 try:
     from tools import execute_tool as tools_execute_tool, get_tools_description, TOOLS_DEFINITIONS
     from utils.async_subprocess import run_command_async, run_multiple_commands
     TOOLS_MODULE_ENABLED = True
-    print("✅ Modules tools v4.0 chargés")
+    logger.info("✅ Modules tools v4.0 chargés")
 except ImportError as e:
     TOOLS_MODULE_ENABLED = False
-    print(f"⚠️ Modules tools v4.0 non disponibles: {e}")
+    logger.error(f"⚠️ Modules tools v4.0 non disponibles: {e}")
 
 try:
     from dynamic_context import get_dynamic_context
     DYNAMIC_CONTEXT_ENABLED = True
 except ImportError:
     DYNAMIC_CONTEXT_ENABLED = False
-    print("⚠️ Module dynamic_context non disponible")
+    logger.warning("⚠️ Module dynamic_context non disponible")
 
 # Helper pour protection optionnelle des endpoints
 def optional_auth():
@@ -153,7 +167,7 @@ try:
     AUTO_LEARN_ENABLED = True
 except ImportError:
     AUTO_LEARN_ENABLED = False
-    print("⚠️ Module auto_learn non disponible")
+    logger.warning("⚠️ Module auto_learn non disponible")
 
 # ===== CONFIGURATION =====
 
@@ -248,178 +262,22 @@ DEFAULT_MODEL = "qwen3-coder:480b-cloud"
 
 # ===== DÉFINITION DES OUTILS =====
 
-TOOLS = {
-    "execute_command": {
-        "description": "Exécuter une commande bash sur le serveur Ubuntu",
-        "parameters": {"command": "string - La commande à exécuter"},
-        "example": "execute_command(command=\"ls -la /home/lalpha\")"
-    },
-    "system_info": {
-        "description": "Obtenir les informations système (CPU, RAM, disque, GPU)",
-        "parameters": {},
-        "example": "system_info()"
-    },
-    "docker_status": {
-        "description": "Voir l'état de tous les conteneurs Docker",
-        "parameters": {},
-        "example": "docker_status()"
-    },
-    "docker_logs": {
-        "description": "Voir les logs d'un conteneur Docker",
-        "parameters": {"container": "string - Nom du conteneur", "lines": "int - Nombre de lignes (défaut: 50)"},
-        "example": "docker_logs(container=\"traefik\", lines=100)"
-    },
-    "docker_restart": {
-        "description": "Redémarrer un conteneur Docker",
-        "parameters": {"container": "string - Nom du conteneur"},
-        "example": "docker_restart(container=\"traefik\")"
-    },
-    "disk_usage": {
-        "description": "Analyser l'utilisation du disque",
-        "parameters": {"path": "string - Chemin à analyser (défaut: /)"},
-        "example": "disk_usage(path=\"/home/lalpha\")"
-    },
-    "service_status": {
-        "description": "Vérifier le statut d'un service systemd",
-        "parameters": {"service": "string - Nom du service"},
-        "example": "service_status(service=\"ollama\")"
-    },
-    "service_control": {
-        "description": "Contrôler un service (start, stop, restart)",
-        "parameters": {"service": "string - Nom du service", "action": "string - Action: start, stop, restart"},
-        "example": "service_control(service=\"ollama\", action=\"restart\")"
-    },
-    "read_file": {
-        "description": "Lire le contenu d'un fichier",
-        "parameters": {"path": "string - Chemin du fichier"},
-        "example": "read_file(path=\"/home/lalpha/projets/README.md\")"
-    },
-    "write_file": {
-        "description": "Écrire du contenu dans un fichier",
-        "parameters": {"path": "string - Chemin du fichier", "content": "string - Contenu à écrire"},
-        "example": "write_file(path=\"/home/lalpha/test.txt\", content=\"Hello\")"
-    },
-    "list_directory": {
-        "description": "Lister le contenu d'un répertoire",
-        "parameters": {"path": "string - Chemin du répertoire"},
-        "example": "list_directory(path=\"/home/lalpha/projets\")"
-    },
-    "search_files": {
-        "description": "Rechercher des fichiers par nom ou contenu",
-        "parameters": {"pattern": "string - Motif de recherche", "path": "string - Répertoire de recherche", "content": "bool - Chercher dans le contenu"},
-        "example": "search_files(pattern=\"*.py\", path=\"/home/lalpha/projets\")"
-    },
-    "udm_status": {
-        "description": "Obtenir le statut du UDM-Pro UniFi",
-        "parameters": {},
-        "example": "udm_status()"
-    },
-    "udm_network_info": {
-        "description": "Informations réseau du UDM-Pro (VLANs, clients)",
-        "parameters": {},
-        "example": "udm_network_info()"
-    },
-    "udm_clients": {
-        "description": "Liste des clients connectés au réseau",
-        "parameters": {},
-        "example": "udm_clients()"
-    },
-    "network_scan": {
-        "description": "Scanner les ports ouverts du serveur",
-        "parameters": {},
-        "example": "network_scan()"
-    },
-    "ollama_list": {
-        "description": "Lister les modèles Ollama installés",
-        "parameters": {},
-        "example": "ollama_list()"
-    },
-    "ollama_run": {
-        "description": "Exécuter une requête sur un modèle Ollama spécifique",
-        "parameters": {"model": "string - Nom du modèle", "prompt": "string - Prompt"},
-        "example": "ollama_run(model=\"qwen2.5-coder:32b\", prompt=\"Hello\")"
-    },
-    "analyze_image": {
-        "description": "Analyser une image uploadée avec le modèle vision",
-        "parameters": {"image_id": "string - ID de l'image uploadée", "question": "string - Question sur l'image"},
-        "example": "analyze_image(image_id=\"abc123\", question=\"Que vois-tu sur cette image?\")"
-    },
-    "analyze_file": {
-        "description": "Analyser un fichier uploadé",
-        "parameters": {"file_id": "string - ID du fichier uploadé"},
-        "example": "analyze_file(file_id=\"abc123\")"
-    },
-    "create_script": {
-        "description": "Créer un script bash exécutable",
-        "parameters": {"path": "string - Chemin", "content": "string - Contenu du script"},
-        "example": "create_script(path=\"/home/lalpha/scripts/test.sh\", content=\"#!/bin/bash\\necho OK\")"
-    },
-    "git_status": {
-        "description": "Voir le statut git d'un répertoire",
-        "parameters": {"path": "string - Chemin du repo"},
-        "example": "git_status(path=\"/home/lalpha/projets/ai-tools\")"
-    },
-    "git_diff": {
-        "description": "Voir les différences non commitées dans un repo git",
-        "parameters": {"path": "string - Chemin du repo"},
-        "example": "git_diff(path=\"/home/lalpha/projets/ai-tools\")"
-    },
-    "git_log": {
-        "description": "Voir l historique des commits git",
-        "parameters": {"path": "string - Chemin du repo", "n": "int - Nombre de commits (défaut: 10)"},
-        "example": "git_log(path=\"/home/lalpha/projets/ai-tools\", n=20)"
-    },
-    "git_commit": {
-        "description": "Commiter les changements avec un message",
-        "parameters": {"path": "string - Chemin du repo", "message": "string - Message de commit", "add_all": "bool - Ajouter tous les fichiers (défaut: true)"},
-        "example": "git_commit(path=\"/home/lalpha/projets/ai-tools\", message=\"feat: nouvelle fonctionnalité\")"
-    },
-    "git_branch": {
-        "description": "Lister ou changer de branche git",
-        "parameters": {"path": "string - Chemin du repo", "branch": "string - Nom de branche (optionnel, pour switch)"},
-        "example": "git_branch(path=\"/home/lalpha/projets/ai-tools\")"
-    },
-    "git_pull": {
-        "description": "Tirer les changements du remote",
-        "parameters": {"path": "string - Chemin du repo"},
-        "example": "git_pull(path=\"/home/lalpha/projets/ai-tools\")"
-    },
-    "memory_store": {
-        "description": "IMPORTANT: Stocker une information importante en mémoire sémantique. Utilise cet outil pour mémoriser: les préférences utilisateur, les contextes de projets, les décisions importantes, les faits clés. La mémoire persiste entre les conversations!",
-        "parameters": {"key": "string - Catégorie/sujet (ex: projet_actuel, preference, fait_important)", "value": "string - Information détaillée à mémoriser"},
-        "example": "memory_store(key=\"utilisateur\", value=\"Lalpha travaille sur un homelab IA avec Ollama et ChromaDB\")"
-    },
-    "memory_recall": {
-        "description": "IMPORTANT: Rechercher dans la mémoire sémantique. Utilise 'all' pour voir toutes les mémoires récentes, ou une question/mot-clé pour une recherche sémantique. TOUJOURS utiliser au début d'une conversation pour se rappeler du contexte!",
-        "parameters": {"query": "string - 'all' pour tout voir, ou question/mot-clé pour recherche sémantique"},
-        "example": "memory_recall(query=\"projets en cours\")"
-    },
-    "memory_stats": {
-        "description": "Afficher les statistiques de la mémoire: nombre total de souvenirs, répartition par type (base, auto_learned, conversation_summary, solved_issue) et par catégorie (user_fact, project, preference, tech_fact)",
-        "parameters": {},
-        "example": "memory_stats()"
-    },
-    "web_request": {
-        "description": "Faire une requête HTTP GET/POST",
-        "parameters": {"url": "string - URL", "method": "string - GET ou POST", "data": "string - Données JSON pour POST"},
-        "example": "web_request(url=\"http://localhost:8001/health\", method=\"GET\")"
-    },
-    "create_plan": {
-        "description": "Créer un plan d'exécution détaillé pour une tâche complexe. Utilise cet outil AVANT d'exécuter des tâches multi-étapes.",
-        "parameters": {"task": "string - Description complète de la tâche à planifier"},
-        "example": "create_plan(task=\"Créer un site web avec pages accueil, services et contact\")"
-    },
-    "validate_step": {
-        "description": "Valider qu'une étape du plan a été correctement exécutée",
-        "parameters": {"step_description": "string - Ce qui devait être fait", "expected_result": "string - Résultat attendu"},
-        "example": "validate_step(step_description=\"Créer le dossier\", expected_result=\"Dossier existe\")"
-    },
-    "final_answer": {
-        "description": "Fournir la réponse finale à l'utilisateur",
-        "parameters": {"answer": "string - La réponse complète et structurée"},
-        "example": "final_answer(answer=\"Voici le résultat de l'analyse...\")"
+if TOOLS_MODULE_ENABLED:
+    from tools import TOOLS_DEFINITIONS
+    # Convertir en format dict pour compatibilité
+    TOOLS = {
+        t['name']: {
+            'description': t['description'],
+            'parameters': t.get('parameters', {}),
+            'example': f"{t['name']}({', '.join(f'{k}=\"...\"' for k in t.get('parameters', {}).keys())})"
+        }
+        for t in TOOLS_DEFINITIONS
     }
-}
+else:
+    # Fallback minimal
+    TOOLS = {
+        "final_answer": {"description": "Réponse finale", "parameters": {"answer": "str"}, "example": "final_answer(answer=\"...\")"}
+    }
 
 # ===== BASE DE DONNÉES =====
 
@@ -628,380 +486,38 @@ def delete_conversation(conversation_id: str):
 
 async def execute_tool(tool_name: str, params: dict, uploaded_files: dict = None) -> str:
     """
-    Exécuter un outil - Version v4.0 avec modules découpés
-    Dispatch vers tools/ pour les nouveaux outils async
+    Exécuter un outil - Version v4.0 STRICTE
+    Dispatch vers tools/ pour les outils async sécurisés.
+    Plus de fallback legacy.
     """
     
-    # Si le nouveau module est disponible, l'utiliser
-    if TOOLS_MODULE_ENABLED:
-        try:
-            # Préparer les validateurs de sécurité
-            security_validator = None
-            audit_logger_instance = None
-            
-            if SECURITY_ENABLED:
-                security_validator = validate_command
-                audit_logger_instance = audit_log
-            
-            result = await tools_execute_tool(
-                tool_name, 
-                params, 
-                uploaded_files=uploaded_files,
-                security_validator=security_validator,
-                audit_logger=audit_logger_instance
-            )
-            return result
-        except Exception as e:
-            print(f"⚠️ Erreur module tools v4.0: {e}, fallback vers legacy")
-    
-    # Fallback: ancien code si module non disponible
-    return await execute_tool_legacy(tool_name, params, uploaded_files)
+    if not TOOLS_MODULE_ENABLED:
+        return "❌ ERREUR CRITIQUE: Le module tools v4.0 n'est pas chargé. Impossible d'exécuter l'outil."
 
-
-async def execute_tool_legacy(tool_name: str, params: dict, uploaded_files: dict = None) -> str:
-    """Ancienne implémentation execute_tool (fallback)"""
-    
     try:
-        if tool_name == "execute_command":
-            cmd = params.get("command", "")
-            if not cmd:
-                return "Erreur: commande vide"
-
-            # Validation de sécurité v3.0
-            if SECURITY_ENABLED:
-                allowed, reason = validate_command(cmd)
-                audit_log.log_command(cmd, allowed=allowed, reason=reason)
-                if not allowed:
-                    return f"🚫 Commande bloquée pour des raisons de sécurité: {reason}"
-
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60)
-            output = result.stdout or result.stderr or "(aucune sortie)"
-            return f"Commande: {cmd}\nSortie:\n{output[:3000]}"
+        # Préparer les validateurs de sécurité
+        security_validator = None
+        audit_logger_instance = None
         
-        elif tool_name == "system_info":
-            cmds = {
-                "hostname": "hostname",
-                "uptime": "uptime",
-                "cpu": "lscpu | head -20",
-                "memory": "free -h",
-                "disk": "df -h /",
-                "gpu": "nvidia-smi --query-gpu=name,memory.total,memory.used,temperature.gpu --format=csv,noheader 2>/dev/null || echo 'Pas de GPU'",
-                "load": "cat /proc/loadavg"
-            }
-            results = []
-            for name, cmd in cmds.items():
-                r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10)
-                results.append(f"=== {name.upper()} ===\n{r.stdout or r.stderr}")
-            return "\n".join(results)
+        if SECURITY_ENABLED:
+            security_validator = validate_command
+            audit_logger_instance = audit_log
         
-        elif tool_name == "docker_status":
-            result = subprocess.run(
-                "docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'",
-                shell=True, capture_output=True, text=True, timeout=30
-            )
-            return f"Conteneurs Docker:\n{result.stdout or result.stderr}"
-        
-        elif tool_name == "final_answer":
-            answer = params.get("answer", "")
-            return answer if answer else "Réponse vide"
-        
-        else:
-            return f"❌ Outil '{tool_name}' non disponible en mode legacy. Activez tools v4.0."
-            
-    except subprocess.TimeoutExpired:
-        return f"Timeout: l'outil {tool_name} a pris trop de temps"
+        result = await tools_execute_tool(
+            tool_name, 
+            params, 
+            uploaded_files=uploaded_files,
+            security_validator=security_validator,
+            audit_logger=audit_logger_instance
+        )
+        return result
     except Exception as e:
+        print(f"⚠️ Erreur module tools v4.0: {e}")
         return f"Erreur lors de l'exécution de {tool_name}: {str(e)}"
 
 
-# ===== PARSING DES ACTIONS =====# ===== PARSING DES ACTIONS =====
-
-def parse_action(text: str) -> tuple:
-    """Parser une action du format: tool_name(param="value")"""
-    text = text.strip()
-    
-    # CAS SPECIAL: final_answer
-    if "final_answer" in text:
-        # Support des triple quotes avec regex pour gérer les espaces
-        # Ex: final_answer(answer = """...""")
-        triple_match = re.search(r'answer\s*=\s*"""(.*?)"""', text, re.DOTALL)
-        if triple_match:
-            content = triple_match.group(1)
-            content = content.replace('\\n', '\n')
-            print(f"🎯 PARSE final_answer (triple quotes regex): {len(content)} chars")
-            return "final_answer", {"answer": content.strip()}
-
-        # Support des triple quotes méthode manuelle (fallback)
-        if '"""' in text:
-            start_marker = '"""'
-            start_idx = text.find(start_marker)
-            if start_idx != -1:
-                # Chercher la fin
-                end_idx = text.rfind(start_marker)
-                if end_idx > start_idx:
-                    content = text[start_idx + 3 : end_idx]
-                    content = content.replace('\\n', '\n')
-                    print(f"🎯 PARSE final_answer (triple quotes manual): {len(content)} chars")
-                    return "final_answer", {"answer": content.strip()}
-
-        # Méthode 1: Chercher answer="..." avec guillemets doubles
-        match = re.search(r'final_answer\s*\(\s*answer\s*=\s*"(.*)"?\s*\)?$', text, re.DOTALL)
-        if match:
-            answer = match.group(1)
-            # Nettoyage robuste de la fin
-            answer = answer.rstrip()
-            while answer and answer[-1] in '")\'\\':
-                answer = answer[:-1]
-            answer = answer.rstrip()
-            # Remplacer les sauts de ligne échappés
-            answer = answer.replace('\\n', '\n')
-            print(f"🎯 PARSE final_answer (method1): {len(answer)} chars")
-            return "final_answer", {"answer": answer}
-        
-        # Méthode 2: Chercher après answer=" jusqu'à la fin
-        idx = text.find('answer="')
-        if idx >= 0:
-            content_start = idx + 8  # len('answer="')
-            content = text[content_start:]
-            
-            # Nettoyage robuste de la fin (enlever les fermetures de fonction)
-            # On cherche la dernière occurrence de ") qui ferme probablement la fonction
-            last_quote_paren = content.rfind('")')
-            if last_quote_paren != -1:
-                content = content[:last_quote_paren]
-            elif content.endswith('"'):
-                content = content[:-1]
-            
-            # Si le contenu commence par "", c'était peut-être des triple quotes mal parsées
-            if content.startswith('""'):
-                content = content[2:]
-            
-            # Remplacer les sauts de ligne échappés par de vrais sauts de ligne
-            content = content.replace('\\n', '\n')
-            
-            print(f"🎯 PARSE final_answer (method2): {len(content)} chars")
-            return "final_answer", {"answer": content.strip()}
-        
-        # Méthode 3: guillemets simples
-        idx = text.find("answer='")
-        if idx >= 0:
-            content_start = idx + 8
-            content = text[content_start:]
-            content = content.rstrip()
-            if content.endswith("')"):
-                content = content[:-2]
-            elif content.endswith("'"):
-                content = content[:-1]
-            print(f"🎯 PARSE final_answer (method3): {len(content)} chars")
-            # Nettoyage final - enlever ") ou ' ou " à la fin
-            content = content.rstrip()
-            if content.endswith('")'):
-                content = content[:-2]
-            elif content.endswith('"'):
-                content = content[:-1]
-            elif content.endswith("')"):
-                content = content[:-2]
-            elif content.endswith("'"):
-                content = content[:-1]
-            return "final_answer", {"answer": content.strip()}
-    
-    # Pattern standard pour les autres outils
-    match = re.search(r'(\w+)\s*\(([^)]*)\)', text)
-    if not match:
-        return None, {}
-    
-    tool_name = match.group(1)
-    params_str = match.group(2)
-    
-    params = {}
-    if params_str.strip():
-        for m in re.finditer(r'(\w+)\s*=\s*"([^"]*)"', params_str):
-            params[m.group(1)] = m.group(2)
-        for m in re.finditer(r"(\w+)\s*=\s*'([^']*)'", params_str):
-            params[m.group(1)] = m.group(2)
-    
-    return tool_name, params
-
-# ===== BOUCLE REACT =====
-
-async def react_loop(
-    user_message: str,
-    model: str,
-    conversation_id: str,
-    uploaded_files: list = None,
-    websocket: WebSocket = None
-):
-    """Boucle ReAct principale"""
-    
-    # Construire le contexte des fichiers uploadés
-    files_context = ""
-    if uploaded_files:
-        files_context = "\n\nFichiers attachés par l'utilisateur:\n"
-        for f in uploaded_files:
-            files_context += f"- ID: {f['id']} | Nom: {f['filename']} | Type: {f['filetype']}\n"
-        files_context += "\nUtilise analyze_file(file_id=\"...\") ou analyze_image(image_id=\"...\") pour les examiner.\n"
-    
-    # Prompt système
-    tools_desc = "\n".join([
-        f"- {name}: {info['description']}\n  Exemple: {info['example']}"
-        for name, info in TOOLS.items()
-    ])
-    
-    if PROMPTS_ENABLED:
-        dynamic_ctx = ""
-        if DYNAMIC_CONTEXT_ENABLED:
-            dynamic_ctx = get_dynamic_context()
-        system_prompt = build_system_prompt(tools_desc, files_context, dynamic_ctx)
-    else:
-        system_prompt = f"""Tu es un assistant IA expert pour l'infrastructure 4LB.ca.
-
-Outils disponibles:
-{tools_desc}
-{files_context}
-
-Utilise le format:
-THINK: [Réflexion]
-ACTION: tool(param="valeur")
-"""
-
-    messages = [{"role": "system", "content": system_prompt}]
-    messages.append({"role": "user", "content": user_message})
-    
-    iterations = 0
-    full_response = ""
-    
-    while iterations < MAX_ITERATIONS:
-        iterations += 1
-        
-        # Envoyer le statut via WebSocket
-        if websocket:
-            await websocket.send_json({
-                "type": "thinking",
-                "iteration": iterations,
-                "message": f"Itération {iterations}/{MAX_ITERATIONS}..."
-            })
-        
-        # Appeler le LLM
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{OLLAMA_URL}/api/chat",
-                    json={
-                        "model": model,
-                        "messages": messages,
-                        "stream": False,
-                        "options": {
-                            "temperature": 0.3,
-                            "num_predict": 2000
-                        }
-                    },
-                    timeout=180
-                )
-                data = response.json()
-                assistant_text = data.get("message", {}).get("content", "")
-        except Exception as e:
-            error_msg = f"Erreur LLM: {str(e)}"
-            if websocket:
-                await websocket.send_json({"type": "error", "message": error_msg})
-            return error_msg
-        
-        full_response += f"\n---\n**Itération {iterations}**\n{assistant_text}\n"
-        
-        # Envoyer la réponse partielle
-        if websocket:
-            await websocket.send_json({
-                "type": "step",
-                "iteration": iterations,
-                "content": assistant_text
-            })
-        
-        # Chercher une action
-        lines = assistant_text.split('\n')
-        action_line = None
-        for line in lines:
-            if line.strip().startswith('ACTION:'):
-                action_line = line.replace('ACTION:', '').strip()
-                break
-            # Chercher directement un appel de fonction
-            if re.match(r'^\w+\(.*\)\s*$', line.strip()):
-                action_line = line.strip()
-                break
-        
-        if not action_line:
-            # Pas d'action trouvée, chercher dans tout le texte
-            match = re.search(r'(\w+)\s*\([^)]+\)', assistant_text)
-            if match:
-                action_line = match.group(0)
-        
-        if action_line:
-            tool_name, params = parse_action(action_line)
-            
-            if tool_name:
-                # Vérifier si c'est final_answer
-                if tool_name == "final_answer":
-                    final = params.get("answer", assistant_text)
-                    if websocket:
-                        await websocket.send_json({
-                            "type": "complete",
-                            "answer": final,
-                            "iterations": iterations,
-                            "model": model
-                        })
-                    return final
-                
-                # Exécuter l'outil
-                if websocket:
-                    await websocket.send_json({
-                        "type": "tool",
-                        "tool": tool_name,
-                        "params": params
-                    })
-                
-                result = await execute_tool(tool_name, params, uploaded_files)
-                
-                # Ajouter au contexte avec urgence progressive
-                messages.append({"role": "assistant", "content": assistant_text})
-                
-                if iterations >= 5:
-                    msg = f"RÉSULTAT: {result[:500]}\n\n🚨 DERNIER TOUR! Réponds MAINTENANT: final_answer(answer=\"résumé de tes découvertes\")"
-                elif iterations >= 4:
-                    msg = f"RÉSULTAT: {result[:800]}\n\n⚠️ Plus que 2 tours! Conclus avec final_answer(answer=\"ta réponse\")"
-                elif iterations >= 3:
-                    msg = f"RÉSULTAT: {result}\n\n⚡ Tu as assez d'infos. Utilise final_answer(answer=\"ta réponse\") maintenant."
-                else:
-                    msg = f"RÉSULTAT: {result}\n\nContinue ou conclus avec final_answer(answer=\"ta réponse\")."
-                messages.append({"role": "user", "content": msg})
-                
-                if websocket:
-                    await websocket.send_json({
-                        "type": "result",
-                        "tool": tool_name,
-                        "result": result[:1000]
-                    })
-            else:
-                messages.append({"role": "assistant", "content": assistant_text})
-                messages.append({"role": "user", "content": "Je n'ai pas compris l'action. Utilise le format exact: tool_name(param=\"valeur\")"})
-        else:
-            # Pas d'action, demander de continuer
-            messages.append({"role": "assistant", "content": assistant_text})
-            messages.append({"role": "user", "content": "Continue avec une ACTION ou utilise final_answer() pour conclure."})
-    
-    # Max iterations atteint - extraire une réponse utile
-    # Chercher si le LLM a donné des infos dans son dernier message
-    if "THINK:" in assistant_text:
-        # Extraire juste la partie après THINK
-        think_part = assistant_text.split("THINK:")[-1].split("ACTION:")[0].strip()
-        timeout_msg = f"Voici ce que j'ai trouvé (analyse interrompue):\n{think_part[:500]}"
-    else:
-        timeout_msg = f"Analyse interrompue après {MAX_ITERATIONS} itérations. Derniers éléments analysés disponibles dans l'Activity Log."
-    if websocket:
-        await websocket.send_json({
-            "type": "complete",
-            "answer": timeout_msg,
-            "iterations": iterations,
-            "model": model
-        })
-    return timeout_msg
+# ===== MOTEUR REACT =====
+from engine import react_loop
 
 # ===== APPLICATION FASTAPI =====
 
@@ -1014,14 +530,14 @@ async def lifespan(app: FastAPI):
     if AUTH_ENABLED:
         try:
             init_auth_db()
-            print("✅ Base d'authentification initialisée")
+            logger.info("✅ Base d'authentification initialisée")
         except Exception as e:
-            print(f"⚠️ Erreur init auth DB: {e}")
+            logger.error(f"⚠️ Erreur init auth DB: {e}")
 
     # Démarrer la tâche de nettoyage du rate limiter
     if RATE_LIMIT_ENABLED:
         asyncio.create_task(cleanup_task())
-        print("✅ Rate limiter démarré")
+        logger.info("✅ Rate limiter démarré")
 
     yield
 
@@ -1114,8 +630,10 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     access_token = create_access_token(
         data={"sub": user.username, "scopes": user.scopes}
     )
+    # Obtenir le vrai user_id
+    user_id = get_user_id(user.username) or 1
     refresh_token = create_refresh_token(
-        user_id=1,
+        user_id=user_id,
         ip_address=ip,
         user_agent=request.headers.get("User-Agent", "")
     )
@@ -1137,8 +655,8 @@ async def refresh_token_endpoint(refresh_token: str):
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
-    # Récupérer l'utilisateur (simplifié - à améliorer avec l'ID réel)
-    user = get_user("admin")
+    # Récupérer l'utilisateur par son ID
+    user = get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
@@ -1340,6 +858,7 @@ async def chat(request: ChatRequest, current_user = Depends(get_current_active_u
         user_message=request.message,
         model=model,
         conversation_id=conv_id,
+        execute_tool_func=execute_tool,
         uploaded_files=uploaded_files
     )
     
@@ -1453,6 +972,7 @@ async def websocket_chat(websocket: WebSocket, token: str = Query(None)):
                 user_message=context_enhanced_message,
                 model=model,
                 conversation_id=conv_id,
+                execute_tool_func=execute_tool,
                 uploaded_files=uploaded_files,
                 websocket=websocket
             )

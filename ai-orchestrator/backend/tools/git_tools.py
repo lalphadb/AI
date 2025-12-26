@@ -4,6 +4,7 @@ Outils Git pour AI Orchestrator v4.0
 - git_diff
 - git_log
 - git_pull
+Version SÉCURISÉE: Utilise cwd au lieu de 'cd &&'
 """
 
 from tools import register_tool
@@ -11,17 +12,22 @@ from utils.async_subprocess import run_command_async
 
 
 @register_tool("git_status")
-async def git_status(params: dict) -> str:
+async def git_status(params: dict, security_validator=None, audit_logger=None) -> str:
     """Obtenir le statut d'un dépôt Git"""
     path = params.get("path", ".")
     
-    output, code = await run_command_async(
-        f"cd {path} && git status",
-        timeout=15
-    )
+    # Validation du chemin si nécessaire
+    if security_validator:
+        allowed, reason = security_validator(f"read {path}") # Simulation check
+        if not allowed:
+            return f"🚫 Accès refusé au repo: {reason}"
+
+    # Utilisation de cwd pour changer de dossier, et liste pour la commande
+    cmd = ["git", "status"]
+    output, code = await run_command_async(cmd, cwd=path, timeout=15)
     
     if code != 0:
-        return f"❌ Erreur Git ou pas un dépôt: {path}"
+        return f"❌ Erreur Git ou pas un dépôt: {path}\n{output}"
     
     return f"Git status ({path}):\n{output}"
 
@@ -32,11 +38,11 @@ async def git_diff(params: dict) -> str:
     path = params.get("path", ".")
     file_path = params.get("file", "")
     
-    cmd = f"cd {path} && git diff"
+    cmd = ["git", "diff"]
     if file_path:
-        cmd += f" -- {file_path}"
+        cmd.extend(["--", file_path])
     
-    output, code = await run_command_async(cmd, timeout=30)
+    output, code = await run_command_async(cmd, cwd=path, timeout=30)
     
     if not output.strip():
         return "Aucune modification non commitée"
@@ -55,10 +61,8 @@ async def git_log(params: dict) -> str:
     except (ValueError, TypeError):
         count = 10
     
-    output, code = await run_command_async(
-        f"cd {path} && git log --oneline -n {count}",
-        timeout=15
-    )
+    cmd = ["git", "log", "--oneline", "-n", str(count)]
+    output, code = await run_command_async(cmd, cwd=path, timeout=15)
     
     return f"Git log ({path}, {count} derniers commits):\n{output}"
 
@@ -68,10 +72,8 @@ async def git_pull(params: dict) -> str:
     """Pull les dernières modifications"""
     path = params.get("path", ".")
     
-    output, code = await run_command_async(
-        f"cd {path} && git pull",
-        timeout=60
-    )
+    cmd = ["git", "pull"]
+    output, code = await run_command_async(cmd, cwd=path, timeout=60)
     
     status = "✅" if code == 0 else "❌"
     return f"{status} Git pull ({path}):\n{output}"
@@ -82,9 +84,7 @@ async def git_branch(params: dict) -> str:
     """Lister les branches Git"""
     path = params.get("path", ".")
     
-    output, code = await run_command_async(
-        f"cd {path} && git branch -a",
-        timeout=15
-    )
+    cmd = ["git", "branch", "-a"]
+    output, code = await run_command_async(cmd, cwd=path, timeout=15)
     
     return f"Branches Git ({path}):\n{output}"

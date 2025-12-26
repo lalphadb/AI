@@ -26,6 +26,8 @@ COPY auth.py .
 COPY rate_limiter.py .
 COPY config.py .
 COPY prompts.py .
+COPY engine.py .
+COPY dynamic_context.py .
 
 # === NOUVEAUX MODULES v4.0 ===
 COPY tools/ ./tools/

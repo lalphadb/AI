@@ -20,6 +20,9 @@ chromadb-client==1.0.0
 onnxruntime==1.19.2
 tokenizers>=0.13.0
 
+# Monitoring
+psutil==6.1.0
+
 # Authentication
 PyJWT==2.9.0
 passlib[bcrypt]==1.7.4
