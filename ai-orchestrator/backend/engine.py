@@ -1,267 +1,197 @@
 """
-Moteur ReAct pour AI Orchestrator
-Contient la logique principale de la boucle de raisonnement (Think/Plan/Act)
+Moteur ReAct v5.0 - Robuste et fonctionnel
 """
 
 import re
-import json
 import httpx
-from typing import Optional, List, Dict, Any
+from typing import Optional
 from fastapi import WebSocket
-
 from config import get_settings
-from prompts import build_system_prompt, PROMPTS_ENABLED
-from dynamic_context import get_dynamic_context, DYNAMIC_CONTEXT_ENABLED
-from tools import get_tools_description
 
-# Configuration
 settings = get_settings()
-MAX_ITERATIONS = settings.max_iterations
+MAX_ITERATIONS = 10
 
-# ===== PARSING DES ACTIONS =====
-
-def parse_action(text: str) -> tuple:
-    """Parser une action du format: tool_name(param="value")"""
-    text = text.strip()
+def extract_final_answer(text: str) -> Optional[str]:
+    """Extraire final_answer - ROBUSTE"""
     
-    # CAS SPECIAL: final_answer
-    if "final_answer" in text:
-        # Support des triple quotes avec regex pour gérer les espaces
-        triple_match = re.search(r'answer\s*=\s*"""(.*?) """', text, re.DOTALL)
-        if triple_match:
-            content = triple_match.group(1)
-            content = content.replace('\\n', '\n')
-            return "final_answer", {"answer": content.strip()}
-
-        # Support des triple quotes méthode manuelle (fallback)
-        if '"""' in text:
-            start_marker = '"""'
-            start_idx = text.find(start_marker)
-            if start_idx != -1:
-                end_idx = text.rfind(start_marker)
-                if end_idx > start_idx:
-                    content = text[start_idx + 3 : end_idx]
-                    content = content.replace('\\n', '\n')
-                    return "final_answer", {"answer": content.strip()}
-
-        # Méthode 1: Chercher answer="..." avec guillemets doubles
-        match = re.search(r'final_answer\s*\(\s*answer\s*=\s*"(.*)"?\s*\)?$', text, re.DOTALL)
-        if match:
-            answer = match.group(1)
-            answer = answer.rstrip()
-            while answer and answer[-1] in ')"\'':
-                answer = answer[:-1]
-            answer = answer.rstrip()
-            answer = answer.replace('\\n', '\n')
-            return "final_answer", {"answer": answer}
-        
-        # Méthode 2: Chercher après answer=" jusqu'à la fin
-        idx = text.find('answer="')
+    # Méthode 1: Triple quotes
+    for pattern in [r"final_answer\s*\(\s*answer\s*=\s*'''(.+?)'''",
+                    r'final_answer\s*\(\s*answer\s*=\s*"""(.+?)"""']:
+        m = re.search(pattern, text, re.DOTALL)
+        if m:
+            return m.group(1).strip()
+    
+    # Méthode 2: Guillemets simples/doubles
+    m = re.search(r'final_answer\s*\(\s*answer\s*=\s*["\'](.+?)["\']', text, re.DOTALL)
+    if m:
+        return m.group(1).strip()
+    
+    # Méthode 3: Fallback - tout après answer=
+    if "final_answer" in text and "answer=" in text:
+        idx = text.find("answer=")
         if idx >= 0:
-            content_start = idx + 8
-            content = text[content_start:]
-            last_quote_paren = content.rfind('"')
-            if last_quote_paren != -1:
-                content = content[:last_quote_paren]
-            elif content.endswith('"'):
-                content = content[:-1]
-            if content.startswith('""'):
-                content = content[2:]
-            content = content.replace('\\n', '\n')
-            return "final_answer", {"answer": content.strip()}
-        
-        # Méthode 3: guillemets simples
-        idx = text.find("answer='")
-        if idx >= 0:
-            content_start = idx + 8
-            content = text[content_start:]
-            content = content.rstrip()
-            if content.endswith("')"):
-                content = content[:-2]
-            elif content.endswith("'"):
-                content = content[:-1]
-            content = content.rstrip()
-            if content.endswith('"') :
-                content = content[:-1]
-            elif content.endswith("')"):
-                content = content[:-2]
-            elif content.endswith("'"):
-                content = content[:-1]
-            return "final_answer", {"answer": content.strip()}
+            content = text[idx + 7:].strip()
+            for q in ['"""', "'''", '"', "'"]:
+                if content.startswith(q):
+                    content = content[len(q):]
+                    break
+            content = re.sub(r'["\')]+\s*$', '', content)
+            if content and len(content) > 5:  # Éviter les réponses trop courtes
+                return content.strip()
     
-    # Pattern standard pour les autres outils
-    match = re.search(r'(\w+)\s*\(([^)]*)\)', text)
-    if not match:
-        return None, {}
-    
-    tool_name = match.group(1)
-    params_str = match.group(2)
-    
-    params = {}
-    if params_str.strip():
-        for m in re.finditer(r'(\w+)\s*=\s*"([^"]*)"', params_str):
-            params[m.group(1)] = m.group(2)
-        for m in re.finditer(r"(\w+)\s*=\s*'([^']*)'", params_str):
-            params[m.group(1)] = m.group(2)
-    
-    return tool_name, params
+    return None
 
-# ===== BOUCLE REACT =====
+
+def extract_action(text: str) -> tuple:
+    """Extraire action tool(params)"""
+    
+    lines = text.split('\n')
+    for line in lines:
+        line = line.strip()
+        if line.startswith('ACTION:'):
+            line = line[7:].strip()
+        
+        m = re.match(r'(\w+)\s*\((.*)?\)', line)
+        if m:
+            tool = m.group(1)
+            params_str = m.group(2) or ""
+            params = {}
+            for pm in re.finditer(r'(\w+)\s*=\s*["\']([^"\']*)["\']', params_str):
+                params[pm.group(1)] = pm.group(2)
+            return tool, params
+    
+    # Fallback
+    m = re.search(r'(\w+)\s*\(\s*(\w+)\s*=\s*["\']([^"\']+)["\']', text)
+    if m:
+        return m.group(1), {m.group(2): m.group(3)}
+    
+    return None, {}
+
 
 async def react_loop(
     user_message: str,
     model: str,
     conversation_id: str,
-    execute_tool_func,  # Fonction injectée pour éviter import circulaire
+    execute_tool_func,
     uploaded_files: list = None,
     websocket: WebSocket = None
 ):
-    """Boucle ReAct principale"""
+    """Boucle ReAct"""
     
-    # Construire le contexte des fichiers uploadés
-    files_context = ""
-    if uploaded_files:
-        files_context = "\n\nFichiers attachés par l'utilisateur:\n"
-        for f in uploaded_files:
-            files_context += f"- ID: {f['id']} | Nom: {f['filename']} | Type: {f['filetype']}\n"
-        files_context += "\nUtilise analyze_file(file_id=\"...\") ou analyze_image(image_id=\"...\") pour les examiner.\n"
-    
-    # Prompt système
+    from tools import get_tools_description
     tools_desc = get_tools_description()
     
-    if PROMPTS_ENABLED:
-        dynamic_ctx = ""
-        if DYNAMIC_CONTEXT_ENABLED:
-            dynamic_ctx = await get_dynamic_context()
-        system_prompt = build_system_prompt(tools_desc, files_context, dynamic_ctx)
-    else:
-        system_prompt = f"""Tu es un assistant IA expert.
-Outils disponibles:
-{tools_desc}
-{files_context}
-"""
+    files_info = ""
+    if uploaded_files:
+        files_info = "\n\nFichiers attachés:\n"
+        for f in uploaded_files:
+            files_info += f"- {f['filename']} (ID: {f['id']})\n"
+    
+    # Prompt SANS exemple qui peut être copié
+    system_prompt = f"""Tu es un assistant IA expert. Tu DOIS utiliser les outils pour répondre aux questions.
 
-    messages = [{"role": "system", "content": system_prompt}]
-    messages.append({"role": "user", "content": user_message})
+OUTILS:
+{tools_desc}
+{files_info}
+
+RÈGLES:
+1. Pour CHAQUE question, utilise d'abord un outil approprié
+2. Après avoir obtenu les informations, conclus avec: final_answer(answer="[ton analyse des résultats]")
+3. Ne réponds JAMAIS sans avoir d'abord utilisé un outil
+
+EXEMPLES DE FORMAT:
+- docker_status() pour voir les containers
+- system_info() pour les infos système  
+- execute_command(command="ls -la") pour exécuter une commande
+- final_answer(answer="Voici ce que j'ai trouvé: ...") pour conclure"""
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message}
+    ]
     
-    iterations = 0
+    last_response = ""
     
-    while iterations < MAX_ITERATIONS:
-        iterations += 1
-        
-        # Envoyer le statut via WebSocket
+    for iteration in range(1, MAX_ITERATIONS + 1):
         if websocket:
             await websocket.send_json({
                 "type": "thinking",
-                "iteration": iterations,
-                "message": f"Itération {iterations}/{MAX_ITERATIONS}..."
+                "iteration": iteration,
+                "message": f"Réflexion {iteration}/{MAX_ITERATIONS}"
             })
         
-        # Appeler le LLM
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(
+                r = await client.post(
                     f"{settings.ollama_url}/api/chat",
                     json={
                         "model": model,
                         "messages": messages,
                         "stream": False,
-                        "options": {
-                            "temperature": 0.3,
-                            "num_predict": 2000
-                        }
+                        "options": {"temperature": 0.3, "num_predict": 2000}
                     },
                     timeout=180
                 )
-                data = response.json()
+                data = r.json()
                 assistant_text = data.get("message", {}).get("content", "")
         except Exception as e:
-            error_msg = f"Erreur LLM: {str(e)}"
+            error = f"Erreur LLM: {e}"
             if websocket:
-                await websocket.send_json({"type": "error", "message": error_msg})
-            return error_msg
+                await websocket.send_json({"type": "error", "message": error})
+            return error
         
-        # Envoyer la réponse partielle
-        if websocket:
-            await websocket.send_json({
-                "type": "step",
-                "iteration": iterations,
-                "content": assistant_text
-            })
+        last_response = assistant_text
+        
+        # Vérifier final_answer
+        final = extract_final_answer(assistant_text)
+        if final:
+            if websocket:
+                await websocket.send_json({
+                    "type": "complete",
+                    "answer": final,
+                    "iterations": iteration,
+                    "model": model
+                })
+            return final
         
         # Chercher une action
-        lines = assistant_text.split('\n')
-        action_line = None
-        for line in lines:
-            if line.strip().startswith('ACTION:'):
-                action_line = line.replace('ACTION:', '').strip()
-                break
-            if re.match(r'^\w+\(.*\)\s*$', line.strip()):
-                action_line = line.strip()
-                break
+        tool_name, params = extract_action(assistant_text)
         
-        if not action_line:
-            match = re.search(r'(\w+)\s*\([^)]+\)', assistant_text)
-            if match:
-                action_line = match.group(0)
-        
-        if action_line:
-            tool_name, params = parse_action(action_line)
+        if tool_name and tool_name != "final_answer":
+            if websocket:
+                await websocket.send_json({
+                    "type": "tool",
+                    "tool": tool_name,
+                    "params": params
+                })
             
-            if tool_name:
-                if tool_name == "final_answer":
-                    final = params.get("answer", assistant_text)
-                    if websocket:
-                        await websocket.send_json({
-                            "type": "complete",
-                            "answer": final,
-                            "iterations": iterations,
-                            "model": model
-                        })
-                    return final
-                
-                # Exécuter l'outil
-                if websocket:
-                    await websocket.send_json({
-                        "type": "tool",
-                        "tool": tool_name,
-                        "params": params
-                    })
-                
-                result = await execute_tool_func(tool_name, params, uploaded_files)
-                
-                # Ajouter au contexte
-                messages.append({"role": "assistant", "content": assistant_text})
-                
-                # Message d'urgence progressive
-                if iterations >= MAX_ITERATIONS - 1:
-                    msg = f"RÉSULTAT: {result[:500]}\n\n🚨 DERNIER TOUR! Réponds MAINTENANT: final_answer(answer=\"résumé\")"
-                elif iterations >= MAX_ITERATIONS - 3:
-                    msg = f"RÉSULTAT: {result[:800]}\n\n⚠️ Conclus bientôt avec final_answer()"
-                else:
-                    msg = f"RÉSULTAT: {result}\n\nContinue ou conclus avec final_answer()."
-                
-                messages.append({"role": "user", "content": msg})
-                
-                if websocket:
-                    await websocket.send_json({
-                        "type": "result",
-                        "tool": tool_name,
-                        "result": result[:1000]
-                    })
-            else:
-                messages.append({"role": "assistant", "content": assistant_text})
-                messages.append({"role": "user", "content": "Format ACTION invalide."})
-        else:
+            result = await execute_tool_func(tool_name, params, uploaded_files)
+            
+            if websocket:
+                await websocket.send_json({
+                    "type": "result",
+                    "tool": tool_name,
+                    "result": result[:500]
+                })
+            
             messages.append({"role": "assistant", "content": assistant_text})
-            messages.append({"role": "user", "content": "Continue avec une ACTION ou final_answer()."})
+            
+            if iteration >= MAX_ITERATIONS - 1:
+                messages.append({"role": "user", "content": f"RÉSULTAT: {result[:1000]}\n\n🚨 RÉPONDS MAINTENANT avec final_answer(answer=\"[résumé des résultats]\")"})
+            else:
+                messages.append({"role": "user", "content": f"RÉSULTAT: {result}\n\nAnalyse ce résultat et réponds avec final_answer(answer=\"[ton analyse]\") ou utilise un autre outil si nécessaire."})
+        else:
+            # Pas d'action - forcer l'utilisation d'un outil
+            messages.append({"role": "assistant", "content": assistant_text})
+            messages.append({"role": "user", "content": "Tu DOIS utiliser un outil. Choisis parmi: docker_status(), system_info(), execute_command(command=\"...\"), etc."})
     
-    timeout_msg = f"Analyse interrompue après {MAX_ITERATIONS} itérations."
+    # Timeout - retourner la dernière réponse
+    fallback = f"Analyse après {MAX_ITERATIONS} itérations:\n\n{last_response[:1500]}"
     if websocket:
         await websocket.send_json({
             "type": "complete",
-            "answer": timeout_msg,
-            "iterations": iterations,
+            "answer": fallback,
+            "iterations": MAX_ITERATIONS,
             "model": model
         })
-    return timeout_msg
+    return fallback

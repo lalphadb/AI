@@ -55,7 +55,7 @@ async def read_file(params: dict, security_validator=None, audit_logger=None) ->
 
 @register_tool("write_file")
 async def write_file(params: dict, security_validator=None, audit_logger=None) -> str:
-    """Écrire du contenu dans un fichier"""
+    """Écrire du contenu dans un fichier avec vérification de syntaxe pour Python"""
     path = params.get("path", "")
     content = params.get("content", "")
     
@@ -73,6 +73,17 @@ async def write_file(params: dict, security_validator=None, audit_logger=None) -
         parent = Path(path).parent
         parent.mkdir(parents=True, exist_ok=True)
         
+        # --- SÉCURITÉ SYNTAXIQUE ---
+        if path.endswith(".py"):
+            import ast
+            try:
+                ast.parse(content)
+            except SyntaxError as e:
+                return f"❌ Erreur de syntaxe Python détectée. Fichier NON écrit.\nLigne {e.lineno}: {e.msg}\n{e.text}"
+            except Exception as e:
+                return f"❌ Erreur de validation du code: {str(e)}"
+        # ---------------------------
+
         # Créer un backup si le fichier existe
         if os.path.exists(path):
             backup_path = f"{path}.backup"

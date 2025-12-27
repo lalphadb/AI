@@ -31,7 +31,7 @@ if not SECRET_KEY:
 else:
     print("🔐 AUTH: JWT secret loaded from environment")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 heures
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 # Base de données des utilisateurs

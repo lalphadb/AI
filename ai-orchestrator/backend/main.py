@@ -169,6 +169,14 @@ except ImportError:
     AUTO_LEARN_ENABLED = False
     logger.warning("⚠️ Module auto_learn non disponible")
 
+# ===== SELF HEALING v5.0 =====
+try:
+    from services.self_healing import service as self_healing_service
+    SELF_HEALING_ENABLED = True
+except ImportError as e:
+    SELF_HEALING_ENABLED = False
+    logger.warning(f"⚠️ Module self_healing non disponible: {e}")
+
 # ===== CONFIGURATION =====
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://10.10.10.46:11434")
@@ -554,6 +562,10 @@ async def lifespan(app: FastAPI):
     if RATE_LIMIT_ENABLED:
         asyncio.create_task(cleanup_task())
         logger.info("✅ Rate limiter démarré")
+
+    # Démarrer le Self-Healing Service
+    if SELF_HEALING_ENABLED:
+        asyncio.create_task(self_healing_service.start())
 
     yield
 

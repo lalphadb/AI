@@ -287,7 +287,7 @@
             i.value = '';
             i.style.height = '';
             
-            ws.send(JSON.stringify({ message: m, conversation_id: currentConversationId, model: document.getElementById('model-select').value, files: attachedFiles }));
+            ws.send(JSON.stringify({ message: m, conversation_id: currentConversationId, model: document.getElementById('model-select').value, file_ids: attachedFiles.map(f => f.id || f) }));
             attachedFiles = [];
             document.getElementById('attachments-preview').innerHTML = '';
         }
