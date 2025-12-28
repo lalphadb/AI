@@ -51,10 +51,10 @@ class SelfHealingService:
         except Exception:
             pass # Docker peut ne pas être installé
 
-        # 3. Vérifier Charge Système
+        # 3. Vérifier Charge Système (seuil élevé pour serveur AI)
         load = os.getloadavg()
-        if load[0] > 4.0: # Arbitraire, dépend du CPU
-            issues.append(f"⚠️ Charge système élevée (1 min): {load[0]}")
+        if load[0] > 20.0:  # Seuil haut - normal d'avoir du load sur un serveur AI
+            issues.append(f"⚠️ Charge système critique (1 min): {load[0]}")
 
         # Si problèmes détectés, déclencher l'auto-réparation
         if issues:

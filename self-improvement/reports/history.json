@@ -205,5 +205,14 @@
     "disk": null,
     "gpu_mem": 4.839600073606085,
     "alerts_count": 0
+  },
+  {
+    "timestamp": "2025-12-28T06:00:01.471606",
+    "score": 100,
+    "cpu": null,
+    "memory": null,
+    "disk": null,
+    "gpu_mem": 4.686254063669263,
+    "alerts_count": 0
   }
 ]

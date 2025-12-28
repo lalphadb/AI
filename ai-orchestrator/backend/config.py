@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     rate_limit_default: int = 60  # requêtes par minute
 
     # === REACT LOOP ===
-    max_iterations: int = 15  # Augmenté pour questions multi-outils
+    max_iterations: int = 30  # Augmenté pour questions multi-outils
 
     # === LOGGING ===
     log_level: str = "INFO"

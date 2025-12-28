@@ -1,0 +1,13 @@
+# Capture d'écran et vision
+mss>=9.0.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+Pillow>=10.0.0
+
+# APIs LLM (installe celles que tu utilises)
+groq>=0.4.0
+google-generativeai>=0.4.0
+anthropic>=0.18.0
+
+# Optionnel - contrôle clavier
+keyboard>=0.13.5

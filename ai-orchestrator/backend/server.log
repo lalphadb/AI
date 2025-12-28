@@ -13,3 +13,10 @@
 2025-12-26 02:20:13,427 [INFO] httpx: HTTP Request: GET http://testserver/api/models "HTTP/1.1 200 OK"
 2025-12-26 02:20:13,428 [INFO] httpx: HTTP Request: GET http://testserver/api/status "HTTP/1.1 200 OK"
 2025-12-26 02:20:13,430 [INFO] httpx: HTTP Request: GET http://testserver/api/conversations "HTTP/1.1 200 OK"
+2025-12-28 17:57:02,270 [WARNING] api: ⚠️ Module security non disponible - Validation désactivée
+2025-12-28 17:57:02,313 [INFO] tools: ✅ 54 outils chargés depuis 9 modules
+2025-12-28 17:57:02,313 [INFO] api: ✅ Modules tools v4.0 chargés
+2025-12-28 17:57:02,367 [INFO] react_engine: ReAct Engine v5.5: max_iter=30, timeout=300s, model=qwen3-coder:480b-cloud
+2025-12-28 17:57:02,375 [INFO] api: ✅ Base d'authentification initialisée
+2025-12-28 17:57:02,375 [INFO] api: ✅ Rate limiter démarré
+2025-12-28 17:57:02,375 [INFO] self_healing: 🛡️ Self-Healing Service démarré

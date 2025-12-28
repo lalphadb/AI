@@ -273,14 +273,15 @@ DEFAULT_MODEL = "qwen3-coder:480b-cloud"
 if TOOLS_MODULE_ENABLED:
     from tools import TOOLS_DEFINITIONS
     # Convertir en format dict pour compatibilité
-    TOOLS = {
-        t['name']: {
+    TOOLS = {}
+    for t in TOOLS_DEFINITIONS:
+        params = t.get('parameters', {})
+        example_args = ", ".join([f'{k}="..."' for k in params.keys()])
+        TOOLS[t['name']] = {
             'description': t['description'],
-            'parameters': t.get('parameters', {}),
-            'example': f"{t['name']}({', '.join(f'{k}=\"...\"' for k in t.get('parameters', {}).keys())})"
+            'parameters': params,
+            'example': f"{t['name']}({example_args})"
         }
-        for t in TOOLS_DEFINITIONS
-    }
 else:
     # Fallback minimal
     TOOLS = {

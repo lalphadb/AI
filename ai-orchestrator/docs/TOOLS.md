@@ -483,6 +483,288 @@ memory_delete(key="old_preference", category="preference")
 
 ---
 
+## Outils Ollama (ollama_tools.py)
+
+### ollama_list
+
+Liste les modeles Ollama installes sur l'hote.
+
+**Parametres:** Aucun
+
+**Exemple:**
+```
+ollama_list()
+```
+
+---
+
+### ollama_status
+
+Verifie le statut du service Ollama.
+
+**Parametres:** Aucun
+
+**Retour:**
+```
+Service systemd: actif
+API (localhost:11434): repond
+Processus en cours: ...
+```
+
+---
+
+### ollama_pull
+
+Telecharge un nouveau modele Ollama.
+
+**Parametres:**
+- `model` (str, requis): Nom du modele
+
+**Exemple:**
+```
+ollama_pull(model="llama3.2:3b")
+```
+
+---
+
+### ollama_run
+
+Execute une requete simple sur un modele.
+
+**Parametres:**
+- `model` (str, requis): Nom du modele
+- `prompt` (str, requis): Prompt a envoyer
+
+**Exemple:**
+```
+ollama_run(model="qwen2.5-coder:32b", prompt="Explique le pattern ReAct")
+```
+
+---
+
+### ollama_info
+
+Affiche les informations detaillees d'un modele.
+
+**Parametres:**
+- `model` (str, requis): Nom du modele
+
+**Exemple:**
+```
+ollama_info(model="qwen2.5-coder:32b")
+```
+
+---
+
+### ollama_rm
+
+Supprime un modele Ollama.
+
+**Parametres:**
+- `model` (str, requis): Nom du modele
+
+**Exemple:**
+```
+ollama_rm(model="old-model:latest")
+```
+
+---
+
+### ollama_ps
+
+Liste les modeles actuellement charges en memoire.
+
+**Parametres:** Aucun
+
+**Exemple:**
+```
+ollama_ps()
+```
+
+---
+
+### ollama_restart
+
+Redemarre le service Ollama sur l'hote.
+
+**Parametres:** Aucun
+
+**Exemple:**
+```
+ollama_restart()
+```
+
+---
+
+## Outils Meta (meta_tools.py)
+
+### create_tool
+
+Cree un nouvel outil pour l'orchestrateur (auto-amelioration).
+
+**Parametres:**
+- `name` (str, requis): Nom de l'outil
+- `description` (str, requis): Description de l'outil
+- `code` (str, requis): Code Python de l'outil
+- `parameters` (str, optionnel): Parametres au format JSON
+
+**Exemple:**
+```
+create_tool(name="mon_outil", description="Mon nouvel outil", code="return 'Hello'")
+```
+
+**Securite:** Validation de syntaxe Python automatique
+
+---
+
+### delete_tool
+
+Supprime un outil auto-genere.
+
+**Parametres:**
+- `name` (str, requis): Nom de l'outil
+
+**Securite:** Ne peut pas supprimer les outils systeme
+
+---
+
+### view_tool_code
+
+Affiche le code source d'un outil existant.
+
+**Parametres:**
+- `name` (str, requis): Nom de l'outil
+
+**Exemple:**
+```
+view_tool_code(name="docker_status")
+```
+
+---
+
+### list_my_tools
+
+Liste tous les outils disponibles de l'orchestrateur.
+
+**Parametres:** Aucun
+
+---
+
+### reload_my_tools
+
+Recharge tous les outils a chaud.
+
+**Parametres:** Aucun
+
+**Usage:** Apres creation/modification d'un outil
+
+---
+
+## Outils Reseau (network_tools.py)
+
+### ping_host
+
+Ping un hote.
+
+**Parametres:**
+- `host` (str, requis): Hote a ping
+- `count` (int, defaut: 4): Nombre de pings
+
+---
+
+### dns_lookup
+
+Resolution DNS.
+
+**Parametres:**
+- `domain` (str, requis): Domaine a resoudre
+
+---
+
+### check_url
+
+Verifie l'accessibilite d'une URL.
+
+**Parametres:**
+- `url` (str, requis): URL a verifier
+
+---
+
+### network_interfaces
+
+Liste les interfaces reseau locales.
+
+**Parametres:** Aucun
+
+---
+
+## Outils UDM (network_tools.py)
+
+### udm_status
+
+Obtient le statut de l'UDM-Pro.
+
+**Parametres:** Aucun
+
+---
+
+### udm_clients
+
+Liste les clients connectes sur l'UDM.
+
+**Parametres:** Aucun
+
+---
+
+### udm_network_info
+
+Informations reseau de l'UDM.
+
+**Parametres:** Aucun
+
+---
+
+## Outils IA (ai_tools.py)
+
+### analyze_image
+
+Analyse une image avec un modele de vision.
+
+**Parametres:**
+- `image` (str, requis): Chemin ou URL de l'image
+- `prompt` (str, optionnel): Question specifique
+
+---
+
+### summarize
+
+Resume un texte long.
+
+**Parametres:**
+- `text` (str, requis): Texte a resumer
+
+---
+
+### create_plan
+
+Cree un plan d'action structure.
+
+**Parametres:**
+- `task` (str, requis): Description de la tache
+
+---
+
+### web_search
+
+Recherche web (placeholder).
+
+**Parametres:**
+- `query` (str, requis): Terme de recherche
+
+**Note:** Necessite une API externe (non configure)
+
+---
+
 ## Outil Special
 
 ### final_answer

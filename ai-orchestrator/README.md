@@ -166,14 +166,22 @@ Le service de self-healing surveille automatiquement:
 
 En cas de probleme, l'agent lance automatiquement une session de reparation.
 
-## Changelog v5.1
+## Changelog v5.2
 
-- **Engine optimise** - Meilleure extraction des reponses finales
-- **Outils modulaires** - Chargement dynamique avec rechargement a chaud
-- **Mode Autonome** - Approche blacklist pour plus de flexibilite
-- **SSH transparent** - Execution de commandes sur l'hote via SSH
-- **Self-Healing** - Service de surveillance et reparation automatique
-- **Frontend v4.1** - Gestion amelioree des tokens et reconnexion
+### Nouveautes
+- **54 outils** - 8 nouveaux outils Ollama + outils meta pour auto-amelioration
+- **Retry 429** - Gestion automatique des erreurs rate-limit Ollama avec retry exponentiel
+- **Self-Healing optimise** - Seuil de charge systeme ajuste (20 au lieu de 4)
+- **Engine robuste** - Extraction final_answer amelioree pour texte francais avec apostrophes
+- **Shell detection** - Support automatique des pipes et redirections dans async_subprocess
+
+### v5.1 (precedent)
+- Engine optimise - Meilleure extraction des reponses finales
+- Outils modulaires - Chargement dynamique avec rechargement a chaud
+- Mode Autonome - Approche blacklist pour plus de flexibilite
+- SSH transparent - Execution de commandes sur l'hote via SSH
+- Self-Healing - Service de surveillance et reparation automatique
+- Frontend v4.1 - Gestion amelioree des tokens et reconnexion
 
 ## Contribution
 
@@ -195,6 +203,6 @@ python3 -m py_compile main.py engine.py
 
 ---
 
-**Version**: 5.1.0
+**Version**: 5.2.0
 **Auteur**: 4LB.ca
 **Licence**: MIT
