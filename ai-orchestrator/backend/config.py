@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     # === OLLAMA ===
     ollama_url: str = "http://10.10.10.46:11434"
     default_model: str = "qwen3-coder:480b-cloud"
-    llm_timeout: int = 180
+    llm_timeout: int = 300  # 5 minutes pour questions complexes
 
     # === CHROMADB ===
     chromadb_host: str = "localhost"
@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     rate_limit_default: int = 60  # requêtes par minute
 
     # === REACT LOOP ===
-    max_iterations: int = 12
+    max_iterations: int = 15  # Augmenté pour questions multi-outils
 
     # === LOGGING ===
     log_level: str = "INFO"

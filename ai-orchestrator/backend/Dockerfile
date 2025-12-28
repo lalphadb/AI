@@ -9,6 +9,10 @@ RUN apt-get update && apt-get install -y \
     procps \
     docker.io \
     git \
+    tree \
+    iputils-ping \
+    dnsutils \
+    net-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Configurer Git pour accepter tous les répertoires (requis pour volumes montés)
@@ -29,9 +33,10 @@ COPY prompts.py .
 COPY engine.py .
 COPY dynamic_context.py .
 
-# === NOUVEAUX MODULES v4.0 ===
+# === NOUVEAUX MODULES v4.0 & v5.0 ===
 COPY tools/ ./tools/
 COPY utils/ ./utils/
+COPY services/ ./services/
 
 # Créer le dossier data
 RUN mkdir -p /data

@@ -1,15 +1,26 @@
 """
-Moteur ReAct v5.0 - Robuste et fonctionnel
+Moteur ReAct v5.1 - Optimisé pour questions complexes
+- Timeout augmenté à 300s par requête LLM
+- 15 itérations max pour questions multi-outils
+- Support modèle cloud par défaut
 """
 
 import re
 import httpx
+import logging
 from typing import Optional
 from fastapi import WebSocket
 from config import get_settings
 
+logger = logging.getLogger("react_engine")
 settings = get_settings()
-MAX_ITERATIONS = 10
+
+# Configuration ReAct (depuis settings)
+MAX_ITERATIONS = settings.max_iterations or 15
+LLM_TIMEOUT = settings.llm_timeout or 300
+DEFAULT_MODEL = settings.default_model or "qwen3-coder:480b-cloud"
+
+logger.info(f"ReAct Engine v5.1: max_iter={MAX_ITERATIONS}, timeout={LLM_TIMEOUT}s, model={DEFAULT_MODEL}")
 
 def extract_final_answer(text: str) -> Optional[str]:
     """Extraire final_answer - ROBUSTE"""
@@ -121,19 +132,19 @@ EXEMPLES DE FORMAT:
             })
         
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(LLM_TIMEOUT)) as client:
                 r = await client.post(
                     f"{settings.ollama_url}/api/chat",
                     json={
                         "model": model,
                         "messages": messages,
                         "stream": False,
-                        "options": {"temperature": 0.3, "num_predict": 2000}
-                    },
-                    timeout=180
+                        "options": {"temperature": 0.3, "num_predict": 4000}
+                    }
                 )
                 data = r.json()
                 assistant_text = data.get("message", {}).get("content", "")
+                logger.debug(f"Iteration {iteration}: {len(assistant_text)} chars from {model}")
         except Exception as e:
             error = f"Erreur LLM: {e}"
             if websocket:

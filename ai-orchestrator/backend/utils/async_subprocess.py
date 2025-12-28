@@ -13,20 +13,22 @@ logger = logging.getLogger(__name__)
 
 
 async def run_command_async(
-    command: str,
+    command,
     timeout: int = 60,
     cwd: Optional[str] = None,
-    env: Optional[Dict[str, str]] = None
+    env: Optional[Dict[str, str]] = None,
+    use_shell: bool = None
 ) -> Tuple[str, int]:
     """
     Exécute une commande shell de manière asynchrone.
-    
+
     Args:
-        command: Commande à exécuter
+        command: Commande à exécuter (str ou list)
         timeout: Timeout en secondes (défaut: 60)
         cwd: Répertoire de travail (optionnel)
         env: Variables d'environnement (optionnel)
-    
+        use_shell: Forcer l'utilisation de shell (auto-détecté si None)
+
     Returns:
         Tuple (output: str, return_code: int)
         - return_code = 0 pour succès
@@ -34,21 +36,39 @@ async def run_command_async(
         - return_code = -2 pour erreur d'exécution
     """
     try:
-        # SÉCURITÉ : Ne jamais utiliser shell=True pour éviter les injections de commandes
-        # Si la commande est une string, on tente de la split proprement
-        if isinstance(command, str):
-            import shlex
-            args = shlex.split(command)
-        else:
-            args = command
+        # Déterminer si on doit utiliser le shell
+        needs_shell = False
+        if use_shell is not None:
+            needs_shell = use_shell
+        elif isinstance(command, str):
+            # Patterns qui nécessitent le shell
+            shell_patterns = ['|', '&&', '||', '2>&1', '>', '<', '$(',  '`', ';', 'cd ']
+            needs_shell = any(p in command for p in shell_patterns)
 
-        process = await asyncio.create_subprocess_exec(
-            *args,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=cwd,
-            env=env
-        )
+        if needs_shell and isinstance(command, str):
+            # Utiliser shell pour les commandes complexes
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=cwd,
+                env=env
+            )
+        else:
+            # Mode sécurisé sans shell
+            if isinstance(command, str):
+                import shlex
+                args = shlex.split(command)
+            else:
+                args = command
+
+            process = await asyncio.create_subprocess_exec(
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=cwd,
+                env=env
+            )
         
         try:
             stdout, stderr = await asyncio.wait_for(

@@ -765,13 +765,42 @@ async def list_models():
 
 @app.get("/tools")
 async def list_tools():
-    """Liste des outils disponibles"""
+    """Liste des outils disponibles (dynamique)"""
+    if TOOLS_MODULE_ENABLED:
+        from tools import get_tools_definitions, get_tool_count
+        tools_list = get_tools_definitions()
+        return {
+            "tools": [
+                {
+                    "name": t["name"],
+                    "description": t["description"],
+                    "parameters": t.get("parameters", {})
+                }
+                for t in tools_list
+            ],
+            "count": get_tool_count()
+        }
+    return {"tools": [], "count": 0}
+
+
+@app.post("/api/tools/reload")
+async def reload_tools_endpoint(
+    current_user = Depends(get_current_admin_user) if AUTH_ENABLED else None
+):
+    """Recharger les outils à chaud (admin requis) - pour l'auto-amélioration"""
+    if not TOOLS_MODULE_ENABLED:
+        raise HTTPException(status_code=501, detail="Tools module not enabled")
+
+    from tools import reload_tools
+    result = reload_tools()
+
+    logger.info(f"🔄 Outils rechargés: {result['tools_count']} outils")
+
     return {
-        "tools": [
-            {"name": name, "description": info["description"], "example": info["example"]}
-            for name, info in TOOLS.items()
-        ],
-        "count": len(TOOLS)
+        "success": True,
+        "tools_count": result["tools_count"],
+        "modules": result["modules_loaded"],
+        "tools": result["tools"]
     }
 
 
@@ -1075,6 +1104,98 @@ async def get_docker_status():
     except Exception as e:
         logger.error(f"Erreur docker status: {e}")
         return []
+
+# ===== ENDPOINTS MONITORING v5.1 =====
+
+@app.get("/api/logs")
+async def get_server_logs(
+    lines: int = 100,
+    level: str = None,
+    current_user = Depends(get_current_admin_user) if AUTH_ENABLED else None
+):
+    """Voir les dernières lignes des logs serveur (admin requis)"""
+    try:
+        with open("server.log", "r") as f:
+            all_lines = f.readlines()
+
+        # Filtrer par niveau si spécifié
+        if level:
+            level = level.upper()
+            all_lines = [l for l in all_lines if f"[{level}]" in l]
+
+        # Retourner les N dernières lignes
+        recent = all_lines[-lines:] if len(all_lines) > lines else all_lines
+
+        return {
+            "total_lines": len(all_lines),
+            "returned": len(recent),
+            "logs": [l.strip() for l in recent]
+        }
+    except FileNotFoundError:
+        return {"error": "Log file not found", "logs": []}
+    except Exception as e:
+        return {"error": str(e), "logs": []}
+
+
+@app.get("/api/system/status")
+async def get_system_status():
+    """Statut complet du système pour monitoring"""
+    from tools import get_tool_count, reload_tools
+
+    # Collecter les infos
+    status = {
+        "version": "5.1.0",
+        "healthy": True,
+        "components": {}
+    }
+
+    # Backend
+    status["components"]["backend"] = {
+        "status": "running",
+        "tools_count": get_tool_count(),
+        "auth_enabled": AUTH_ENABLED,
+        "security_enabled": SECURITY_ENABLED,
+        "self_healing_enabled": SELF_HEALING_ENABLED
+    }
+
+    # Ollama
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.get(f"{OLLAMA_URL}/api/tags")
+            models = r.json().get("models", [])
+            status["components"]["ollama"] = {
+                "status": "connected",
+                "url": OLLAMA_URL,
+                "models_count": len(models)
+            }
+    except Exception as e:
+        status["components"]["ollama"] = {"status": "error", "error": str(e)}
+        status["healthy"] = False
+
+    # ChromaDB
+    try:
+        client = get_chroma_client()
+        if client:
+            collections = client.list_collections()
+            status["components"]["chromadb"] = {
+                "status": "connected",
+                "collections": len(collections)
+            }
+        else:
+            status["components"]["chromadb"] = {"status": "not configured"}
+    except Exception as e:
+        status["components"]["chromadb"] = {"status": "error", "error": str(e)}
+
+    # Docker
+    try:
+        result = subprocess.run(["docker", "ps", "-q"], capture_output=True, timeout=5)
+        containers = len(result.stdout.decode().strip().split('\n')) if result.stdout else 0
+        status["components"]["docker"] = {"status": "running", "containers": containers}
+    except Exception as e:
+        status["components"]["docker"] = {"status": "error", "error": str(e)}
+
+    return status
+
 
 # Servir le frontend
 try:

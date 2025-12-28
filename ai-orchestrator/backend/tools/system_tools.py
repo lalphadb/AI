@@ -11,19 +11,58 @@ USER = os.getenv("HOST_USER", "lalpha")
 KEY = "/root/.ssh/id_ed25519"
 SSH = f"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -i {KEY} {USER}@{HOST}"
 
-HOST_CMDS = {"systemctl", "service", "journalctl", "apt", "apt-get", "dpkg", 
-             "nvidia-smi", "sensors", "reboot", "shutdown", "mount", "umount"}
+# Commandes qui DOIVENT être exécutées sur l'hôte (pas dans le conteneur)
+HOST_CMDS = {
+    # Gestion système
+    "systemctl", "service", "journalctl", "apt", "apt-get", "dpkg",
+    # Hardware
+    "nvidia-smi", "sensors", "lspci", "lsusb", "dmidecode",
+    # Système
+    "reboot", "shutdown", "mount", "umount", "fdisk", "lsblk",
+    # Ollama (sur l'hôte)
+    "ollama",
+    # Réseau hôte
+    "netstat", "ss", "ip", "ifconfig",
+}
+
+# Patterns qui indiquent une commande pour l'hôte
+HOST_PATTERNS = [
+    "localhost:11434",  # Ollama API
+    "127.0.0.1:11434",
+    "/home/lalpha/scripts/",
+]
 
 
 async def ssh(cmd: str, timeout: int = 60) -> tuple:
     return await run_command_async(f'{SSH} "{cmd}"', timeout=timeout)
 
 
-async def run(cmd: str, timeout: int = 60) -> tuple:
-    base = cmd.split()[0].split("/")[-1] if cmd.split() else ""
-    if base == "sudo" and len(cmd.split()) > 1:
-        base = cmd.split()[1].split("/")[-1]
+def should_run_on_host(cmd: str) -> bool:
+    """Détermine si une commande doit être exécutée sur l'hôte via SSH"""
+    parts = cmd.split()
+    if not parts:
+        return False
+
+    # Extraire la commande de base
+    base = parts[0].split("/")[-1]
+    if base == "sudo" and len(parts) > 1:
+        base = parts[1].split("/")[-1]
+
+    # Vérifier si la commande est dans HOST_CMDS
     if base in HOST_CMDS:
+        return True
+
+    # Vérifier les patterns
+    for pattern in HOST_PATTERNS:
+        if pattern in cmd:
+            return True
+
+    return False
+
+
+async def run(cmd: str, timeout: int = 60) -> tuple:
+    """Exécute une commande localement ou sur l'hôte selon le contexte"""
+    if should_run_on_host(cmd):
         return await ssh(cmd, timeout)
     return await run_command_async(cmd, timeout)
 
