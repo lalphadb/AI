@@ -145,8 +145,20 @@ async def react_loop(
     ]
     
     last_response = ""
+    successful_tool_results = []  # P0-2 FIX: Collecter les résultats pour synthèse
     
     for iteration in range(1, MAX_ITERATIONS + 1):
+        # P0-2 FIX: À mi-parcours, forcer une conclusion si on a des résultats
+        if iteration == MAX_ITERATIONS // 2 and successful_tool_results:
+            force_conclude_msg = f"""
+⚠️ ATTENTION: Tu approches de la limite d'itérations.
+Tu as déjà obtenu {len(successful_tool_results)} résultat(s) d'outils.
+Si tu as assez d'informations, utilise final_answer() MAINTENANT.
+Résultats obtenus: {', '.join([r[:100] for r in successful_tool_results[-3:]])}
+"""
+            if websocket:
+                await websocket.send_json({"type": "thinking", "message": "⚠️ Mi-parcours - encouragement à conclure..."})
+            messages.append({"role": "user", "content": force_conclude_msg})
         if websocket:
             await websocket.send_json({
                 "type": "thinking",
@@ -231,6 +243,20 @@ async def react_loop(
         
         last_response = assistant_text
         
+        # P0-3 FIX: Log détaillé de la réponse LLM
+        logger.debug(f"📝 Iteration {iteration} - Réponse LLM ({len(assistant_text)} chars)")
+        
+        # Extraire et logger les phases THINK/PLAN si présentes
+        if "THINK:" in assistant_text.upper():
+            think_match = assistant_text.upper().find("THINK:")
+            think_content = assistant_text[think_match:think_match+200]
+            logger.info(f"🧠 THINK: {think_content[:100]}...")
+        
+        if "PLAN:" in assistant_text.upper():
+            plan_match = assistant_text.upper().find("PLAN:")
+            plan_content = assistant_text[plan_match:plan_match+200]
+            logger.info(f"📋 PLAN: {plan_content[:100]}...")
+        
         # 1. Vérifier final_answer
         final = extract_final_answer(assistant_text)
         if final:
@@ -242,6 +268,9 @@ async def react_loop(
         tool_name, params = extract_action(assistant_text)
         
         if tool_name:
+            # P0-3 FIX: Log détaillé de l'action
+            logger.info(f"🔧 ACTION: {tool_name}({params})")
+            
             if websocket:
                 await websocket.send_json({"type": "tool", "tool": tool_name, "params": params})
             
@@ -254,6 +283,14 @@ async def react_loop(
             if websocket:
                 await websocket.send_json({"type": "result", "tool": tool_name, "result": result[:2000]})
             
+            # P0-3 FIX: Log OBSERVE
+            result_preview = result[:150] if result else "EMPTY"
+            logger.info(f"👁️ OBSERVE: {tool_name} -> {result_preview}...")
+            
+            # P0-2 FIX: Collecter les résultats réussis
+            if result and not result.startswith("❌") and not result.startswith("Erreur"):
+                successful_tool_results.append(f"{tool_name}: {result[:200]}")
+            
             messages.append({"role": "assistant", "content": assistant_text})
             messages.append({"role": "user", "content": observe_msg})
         else:
@@ -261,8 +298,32 @@ async def react_loop(
             messages.append({"role": "assistant", "content": assistant_text})
             messages.append({"role": "user", "content": "⚠️ FORMAT INCORRECT. Tu dois utiliser ACTION: outil(param='valeur') ou final_answer."})
     
-    # Timeout
-    fallback = f"⚠️ Limite d'itérations atteinte ({MAX_ITERATIONS}). Voici l'analyse :\n\n{last_response}"
+    # Timeout - P0-2 FIX: Message structuré avec résultats collectés
+    logger.warning(f"⚠️ P0-2: Max iterations atteint. Résultats collectés: {len(successful_tool_results)}")
+    
+    if successful_tool_results:
+        # On a des résultats, construire une réponse utile
+        fallback = f"""⚠️ **Limite d'itérations atteinte** ({MAX_ITERATIONS})
+
+Cependant, voici les informations que j'ai pu collecter:
+
+"""
+        for i, result in enumerate(successful_tool_results[-5:], 1):
+            fallback += f"{i}. {result}\n"
+        fallback += f"\n---\n*Note: La requête était complexe. Essayez de la reformuler plus simplement.*"
+    else:
+        # Pas de résultat, message d'erreur clair
+        fallback = f"""❌ **Échec de traitement**
+
+La demande n'a pas pu être traitée après {MAX_ITERATIONS} tentatives.
+
+**Causes possibles:**
+- Demande trop complexe ou ambiguë
+- Outils requis non disponibles
+- Erreur de format dans mes réponses
+
+**Suggestion:** Reformulez votre demande de manière plus simple et spécifique."""
+    
     if websocket:
         await websocket.send_json({"type": "complete", "answer": fallback, "iterations": MAX_ITERATIONS, "model": model})
     return fallback

@@ -441,7 +441,12 @@ def create_conversation(title: str = None) -> str:
     return conv_id
 
 def add_message(conversation_id: str, role: str, content: str, model_used: str = None):
-    """Ajouter un message à une conversation"""
+    """Ajouter un message à une conversation - P0-1: Validation anti-vide"""
+    # P0-1 FIX: Refuser les réponses vides pour role=assistant
+    if role == "assistant" and (not content or not content.strip()):
+        logger.warning(f"⚠️ P0-1: Tentative de sauvegarde réponse vide bloquée (conv={conversation_id})")
+        content = "❌ Erreur: Impossible de générer une réponse. Veuillez reformuler votre demande."
+    
     conn = get_db()
     c = conn.cursor()
     c.execute('''INSERT INTO messages (conversation_id, role, content, model_used)
@@ -450,6 +455,10 @@ def add_message(conversation_id: str, role: str, content: str, model_used: str =
               (conversation_id,))
     conn.commit()
     conn.close()
+    
+    # P0-1 FIX: Log pour traçabilité
+    if role == "assistant":
+        logger.debug(f"✅ Message assistant sauvegardé (conv={conversation_id}, len={len(content)})")
 
 def get_conversations(limit: int = 20) -> list:
     """Récupérer les conversations récentes"""
