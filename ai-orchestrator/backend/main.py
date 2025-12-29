@@ -143,7 +143,6 @@ def require_auth():
         return Depends(get_current_active_user)
     return None
 # Désactiver la télémétrie ChromaDB pour éviter l'erreur capture()
-import os
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
 
 # Patch posthog pour éviter l'erreur "capture() takes 1 positional argument but 3 were given"

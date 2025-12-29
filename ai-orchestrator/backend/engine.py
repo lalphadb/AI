@@ -37,7 +37,7 @@ def extract_final_answer(text: str) -> Optional[str]:
     # Méthode 2: Guillemets simples ou doubles avec support multi-lignes
     for quote in ['"', "'"]:
         # Pattern cherchant final_answer(answer='...')
-        pattern = f'final_answer\s*\(\s*answer\s*=\s*{quote}(.*?){quote}\s*\)'
+        pattern = rf'final_answer\s*\(\s*answer\s*=\s*{quote}(.*?){quote}\s*\)'
         m = re.search(pattern, text, re.DOTALL)
         if m:
             return m.group(1).strip()
