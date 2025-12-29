@@ -126,8 +126,12 @@ async def react_loop(
     """Boucle ReAct v5.5 - THINK -> PLAN -> ACTION -> OBSERVE"""
     
     from tools import get_tools_description
-    from prompts import build_system_prompt, get_urgency_message
+    from prompts import build_system_prompt, get_urgency_message, classify_query, get_factual_prompt
     
+    # P1-2 FIX: Classification de la requête
+    query_type = classify_query(user_message)
+    logger.info(f"📋 P1-2: Requête classifiée comme '{query_type}'")
+
     # Contextes
     files_info = ""
     if uploaded_files:
