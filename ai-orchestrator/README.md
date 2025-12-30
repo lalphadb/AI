@@ -1,16 +1,16 @@
-# AI Orchestrator v5.1 - Agent Autonome Intelligent
+# AI Orchestrator v5.2 - Agent Autonome Intelligent
 
-L'AI Orchestrator est un **agent autonome avance** concu pour gerer l'infrastructure de 4LB.ca. Il combine la puissance des LLMs (via Ollama) avec une execution d'outils systeme securisee, une memoire semantique persistante (ChromaDB), et un systeme d'auto-guerison.
+L'AI Orchestrator est un **agent autonome avancé** conçu pour gérer l'infrastructure de 4LB.ca. Il combine la puissance des LLMs (via Ollama) avec une exécution d'outils système sécurisée, une mémoire sémantique persistante (ChromaDB), et un système d'auto-guérison.
 
-## Fonctionnalites Principales
+## Fonctionnalités Principales
 
-- **Boucle ReAct** - Raisonnement "Think, Plan, Act" pour resoudre des taches complexes
-- **Mode Autonome** - L'agent decide et agit avec une approche blacklist (pas whitelist)
-- **Memoire Semantique** - ChromaDB pour memoriser projets, preferences et faits techniques
+- **Boucle ReAct** - Raisonnement "Think, Plan, Act" pour résoudre des tâches complexes
+- **Mode Autonome** - L'agent décide et agit avec une approche blacklist (pas whitelist)
+- **Mémoire Sémantique** - ChromaDB pour mémoriser projets, préférences et faits techniques
 - **Auto-Apprentissage** - Extraction automatique d'informations des conversations
-- **Self-Healing** - Surveillance et reparation automatique du systeme
-- **Multi-Modeles** - Support de Qwen, DeepSeek, Llama Vision et modeles cloud
-- **Interface Temps Reel** - Frontend WebSocket avec affichage de la "pensee" de l'IA
+- **Self-Healing** - Surveillance et réparation automatique du système
+- **Multi-Modèles** - Support de Qwen, DeepSeek, Llama Vision et modèles cloud
+- **Interface Temps Réel** - Frontend WebSocket avec affichage de la "pensée" de l'IA
 
 ## Architecture
 
@@ -35,21 +35,21 @@ L'AI Orchestrator est un **agent autonome avance** concu pour gerer l'infrastruc
 | Backend | Python 3.13, FastAPI, Uvicorn |
 | Frontend | HTML5, TailwindCSS, Vanilla JS |
 | LLM | Ollama (Qwen 2.5 Coder, DeepSeek, Llama Vision) |
-| Memoire | ChromaDB (recherche semantique) |
-| Base de donnees | SQLite (conversations, auth) |
+| Mémoire | ChromaDB (recherche sémantique) |
+| Base de données | SQLite (conversations, auth) |
 | Authentification | JWT + API Keys |
-| Securite | Rate Limiting, Blacklist, Audit Logging |
-| Deploiement | Docker, Docker Compose, Traefik |
+| Sécurité | Rate Limiting, Blacklist, Audit Logging |
+| Déploiement | Docker, Docker Compose, Traefik |
 
 ## Installation Rapide
 
-### Prerequis
+### Prérequis
 
 - Docker et Docker Compose
-- Ollama avec les modeles (qwen2.5-coder:32b, llama3.2-vision:11b)
-- Reseau Docker `unified-net`
+- Ollama avec les modèles (qwen2.5-coder:32b, llama3.2-vision:11b)
+- Réseau Docker `unified-net`
 
-### Deploiement
+### Déploiement
 
 ```bash
 # Cloner le projet
@@ -58,12 +58,12 @@ cd ai-orchestrator
 
 # Configurer l'environnement
 cp backend/.env.example backend/.env
-# Editer .env avec vos secrets
+# Éditer .env avec vos secrets
 
-# Demarrer
+# Démarrer
 docker compose up -d
 
-# Verifier
+# Vérifier
 curl http://localhost:8001/health
 ```
 
@@ -80,17 +80,17 @@ AI_RATE_LIMIT_ENABLED=true
 
 | Document | Description |
 |----------|-------------|
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture detaillee, flux de donnees |
-| [API.md](docs/API.md) | Reference complete de l'API REST/WebSocket |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture détaillée, flux de données |
+| [API.md](docs/API.md) | Référence complète de l'API REST/WebSocket |
 | [TOOLS.md](docs/TOOLS.md) | Documentation de tous les outils disponibles |
-| [SECURITY.md](docs/SECURITY.md) | Guide de securite et bonnes pratiques |
+| [SECURITY.md](docs/SECURITY.md) | Guide de sécurité et bonnes pratiques |
 | [UPGRADE.md](docs/UPGRADE.md) | Guide de migration entre versions |
 
-## Outils Disponibles
+## Outils Disponibles (55+)
 
-### Systeme
-- `execute_command` - Executer une commande shell
-- `system_info` - Informations systeme (CPU, RAM, GPU)
+### Système
+- `execute_command` - Exécuter une commande shell
+- `system_info` - Informations système (CPU, RAM, GPU)
 - `service_status` / `service_control` - Gestion services systemd
 - `disk_usage` - Analyse espace disque
 - `process_list` - Liste des processus
@@ -99,25 +99,31 @@ AI_RATE_LIMIT_ENABLED=true
 ### Docker
 - `docker_status` - Liste des conteneurs
 - `docker_logs` - Logs d'un conteneur
-- `docker_restart` - Redemarrage conteneur
+- `docker_restart` - Redémarrage conteneur
 - `docker_compose` - Commandes docker compose
-- `docker_exec` - Execution dans un conteneur
+- `docker_exec` - Exécution dans un conteneur
 - `docker_stats` - Statistiques Docker
 
 ### Fichiers
-- `read_file` / `write_file` - Lecture/ecriture fichiers
-- `list_directory` - Listing repertoire
+- `read_file` / `write_file` - Lecture/écriture fichiers
+- `list_directory` - Listing répertoire
 - `search_files` - Recherche par pattern
 - `file_info` - Informations fichier
 
 ### Git
-- `git_status` / `git_diff` - Statut et differences
+- `git_status` / `git_diff` - Statut et différences
 - `git_log` / `git_branch` - Historique et branches
 - `git_pull` - Pull modifications
 
-### Memoire
-- `memory_store` / `memory_recall` - Stockage/rappel semantique
-- `memory_list` / `memory_delete` - Gestion memoire
+### Mémoire
+- `memory_store` / `memory_recall` - Stockage/rappel sémantique
+- `memory_list` / `memory_delete` - Gestion mémoire
+- `memory_stats` - Statistiques mémoire
+
+### Réseau
+- `network_info` - Informations réseau
+- `port_check` - Vérification ports
+- `dns_lookup` - Résolution DNS
 
 ## API Principales
 
@@ -128,7 +134,7 @@ AI_RATE_LIMIT_ENABLED=true
 curl -X POST https://ai.4lb.ca/api/auth/login \
   -d "username=admin&password=votremotdepasse"
 
-# Reponse
+# Réponse
 {"access_token": "eyJ...", "refresh_token": "xyz...", "expires_in": 3600}
 ```
 
@@ -149,57 +155,59 @@ ws.send(JSON.stringify({message: "Status Docker", model: "auto"}));
 ws.onmessage = (e) => console.log(JSON.parse(e.data));
 ```
 
-## Securite
+## Sécurité
 
 - **Mode Autonome** - Blacklist des commandes dangereuses (mkfs, dd, rm -rf /)
-- **JWT** - Tokens signes avec expiration (1h access, 7j refresh)
-- **Rate Limiting** - 60 req/min par defaut
-- **Audit Log** - Toutes les actions tracees
+- **JWT** - Tokens signés avec expiration (1h access, 7j refresh)
+- **Rate Limiting** - 60 req/min par défaut
+- **Audit Log** - Toutes les actions tracées
 - **CSP** - Content Security Policy strict sur le frontend
 
 ## Self-Healing
 
 Le service de self-healing surveille automatiquement:
 - Espace disque (alerte si > 90%)
-- Accessibilite Docker
-- Charge systeme (alerte si > 4.0)
+- Accessibilité Docker
+- Charge système (alerte si > 20.0)
 
-En cas de probleme, l'agent lance automatiquement une session de reparation.
+En cas de problème, l'agent lance automatiquement une session de réparation.
 
 ## Changelog v5.2
 
-### Nouveautes
-- **54 outils** - 8 nouveaux outils Ollama + outils meta pour auto-amelioration
-- **Retry 429** - Gestion automatique des erreurs rate-limit Ollama avec retry exponentiel
-- **Self-Healing optimise** - Seuil de charge systeme ajuste (20 au lieu de 4)
-- **Engine robuste** - Extraction final_answer amelioree pour texte francais avec apostrophes
-- **Shell detection** - Support automatique des pipes et redirections dans async_subprocess
+### Nouveautés
+- **55 outils** - Outils Ollama + outils méta pour auto-amélioration
+- **RAG v2** - Embeddings mxbai-embed-large (1024 dim), 53 documents indexés
+- **Chunking intelligent** - Découpage sémantique pour code, markdown, texte
+- **File Indexer** - Indexation automatique de fichiers avec watcher
+- **Retry 429** - Gestion automatique des erreurs rate-limit Ollama
+- **Self-Healing optimisé** - Seuil de charge système ajusté
+- **Engine robuste** - Extraction final_answer améliorée pour texte français
 
-### v5.1 (precedent)
-- Engine optimise - Meilleure extraction des reponses finales
-- Outils modulaires - Chargement dynamique avec rechargement a chaud
-- Mode Autonome - Approche blacklist pour plus de flexibilite
-- SSH transparent - Execution de commandes sur l'hote via SSH
-- Self-Healing - Service de surveillance et reparation automatique
-- Frontend v4.1 - Gestion amelioree des tokens et reconnexion
+### v5.1 (précédent)
+- Engine optimisé - Meilleure extraction des réponses finales
+- Outils modulaires - Chargement dynamique avec rechargement à chaud
+- Mode Autonome - Approche blacklist pour plus de flexibilité
+- SSH transparent - Exécution de commandes sur l'hôte via SSH
+- Self-Healing - Service de surveillance et réparation automatique
+- Frontend v4.1 - Gestion améliorée des tokens et reconnexion
 
 ## Contribution
 
-Les contributions sont bienvenues. Toute modification des outils systeme doit respecter le module `security.py`.
+Les contributions sont bienvenues. Toute modification des outils système doit respecter le module `security.py`.
 
 ```bash
 # Lancer les tests
 cd backend
 python -m pytest tests/
 
-# Verifier la syntaxe
+# Vérifier la syntaxe
 python3 -m py_compile main.py engine.py
 ```
 
 ## Support
 
 - Issues: [GitHub Issues](https://github.com/4lb/ai-orchestrator/issues)
-- Securite: security@4lb.ca
+- Sécurité: security@4lb.ca
 
 ---
 
