@@ -1,0 +1,111 @@
+{
+  "timestamp": "2025-12-29T06:00:01.573028",
+  "score": 100,
+  "status": "excellent",
+  "metrics": {
+    "docker": {
+      "total": 16,
+      "running": 16,
+      "stopped": 0,
+      "unhealthy": 0,
+      "containers": [
+        {
+          "name": "ai-orchestrator-backend",
+          "status": "Up 11 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "traefik",
+          "status": "Up 12 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "postgres",
+          "status": "Up 12 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "redis",
+          "status": "Up 12 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "crowdsec",
+          "status": "Up 12 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "ai-orchestrator-frontend",
+          "status": "Up 12 hours",
+          "state": "running"
+        },
+        {
+          "name": "jsr-dev",
+          "status": "Up 12 hours",
+          "state": "running"
+        },
+        {
+          "name": "jsr-solutions",
+          "status": "Up 12 hours",
+          "state": "running"
+        },
+        {
+          "name": "open-webui",
+          "status": "Up 12 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "code-server",
+          "status": "Up 12 hours",
+          "state": "running"
+        },
+        {
+          "name": "prometheus",
+          "status": "Up 12 hours",
+          "state": "running"
+        },
+        {
+          "name": "grafana",
+          "status": "Up 12 hours",
+          "state": "running"
+        },
+        {
+          "name": "chromadb",
+          "status": "Up 12 hours",
+          "state": "running"
+        },
+        {
+          "name": "cadvisor",
+          "status": "Up 12 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "node-exporter",
+          "status": "Up 12 hours",
+          "state": "running"
+        },
+        {
+          "name": "jsr-solutions-prod",
+          "status": "Up 12 hours",
+          "state": "running"
+        }
+      ]
+    },
+    "uptime_days": 0.5,
+    "load_1m": 0.12,
+    "load_5m": 0.16,
+    "load_15m": 0.17,
+    "gpu_util": 0.0,
+    "gpu_mem_used": 536.0,
+    "gpu_mem_total": 16303.0,
+    "gpu_temp": 32.0,
+    "gpu_mem_percent": 3.2877384530454514,
+    "collected_at": "2025-12-29T06:00:01.566994"
+  },
+  "alerts": [],
+  "recommendations": [],
+  "auto_actions": [],
+  "trends": {
+    "score": "\u2192 stable"
+  }
+}
