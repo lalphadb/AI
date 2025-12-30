@@ -1,15 +1,16 @@
 import asyncio
 import logging
-import uuid
-import shutil
 import os
-from datetime import datetime
+import shutil
 import subprocess
+from datetime import datetime
+
+from config import get_settings
 from engine import react_loop
 from tools import execute_tool
-from config import get_settings
 
 logger = logging.getLogger("self_healing")
+
 
 class SelfHealingService:
     def __init__(self):
@@ -26,7 +27,7 @@ class SelfHealingService:
                 await self.check_system_health()
             except Exception as e:
                 logger.error(f"Erreur boucle self-healing: {e}")
-            
+
             await asyncio.sleep(self.check_interval)
 
     def stop(self):
@@ -41,7 +42,9 @@ class SelfHealingService:
         total, used, free = shutil.disk_usage("/")
         percent_used = (used / total) * 100
         if percent_used > 90:
-            issues.append(f"⚠️ Espace disque CRITIQUE: {percent_used:.1f}% utilisé. Nettoie les logs ou fichiers temporaires.")
+            issues.append(
+                f"⚠️ Espace disque CRITIQUE: {percent_used:.1f}% utilisé. Nettoie les logs ou fichiers temporaires."
+            )
 
         # 2. Vérifier Docker (si disponible)
         try:
@@ -49,7 +52,7 @@ class SelfHealingService:
             if res.returncode != 0:
                 issues.append("⚠️ Docker semble inaccessible ou arrêté.")
         except Exception:
-            pass # Docker peut ne pas être installé
+            pass  # Docker peut ne pas être installé
 
         # 3. Vérifier Charge Système (seuil élevé pour serveur AI)
         load = os.getloadavg()
@@ -64,7 +67,7 @@ class SelfHealingService:
         """Lancer l'agent pour corriger les problèmes"""
         issue_text = "\n".join(issues)
         logger.warning(f"🚨 Problèmes détectés, lancement auto-réparation:\n{issue_text}")
-        
+
         prompt = f"""ALERTE SYSTÈME (SELF-HEALING):
 Les problèmes suivants ont été détectés automatiquement :
 {issue_text}
@@ -77,7 +80,7 @@ Ta mission :
 Agis de manière autonome et sécurisée."""
 
         conv_id = f"self-healing-{datetime.now().strftime('%Y%m%d-%H%M')}"
-        
+
         # Lancer le moteur ReAct
         # Note: on utilise un modèle performant pour la maintenance
         try:
@@ -85,11 +88,12 @@ Agis de manière autonome et sécurisée."""
                 user_message=prompt,
                 model=self.settings.default_model or "qwen2.5-coder:32b-instruct-q4_K_M",
                 conversation_id=conv_id,
-                execute_tool_func=execute_tool
+                execute_tool_func=execute_tool,
             )
             logger.info(f"✅ Auto-réparation terminée (Conv ID: {conv_id})")
         except Exception as e:
             logger.error(f"❌ Échec de l'auto-réparation: {e}")
+
 
 # Instance globale
 service = SelfHealingService()

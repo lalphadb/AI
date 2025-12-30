@@ -3,25 +3,24 @@
 Tests unitaires pour le module de rate limiting
 """
 
-import pytest
 import asyncio
-import sys
 import os
+import sys
 import time
+
+import pytest
 
 # Ajouter le répertoire parent au path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from rate_limiter import (
-    RateLimiter,
     InMemoryStorage,
+    RateLimiter,
     RateLimitResult,
-    get_client_ip,
-    is_ip_whitelisted,
-    get_rate_limit_for_path,
-    configure_rate_limits,
     add_whitelist_ip,
-    WHITELIST_IPS,
+    configure_rate_limits,
+    get_rate_limit_for_path,
+    is_ip_whitelisted,
 )
 
 
@@ -193,10 +192,7 @@ class TestRateLimitResult:
     def test_blocked_result(self):
         """Résultat bloqué"""
         result = RateLimitResult(
-            allowed=False,
-            remaining=0,
-            reset_at=time.time() + 60,
-            retry_after=30
+            allowed=False, remaining=0, reset_at=time.time() + 60, retry_after=30
         )
         assert result.allowed is False
         assert result.remaining == 0
@@ -214,8 +210,7 @@ class TestConcurrency:
 
         # Lancer 20 requêtes concurrentes avec limite de 10
         tasks = [
-            limiter.check("concurrent:test", max_requests=10, window_seconds=60)
-            for _ in range(20)
+            limiter.check("concurrent:test", max_requests=10, window_seconds=60) for _ in range(20)
         ]
         results = await asyncio.gather(*tasks)
 

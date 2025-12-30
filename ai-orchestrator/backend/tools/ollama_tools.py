@@ -3,8 +3,9 @@ Outils Ollama pour AI Orchestrator v5.1
 Gestion des modeles LLM via Ollama sur l'hote
 """
 
-import os
 import json
+import os
+
 from tools import register_tool
 from utils.async_subprocess import run_command_async
 
@@ -28,7 +29,7 @@ async def ollama_list(params: dict) -> str:
     if code != 0:
         return f"❌ Erreur Ollama: {out}"
 
-    lines = out.strip().split('\n')
+    lines = out.strip().split("\n")
     if len(lines) <= 1:
         return "📭 Aucun modele Ollama installe"
 
@@ -62,7 +63,9 @@ async def ollama_status(params: dict) -> str:
     ps_out, _ = await ssh_cmd("pgrep -a ollama | head -3", 10)
 
     result = ["🦙 **Statut Ollama:**\n"]
-    result.append(f"- Service systemd: {'🟢 actif' if service_status == 'active' else '🔴 ' + service_status}")
+    result.append(
+        f"- Service systemd: {'🟢 actif' if service_status == 'active' else '🔴 ' + service_status}"
+    )
     result.append(f"- API ({OLLAMA_HOST}): {'🟢 repond' if api_ok else '🔴 inaccessible'}")
 
     if ps_out.strip():
@@ -71,7 +74,9 @@ async def ollama_status(params: dict) -> str:
     return "\n".join(result)
 
 
-@register_tool("ollama_pull", description="Telecharge un modele Ollama", parameters={"model": "str"})
+@register_tool(
+    "ollama_pull", description="Telecharge un modele Ollama", parameters={"model": "str"}
+)
 async def ollama_pull(params: dict) -> str:
     """Telecharge un nouveau modele Ollama"""
     model = params.get("model", "")
@@ -89,7 +94,11 @@ async def ollama_pull(params: dict) -> str:
     return f"❌ Erreur telechargement {model}:\n{out[-1000:]}"
 
 
-@register_tool("ollama_run", description="Execute une requete sur un modele", parameters={"model": "str", "prompt": "str"})
+@register_tool(
+    "ollama_run",
+    description="Execute une requete sur un modele",
+    parameters={"model": "str", "prompt": "str"},
+)
 async def ollama_run(params: dict) -> str:
     """Execute une requete simple sur un modele Ollama"""
     model = params.get("model", "")
@@ -102,7 +111,7 @@ async def ollama_run(params: dict) -> str:
     prompt_escaped = prompt.replace('"', '\\"').replace("'", "\\'")
 
     # Utiliser l'API directement
-    cmd = f"curl -s http://{OLLAMA_HOST}/api/generate -d '{{\"model\":\"{model}\",\"prompt\":\"{prompt_escaped}\",\"stream\":false}}'"
+    cmd = f'curl -s http://{OLLAMA_HOST}/api/generate -d \'{{"model":"{model}","prompt":"{prompt_escaped}","stream":false}}\''
     out, code = await ssh_cmd(cmd, 120)
 
     if code != 0:
@@ -159,7 +168,9 @@ async def ollama_ps(params: dict) -> str:
 @register_tool("ollama_restart", description="Redemarre le service Ollama")
 async def ollama_restart(params: dict) -> str:
     """Redemarre le service Ollama sur l'hote"""
-    out, code = await ssh_cmd("sudo systemctl restart ollama && sleep 2 && systemctl is-active ollama", 30)
+    out, code = await ssh_cmd(
+        "sudo systemctl restart ollama && sleep 2 && systemctl is-active ollama", 30
+    )
 
     if "active" in out:
         return "✅ Service Ollama redemarre avec succes"

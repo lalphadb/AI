@@ -3,18 +3,25 @@ Meta-outils pour l'auto-amélioration de l'AI Orchestrator v5.0
 Permet à l'IA de créer, modifier et gérer ses propres outils.
 """
 
-import os
 import ast
 import re
 from pathlib import Path
-from tools import register_tool, reload_tools, get_tool_names, get_tools_description
+
+from tools import get_tool_names, get_tools_description, register_tool, reload_tools
 
 TOOLS_DIR = Path(__file__).parent
 
 
-@register_tool("create_tool",
+@register_tool(
+    "create_tool",
     description="Créer un nouvel outil pour l'orchestrateur (auto-amélioration)",
-    parameters={"name": "str", "description": "str", "code": "str", "parameters": "dict (optionnel)"})
+    parameters={
+        "name": "str",
+        "description": "str",
+        "code": "str",
+        "parameters": "dict (optionnel)",
+    },
+)
 async def create_tool(params: dict) -> str:
     """
     Créer un nouvel outil Python pour l'orchestrateur.
@@ -41,7 +48,7 @@ async def create_tool(params: dict) -> str:
     if not name:
         return "❌ Erreur: 'name' est requis"
 
-    if not re.match(r'^[a-z][a-z0-9_]*$', name):
+    if not re.match(r"^[a-z][a-z0-9_]*$", name):
         return f"❌ Erreur: Le nom '{name}' doit être en snake_case (lettres minuscules, chiffres, underscores)"
 
     if not description:
@@ -88,7 +95,7 @@ from tools import register_tool
     file_path = TOOLS_DIR / f"{name}_tools.py"
 
     try:
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(full_code)
     except Exception as e:
         return f"❌ Erreur écriture fichier: {e}"
@@ -97,27 +104,29 @@ from tools import register_tool
     try:
         result = reload_tools()
 
-        if name in result['tools']:
+        if name in result["tools"]:
             return f"""✅ Outil '{name}' créé avec succès!
 
 📁 Fichier: {file_path}
 📝 Description: {description}
-🔧 Paramètres: {tool_params or 'aucun'}
+🔧 Paramètres: {tool_params or "aucun"}
 
 L'outil est maintenant disponible. Tu peux l'utiliser avec:
-{name}({', '.join(f'{k}="..."' for k in tool_params.keys()) if tool_params else ''})
+{name}({", ".join(f'{k}="..."' for k in tool_params.keys()) if tool_params else ""})
 
-Total outils disponibles: {result['tools_count']}"""
+Total outils disponibles: {result["tools_count"]}"""
         else:
-            return f"⚠️ Fichier créé mais l'outil n'a pas été chargé. Vérifie le code."
+            return "⚠️ Fichier créé mais l'outil n'a pas été chargé. Vérifie le code."
 
     except Exception as e:
         return f"⚠️ Fichier créé ({file_path}) mais erreur au rechargement: {e}"
 
 
-@register_tool("list_my_tools",
+@register_tool(
+    "list_my_tools",
     description="Lister tous les outils disponibles de l'orchestrateur",
-    parameters={})
+    parameters={},
+)
 async def list_my_tools(params: dict) -> str:
     """Liste tous les outils disponibles avec leurs descriptions."""
 
@@ -133,9 +142,11 @@ async def list_my_tools(params: dict) -> str:
 💡 Pour recharger les outils: reload_my_tools()"""
 
 
-@register_tool("reload_my_tools",
+@register_tool(
+    "reload_my_tools",
     description="Recharger tous les outils à chaud (après création/modification)",
-    parameters={})
+    parameters={},
+)
 async def reload_my_tools(params: dict) -> str:
     """Recharge dynamiquement tous les outils."""
 
@@ -143,15 +154,17 @@ async def reload_my_tools(params: dict) -> str:
 
     return f"""🔄 Outils rechargés!
 
-📦 Modules: {', '.join(result['modules_loaded'])}
-🔧 Outils: {result['tools_count']}
+📦 Modules: {", ".join(result["modules_loaded"])}
+🔧 Outils: {result["tools_count"]}
 
-Liste: {', '.join(sorted(result['tools']))}"""
+Liste: {", ".join(sorted(result["tools"]))}"""
 
 
-@register_tool("view_tool_code",
+@register_tool(
+    "view_tool_code",
     description="Voir le code source d'un outil existant",
-    parameters={"name": "str"})
+    parameters={"name": "str"},
+)
 async def view_tool_code(params: dict) -> str:
     """Affiche le code source d'un outil pour s'en inspirer."""
 
@@ -163,7 +176,7 @@ async def view_tool_code(params: dict) -> str:
     # Chercher dans quel fichier se trouve l'outil
     for file_path in TOOLS_DIR.glob("*_tools.py"):
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
 
             # Chercher le décorateur avec ce nom
@@ -179,9 +192,11 @@ async def view_tool_code(params: dict) -> str:
     return f"❌ Outil '{name}' non trouvé dans les fichiers source."
 
 
-@register_tool("delete_tool",
+@register_tool(
+    "delete_tool",
     description="Supprimer un outil auto-généré (sécurité: ne peut pas supprimer les outils système)",
-    parameters={"name": "str"})
+    parameters={"name": "str"},
+)
 async def delete_tool(params: dict) -> str:
     """Supprime un outil créé par l'IA."""
 
@@ -192,9 +207,14 @@ async def delete_tool(params: dict) -> str:
 
     # Fichiers système protégés
     protected_files = [
-        "system_tools.py", "docker_tools.py", "file_tools.py",
-        "git_tools.py", "network_tools.py", "memory_tools.py",
-        "ai_tools.py", "meta_tools.py"
+        "system_tools.py",
+        "docker_tools.py",
+        "file_tools.py",
+        "git_tools.py",
+        "network_tools.py",
+        "memory_tools.py",
+        "ai_tools.py",
+        "meta_tools.py",
     ]
 
     target_file = TOOLS_DIR / f"{name}_tools.py"
@@ -207,7 +227,7 @@ async def delete_tool(params: dict) -> str:
 
     try:
         # Backup avant suppression
-        backup_path = target_file.with_suffix('.py.bak')
+        backup_path = target_file.with_suffix(".py.bak")
         target_file.rename(backup_path)
 
         # Recharger
@@ -216,7 +236,7 @@ async def delete_tool(params: dict) -> str:
         return f"""🗑️ Outil '{name}' supprimé!
 
 📁 Backup: {backup_path}
-🔧 Outils restants: {result['tools_count']}"""
+🔧 Outils restants: {result["tools_count"]}"""
 
     except Exception as e:
         return f"❌ Erreur suppression: {e}"

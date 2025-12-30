@@ -8,14 +8,14 @@ Usage:
     reload_tools()  # Recharger après ajout d'un nouvel outil
 """
 
-import os
-import sys
 import importlib
 import importlib.util
-from pathlib import Path
-from typing import Dict, Any, Optional, Callable, List
-import logging
 import inspect
+import logging
+import os
+import sys
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ def register_tool(name: str, description: str = None, parameters: dict = None):
         async def mon_outil(params: dict) -> str:
             ...
     """
+
     def decorator(func: Callable):
         _tool_handlers[name] = func
 
@@ -48,19 +49,25 @@ def register_tool(name: str, description: str = None, parameters: dict = None):
         if not params:
             sig = inspect.signature(func)
             for param_name, param in sig.parameters.items():
-                if param_name not in ['params', 'security_validator', 'audit_logger', 'uploaded_files']:
+                if param_name not in [
+                    "params",
+                    "security_validator",
+                    "audit_logger",
+                    "uploaded_files",
+                ]:
                     annotation = param.annotation
                     if annotation != inspect.Parameter.empty:
                         params[param_name] = annotation.__name__
 
         _tool_metadata[name] = {
             "name": name,
-            "description": doc.strip().split('\n')[0] if doc else name,
-            "parameters": params
+            "description": doc.strip().split("\n")[0] if doc else name,
+            "parameters": params,
         }
 
         logger.debug(f"🔧 Outil enregistré: {name}")
         return func
+
     return decorator
 
 
@@ -117,7 +124,7 @@ def reload_tools() -> dict:
     return {
         "tools_count": len(_tool_handlers),
         "modules_loaded": modules,
-        "tools": list(_tool_handlers.keys())
+        "tools": list(_tool_handlers.keys()),
     }
 
 
@@ -131,8 +138,8 @@ async def execute_tool(
     tool_name: str,
     params: dict,
     uploaded_files: dict = None,
-    security_validator = None,
-    audit_logger = None
+    security_validator=None,
+    audit_logger=None,
 ) -> str:
     """
     Point d'entrée principal pour l'exécution des outils.
@@ -214,11 +221,13 @@ def get_tool_count() -> int:
 # Pour compatibilité avec l'ancien code
 TOOLS_DEFINITIONS = []
 
+
 def _update_tools_definitions():
     """Met à jour TOOLS_DEFINITIONS pour compatibilité"""
     global TOOLS_DEFINITIONS
     _ensure_handlers_loaded()
     TOOLS_DEFINITIONS = list(_tool_metadata.values())
+
 
 # Charger au premier import
 _ensure_handlers_loaded()
@@ -226,12 +235,12 @@ _update_tools_definitions()
 
 
 __all__ = [
-    'execute_tool',
-    'register_tool',
-    'reload_tools',
-    'get_tools_definitions',
-    'TOOLS_DEFINITIONS',
-    'get_tools_description',
-    'get_tool_names',
-    'get_tool_count'
+    "execute_tool",
+    "register_tool",
+    "reload_tools",
+    "get_tools_definitions",
+    "TOOLS_DEFINITIONS",
+    "get_tools_description",
+    "get_tool_names",
+    "get_tool_count",
 ]

@@ -4,16 +4,14 @@ Module de Rate Limiting pour AI Orchestrator v3.0
 Protection contre les abus et le DDoS
 """
 
-import os
-import time
 import asyncio
-from typing import Dict, Optional, Callable
+import logging
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-import logging
+from typing import Dict, Optional
 
-from fastapi import Request, HTTPException, status
+from fastapi import HTTPException, Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
@@ -24,15 +22,15 @@ logger = logging.getLogger("rate_limiter")
 # Limites par défaut (requêtes par fenêtre de temps)
 DEFAULT_RATE_LIMITS = {
     # Endpoint: (requests, window_seconds)
-    "/api/chat": (10, 60),           # 10 requêtes par minute
-    "/ws/chat": (5, 60),              # 5 connexions WebSocket par minute
-    "/api/auth/login": (5, 300),      # 5 tentatives par 5 minutes
-    "/api/upload": (20, 60),          # 20 uploads par minute
-    "/api/conversations": (60, 60),   # 60 requêtes par minute
-    "/tools": (30, 60),               # 30 requêtes par minute
-    "/health": (120, 60),             # 120 requêtes par minute
-    "/api/stats": (120, 60),          # 120 requêtes par minute (polling)
-    "default": (60, 60),              # 60 requêtes par minute par défaut
+    "/api/chat": (10, 60),  # 10 requêtes par minute
+    "/ws/chat": (5, 60),  # 5 connexions WebSocket par minute
+    "/api/auth/login": (5, 300),  # 5 tentatives par 5 minutes
+    "/api/upload": (20, 60),  # 20 uploads par minute
+    "/api/conversations": (60, 60),  # 60 requêtes par minute
+    "/tools": (30, 60),  # 30 requêtes par minute
+    "/health": (120, 60),  # 120 requêtes par minute
+    "/api/stats": (120, 60),  # 120 requêtes par minute (polling)
+    "default": (60, 60),  # 60 requêtes par minute par défaut
 }
 
 # Limites globales par IP
@@ -54,23 +52,29 @@ BAN_THRESHOLD_VIOLATIONS = 10  # 10 violations = ban
 
 # ===== STRUCTURES DE DONNÉES =====
 
+
 @dataclass
 class RateLimitState:
     """État du rate limit pour une clé"""
+
     requests: int = 0
     window_start: float = field(default_factory=time.time)
     violations: int = 0
     banned_until: Optional[float] = None
 
+
 @dataclass
 class RateLimitResult:
     """Résultat d'une vérification de rate limit"""
+
     allowed: bool
     remaining: int
     reset_at: float
     retry_after: Optional[int] = None
 
+
 # ===== STOCKAGE EN MÉMOIRE =====
+
 
 class InMemoryStorage:
     """Stockage en mémoire pour le rate limiting"""
@@ -139,10 +143,12 @@ class InMemoryStorage:
             for key in keys_to_delete:
                 del self._data[key]
 
+
 # Instance globale du stockage
 storage = InMemoryStorage()
 
 # ===== FONCTIONS UTILITAIRES =====
+
 
 def get_client_ip(request: Request) -> str:
     """Extraire l'IP client d'une requête"""
@@ -161,6 +167,7 @@ def get_client_ip(request: Request) -> str:
 
     return "unknown"
 
+
 def is_ip_whitelisted(ip: str) -> bool:
     """Vérifier si une IP est dans la whitelist"""
     if ip in WHITELIST_IPS:
@@ -168,6 +175,7 @@ def is_ip_whitelisted(ip: str) -> bool:
 
     # Vérifier les plages CIDR
     import ipaddress
+
     try:
         client_ip = ipaddress.ip_address(ip)
         for whitelisted in WHITELIST_IPS:
@@ -179,6 +187,7 @@ def is_ip_whitelisted(ip: str) -> bool:
         pass
 
     return False
+
 
 def get_rate_limit_for_path(path: str) -> tuple:
     """Obtenir les limites pour un chemin"""
@@ -193,7 +202,9 @@ def get_rate_limit_for_path(path: str) -> tuple:
 
     return DEFAULT_RATE_LIMITS["default"]
 
+
 # ===== RATE LIMITER PRINCIPAL =====
+
 
 class RateLimiter:
     """Rate limiter principal"""
@@ -201,12 +212,7 @@ class RateLimiter:
     def __init__(self, storage: InMemoryStorage = storage):
         self.storage = storage
 
-    async def check(
-        self,
-        key: str,
-        max_requests: int,
-        window_seconds: int
-    ) -> RateLimitResult:
+    async def check(self, key: str, max_requests: int, window_seconds: int) -> RateLimitResult:
         """
         Vérifier si une requête est autorisée
 
@@ -224,7 +230,7 @@ class RateLimiter:
                 allowed=False,
                 remaining=0,
                 reset_at=time.time() + BAN_DURATION_SECONDS,
-                retry_after=BAN_DURATION_SECONDS
+                retry_after=BAN_DURATION_SECONDS,
             )
 
         # Incrémenter et vérifier
@@ -238,19 +244,14 @@ class RateLimiter:
             retry_after = int(reset_at - time.time())
 
             return RateLimitResult(
-                allowed=False,
-                remaining=0,
-                reset_at=reset_at,
-                retry_after=max(1, retry_after)
+                allowed=False, remaining=0, reset_at=reset_at, retry_after=max(1, retry_after)
             )
 
-        return RateLimitResult(
-            allowed=True,
-            remaining=remaining,
-            reset_at=reset_at
-        )
+        return RateLimitResult(allowed=True, remaining=remaining, reset_at=reset_at)
 
-    async def check_request(self, request: Request, user_id: Optional[str] = None) -> RateLimitResult:
+    async def check_request(
+        self, request: Request, user_id: Optional[str] = None
+    ) -> RateLimitResult:
         """
         Vérifier une requête HTTP
 
@@ -287,10 +288,12 @@ class RateLimiter:
 
         return await self.check(endpoint_key, max_requests, window_seconds)
 
+
 # Instance globale
 rate_limiter = RateLimiter()
 
 # ===== MIDDLEWARE FASTAPI =====
+
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Middleware de rate limiting pour FastAPI"""
@@ -315,15 +318,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             logger.warning(f"Rate limit exceeded: {get_client_ip(request)} on {request.url.path}")
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                content={
-                    "detail": "Too many requests",
-                    "retry_after": result.retry_after
-                },
+                content={"detail": "Too many requests", "retry_after": result.retry_after},
                 headers={
                     "X-RateLimit-Remaining": "0",
                     "X-RateLimit-Reset": str(int(result.reset_at)),
-                    "Retry-After": str(result.retry_after)
-                }
+                    "Retry-After": str(result.retry_after),
+                },
             )
 
         # Ajouter les headers de rate limit à la réponse
@@ -333,7 +333,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         return response
 
+
 # ===== DÉCORATEUR POUR ROUTES =====
+
 
 def rate_limit(max_requests: int, window_seconds: int = 60):
     """
@@ -345,6 +347,7 @@ def rate_limit(max_requests: int, window_seconds: int = 60):
         async def heavy_endpoint():
             ...
     """
+
     def decorator(func):
         async def wrapper(*args, request: Request = None, **kwargs):
             if request is None:
@@ -363,14 +366,18 @@ def rate_limit(max_requests: int, window_seconds: int = 60):
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         detail="Too many requests",
-                        headers={"Retry-After": str(result.retry_after)}
+                        headers={"Retry-After": str(result.retry_after)},
                     )
 
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
+
 # ===== TÂCHE DE NETTOYAGE =====
+
 
 async def cleanup_task():
     """Tâche périodique de nettoyage du stockage"""
@@ -379,7 +386,9 @@ async def cleanup_task():
         await storage.cleanup()
         logger.debug("Rate limiter storage cleaned up")
 
+
 # ===== CONFIGURATION PERSONNALISÉE =====
+
 
 def configure_rate_limits(limits: Dict[str, tuple]):
     """
@@ -390,23 +399,23 @@ def configure_rate_limits(limits: Dict[str, tuple]):
     """
     DEFAULT_RATE_LIMITS.update(limits)
 
+
 def add_whitelist_ip(ip: str):
     """Ajouter une IP à la whitelist"""
     WHITELIST_IPS.add(ip)
+
 
 def remove_whitelist_ip(ip: str):
     """Retirer une IP de la whitelist"""
     WHITELIST_IPS.discard(ip)
 
+
 # ===== STATISTIQUES =====
+
 
 async def get_rate_limit_stats() -> Dict:
     """Obtenir les statistiques du rate limiter"""
-    stats = {
-        "total_keys": len(storage._data),
-        "banned_count": 0,
-        "top_violators": []
-    }
+    stats = {"total_keys": len(storage._data), "banned_count": 0, "top_violators": []}
 
     violations = []
     for key, state in storage._data.items():

@@ -5,9 +5,11 @@ Variables d'environnement et paramètres
 """
 
 import os
-from typing import List, Optional
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+from typing import List
+
+from pydantic_settings import BaseSettings
+
 
 class Settings(BaseSettings):
     """Configuration de l'application"""
@@ -40,20 +42,22 @@ class Settings(BaseSettings):
 
     # === SÉCURITÉ ===
     # JWT
-    jwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "CHANGE_ME_IN_PRODUCTION_" + os.urandom(16).hex())
+    jwt_secret_key: str = os.getenv(
+        "JWT_SECRET_KEY", "CHANGE_ME_IN_PRODUCTION_" + os.urandom(16).hex()
+    )
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
     refresh_token_expire_days: int = 7
 
     # Auth
     auth_enabled: bool = True
-    
+
     @property
     def admin_password(self) -> str:
         pwd = os.getenv("ADMIN_PASSWORD")
         if not pwd:
             if self.debug:
-                 return "changeme123" # Fallback en dev uniquement
+                return "changeme123"  # Fallback en dev uniquement
             raise ValueError("CRITICAL: ADMIN_PASSWORD must be set in .env for production!")
         return pwd
 
@@ -83,14 +87,19 @@ class Settings(BaseSettings):
         env_prefix = "AI_"
         env_file = ".env"
         env_file_encoding = "utf-8"
-        extra = "ignore"  # Ignorer les champs non définis comme ADMIN_PASSWORD (utilisé via @property)
+        extra = (
+            "ignore"  # Ignorer les champs non définis comme ADMIN_PASSWORD (utilisé via @property)
+        )
+
 
 @lru_cache()
 def get_settings() -> Settings:
     """Obtenir les settings (cached)"""
     return Settings()
 
+
 # === CORS CONFIGURATION ===
+
 
 def get_cors_config() -> dict:
     """Retourner la configuration CORS"""
@@ -109,69 +118,94 @@ def get_cors_config() -> dict:
         "allow_headers": settings.cors_allow_headers,
     }
 
+
 # === MODÈLES DISPONIBLES ===
 
 MODELS = {
     "auto": {
         "name": "AUTO (Sélection automatique)",
         "description": "L'agent choisit le meilleur modèle selon la tâche",
-        "model": None
+        "model": None,
     },
     "qwen-coder": {
         "name": "💻 Qwen 2.5 Coder 32B",
         "description": "Code, scripts, debug, analyse technique",
         "model": "qwen2.5-coder:32b-instruct-q4_K_M",
-        "keywords": ["code", "script", "python", "bash", "debug", "fonction", "variable", "api", "docker", "git", "npm", "programm"]
+        "keywords": [
+            "code",
+            "script",
+            "python",
+            "bash",
+            "debug",
+            "fonction",
+            "variable",
+            "api",
+            "docker",
+            "git",
+            "npm",
+            "programm",
+        ],
     },
     "deepseek-coder": {
         "name": "🧠 DeepSeek Coder 33B",
         "description": "Code alternatif, algorithmes complexes",
         "model": "deepseek-coder:33b",
-        "keywords": ["algorithme", "optimis", "complex", "performance", "refactor"]
+        "keywords": ["algorithme", "optimis", "complex", "performance", "refactor"],
     },
     "llama-vision": {
         "name": "👁️ Llama 3.2 Vision 11B",
         "description": "Analyse d'images, OCR, vision",
         "model": "llama3.2-vision:11b-instruct-q8_0",
-        "keywords": ["image", "photo", "screenshot", "capture", "voir", "regarde", "analyse visuel", "ocr"]
+        "keywords": [
+            "image",
+            "photo",
+            "screenshot",
+            "capture",
+            "voir",
+            "regarde",
+            "analyse visuel",
+            "ocr",
+        ],
     },
     "qwen-vision": {
         "name": "🎨 Qwen3 VL 32B",
         "description": "Vision multimodale avancée",
         "model": "qwen3-vl:32b",
-        "keywords": ["image", "multimodal", "vision", "graphique", "diagramme", "schéma"]
+        "keywords": ["image", "multimodal", "vision", "graphique", "diagramme", "schéma"],
     },
     "kimi-k2": {
         "name": "☁️ Kimi K2 1T",
         "description": "Modèle cloud Kimi (Moonshot AI)",
         "model": "kimi-k2:1t-cloud",
-        "keywords": ["kimi", "moonshot", "cloud", "chinois"]
+        "keywords": ["kimi", "moonshot", "cloud", "chinois"],
     },
     "qwen3-coder-cloud": {
         "name": "☁️ Qwen3 Coder 480B",
         "description": "Qwen3 Coder géant via cloud",
         "model": "qwen3-coder:480b-cloud",
-        "keywords": ["qwen", "cloud", "coder", "gros"]
+        "keywords": ["qwen", "cloud", "coder", "gros"],
     },
     "gemini-pro": {
         "name": "☁️ Gemini 3 Pro",
         "description": "Google Gemini Pro via cloud",
         "model": "gemini-3-pro-preview:latest",
-        "keywords": ["gemini", "google", "cloud"]
+        "keywords": ["gemini", "google", "cloud"],
     },
     "gpt-safeguard": {
         "name": "🛡️ GPT Safeguard 13B",
         "description": "GPT Open Source local (sécurité)",
         "model": "gpt-oss-safeguard:latest",
-        "keywords": ["gpt", "safeguard", "sécurité", "modération"]
-    }
+        "keywords": ["gpt", "safeguard", "sécurité", "modération"],
+    },
 }
 
 # === ENVIRONNEMENT ===
 
+
 def is_production() -> bool:
     """Vérifier si on est en production"""
     return not get_settings().debug
+
 
 def get_env_info() -> dict:
     """Informations sur l'environnement"""

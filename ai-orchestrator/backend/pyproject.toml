@@ -1,0 +1,33 @@
+[tool.ruff]
+# Configuration de base pour l'audit et la standardisation
+line-length = 100
+target-version = "py312"
+
+# Exclusions des fichiers "bruit" identifiés lors de l'audit
+exclude = [
+    "*.backup",
+    "*.backup.*",
+    "*.broken",
+    "*.old",
+    "_backups",
+    "__pycache__",
+    "venv",
+    ".env",
+    "integration_example.py",
+    "memory_patch.py"
+]
+
+[tool.ruff.lint]
+# E: pycodestyle errors
+# W: pycodestyle warnings
+# F: pyflakes
+# I: isort
+# B: flake8-bugbear
+select = ["E", "W", "F", "I", "B"]
+ignore = ["E501"] # On ignore la longueur de ligne stricte pour l'instant
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

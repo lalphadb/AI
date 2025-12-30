@@ -3,6 +3,7 @@ Outils système v5.0 - Mode Autonome avec SSH vers hôte
 """
 
 import os
+
 from tools import register_tool
 from utils.async_subprocess import run_command_async
 
@@ -14,15 +15,32 @@ SSH = f"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLe
 # Commandes qui DOIVENT être exécutées sur l'hôte (pas dans le conteneur)
 HOST_CMDS = {
     # Gestion système
-    "systemctl", "service", "journalctl", "apt", "apt-get", "dpkg",
+    "systemctl",
+    "service",
+    "journalctl",
+    "apt",
+    "apt-get",
+    "dpkg",
     # Hardware
-    "nvidia-smi", "sensors", "lspci", "lsusb", "dmidecode",
+    "nvidia-smi",
+    "sensors",
+    "lspci",
+    "lsusb",
+    "dmidecode",
     # Système
-    "reboot", "shutdown", "mount", "umount", "fdisk", "lsblk",
+    "reboot",
+    "shutdown",
+    "mount",
+    "umount",
+    "fdisk",
+    "lsblk",
     # Ollama (sur l'hôte)
     "ollama",
     # Réseau hôte
-    "netstat", "ss", "ip", "ifconfig",
+    "netstat",
+    "ss",
+    "ip",
+    "ifconfig",
 }
 
 # Patterns qui indiquent une commande pour l'hôte
@@ -75,7 +93,13 @@ async def execute_command(params: dict, security_validator=None, **kw) -> str:
     if security_validator:
         ok, reason = security_validator(cmd)
         if not ok:
-            return f"🚫 {reason}"
+            # P1-1 FIX: Message détaillé sur commande bloquée
+            return f"""🚫 **Commande bloquée**: {reason}
+
+**Commande tentée**: `{cmd[:100]}`
+
+**Raison**: Cette commande est interdite pour des raisons de sécurité.
+**Suggestion**: Utilise une alternative plus sûre ou demande une explication à l'utilisateur sur le besoin."""
     out, code = await run(cmd, 120)
     return f"{'✅' if code == 0 else '❌'} {cmd[:80]}\n{out[:5000]}"
 
@@ -84,8 +108,15 @@ async def execute_command(params: dict, security_validator=None, **kw) -> str:
 async def system_info(params: dict) -> str:
     out, _ = await ssh("/home/lalpha/scripts/sysinfo.sh", 15)
     info = ["📊 **Système (Hôte)**"]
-    labels = {"HOST": "Hostname", "UP": "Uptime", "CPU": "CPU", 
-              "RAM": "RAM", "DISK": "Disk", "LOAD": "Load", "GPU": "GPU"}
+    labels = {
+        "HOST": "Hostname",
+        "UP": "Uptime",
+        "CPU": "CPU",
+        "RAM": "RAM",
+        "DISK": "Disk",
+        "LOAD": "Load",
+        "GPU": "GPU",
+    }
     for line in out.split("\n"):
         if ":" in line:
             k, v = line.split(":", 1)
@@ -162,6 +193,8 @@ async def process_list(params: dict) -> str:
 async def logs_view(params: dict) -> str:
     svc = params.get("service", "")
     lines = min(int(params.get("lines", 50)), 200)
-    cmd = f"journalctl -u {svc} -n {lines} --no-pager" if svc else f"journalctl -n {lines} --no-pager"
+    cmd = (
+        f"journalctl -u {svc} -n {lines} --no-pager" if svc else f"journalctl -n {lines} --no-pager"
+    )
     out, _ = await ssh(cmd, 15)
     return f"📜 Logs {svc or 'système'}:\n```\n{out[-4000:]}\n```"

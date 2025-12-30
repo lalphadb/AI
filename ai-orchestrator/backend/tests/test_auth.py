@@ -3,10 +3,11 @@
 Tests unitaires pour le module d'authentification
 """
 
-import pytest
-import sys
 import os
+import sys
 import tempfile
+
+import pytest
 
 # Ajouter le répertoire parent au path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -15,20 +16,19 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["AUTH_DB_PATH"] = tempfile.mktemp(suffix=".db")
 
 from auth import (
-    hash_password,
-    verify_password,
+    UserCreate,
+    authenticate_user,
+    check_login_rate_limit,
     create_access_token,
-    verify_token,
+    create_api_key,
     create_user,
     get_user,
-    authenticate_user,
-    create_api_key,
-    verify_api_key,
-    check_login_rate_limit,
-    record_login_attempt,
-    UserCreate,
-    TokenData,
+    hash_password,
     init_auth_db,
+    record_login_attempt,
+    verify_api_key,
+    verify_password,
+    verify_token,
 )
 
 
@@ -108,11 +108,9 @@ class TestUserManagement:
 
     def test_create_user(self):
         """Création d'un utilisateur"""
-        user = create_user(UserCreate(
-            username="newuser",
-            password="password123",
-            email="test@example.com"
-        ))
+        user = create_user(
+            UserCreate(username="newuser", password="password123", email="test@example.com")
+        )
         assert user.username == "newuser"
         assert user.email == "test@example.com"
 
@@ -132,10 +130,7 @@ class TestUserManagement:
     def test_authenticate_user_success(self):
         """Authentification réussie"""
         # Créer un utilisateur
-        create_user(UserCreate(
-            username="authtest",
-            password="testpass123"
-        ))
+        create_user(UserCreate(username="authtest", password="testpass123"))
         # Authentifier
         user = authenticate_user("authtest", "testpass123")
         assert user is not None
@@ -143,10 +138,7 @@ class TestUserManagement:
 
     def test_authenticate_user_wrong_password(self):
         """Authentification avec mauvais mot de passe"""
-        create_user(UserCreate(
-            username="authtest2",
-            password="correctpass"
-        ))
+        create_user(UserCreate(username="authtest2", password="correctpass"))
         user = authenticate_user("authtest2", "wrongpass")
         assert user is None
 
@@ -236,10 +228,7 @@ class TestScopes:
 
     def test_new_user_has_read_scope(self):
         """Un nouvel utilisateur a le scope read par défaut"""
-        create_user(UserCreate(
-            username="scopetest",
-            password="password"
-        ))
+        create_user(UserCreate(username="scopetest", password="password"))
         user = get_user("scopetest")
         assert "read" in user.scopes
 
