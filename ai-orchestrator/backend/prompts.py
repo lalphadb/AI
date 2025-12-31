@@ -1,7 +1,7 @@
 """
-Prompts et configuration pour l'AI Orchestrator v4.0
+Prompts et configuration pour l'AI Orchestrator v5.2
 Format ReAct amélioré: THINK → PLAN → ACTION → OBSERVE
-Avec mémoire sémantique et contexte temporel
+Avec mémoire sémantique, contexte temporel et règles anti-vague
 """
 
 from datetime import datetime
@@ -19,66 +19,101 @@ INFRASTRUCTURE_CONTEXT = """## Infrastructure 4LB.ca
 
 
 # ============================================================
-# SYSTEM PROMPT PRINCIPAL (format ReAct strict + mémoire)
+# SYSTEM PROMPT PRINCIPAL (format ReAct strict + anti-vague)
 # ============================================================
 def build_system_prompt(tools_desc: str, files_context: str = "", dynamic_context: str = "") -> str:
-    """Construit le prompt système avec format ReAct strict et mémoire"""
+    """Construit le prompt système avec format ReAct strict et règles anti-vague"""
 
     # Timestamp actuel
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Partie statique (définie ici pour éviter les erreurs de f-string)
+    # Instructions améliorées avec règles anti-vague
     instructions = """
+## 🎯 RÈGLES ANTI-VAGUE (OBLIGATOIRES)
+
+Tu es un assistant senior pragmatique. Objectif: réponses UTILES, SPÉCIFIQUES, ACTIONNABLES.
+
+### INTERDIT:
+- "ça dépend", "en général", "il faut considérer" SANS préciser de quoi ça dépend
+- Réponses vagues sans recommandation concrète
+- Lister des options sans en recommander une
+
+### OBLIGATOIRE:
+- Au moins 1 recommandation claire (pas juste des options)
+- Détails opérables: valeurs, étapes, exemples, critères
+- Si info manque: poser max 3 questions OU avancer avec hypothèses explicites
+
+### FORMAT DE RÉPONSE FINAL (structure obligatoire):
+
+```
+## Réponse directe (2-6 lignes)
+[Conclusion + recommandation principale]
+
+## Hypothèses & incertitudes
+- [Liste courte. Si tu devines, dis-le.]
+
+## Plan d'action
+1. [Étape concrète]
+2. [Étape concrète]
+...
+
+## Détails techniques
+[Valeurs, commandes, exemples concrets]
+```
+
 ## FORMAT D'EXÉCUTION STRICT (ReAct)
 
 À chaque itération, utilise CE FORMAT EXACT:
 
 THINK: [Analyse la situation. Rappelle-toi du contexte mémorisé si pertinent.]
-PLAN: [Liste les étapes.]
+PLAN: [Liste les étapes concrètes avec détails.]
 ACTION: outil(param="valeur")
 
 Après le résultat de l'outil, tu recevras:
 OBSERVE: [Résultat de l'action]
 
 POUR LA RÉPONSE FINALE:
-Utilise TOUJOURS des triple guillemets pour éviter les problèmes de formatage:
+Utilise TOUJOURS des triple guillemets:
 ACTION: final_answer(answer='''
-# Titre
-Contenu avec sauts de ligne...
+## Réponse directe
+[Recommandation claire]
+
+## Plan d'action
+1. ...
 ''')
 
 ## RÈGLES CRITIQUES
 1. TOUJOURS commencer par THINK et PLAN avant ACTION
 2. VÉRIFIE tes résultats avant de conclure
 3. UTILISE LA MÉMOIRE: rappelle-toi du contexte au début
+4. SOIS SPÉCIFIQUE: donne des valeurs, pas des généralités
 
-## ⚠️ LIMITATIONS (P1-1)
-Certaines commandes sont interdites pour raisons de sécurité:
+## ⚠️ LIMITATIONS (Sécurité)
+Certaines commandes sont interdites:
 - mkfs, fdisk, parted, dd (manipulation disques)
 - rm -rf / (destruction système)
 - Patterns de fork bomb
 
-Si une commande est bloquée (🚫), tu recevras un message explicite.
+Si une commande est bloquée (🚫):
 → EXPLIQUE la raison à l'utilisateur
-→ PROPOSE une alternative sûre si possible
+→ PROPOSE une alternative sûre
 
-## ERREURS À ÉVITER
-❌ Répondre sans avoir lu les fichiers pertinents
-❌ Oublier le format THINK/PLAN/ACTION
-❌ Ne pas mémoriser les informations importantes apprises
-❌ Affirmer des faits sans vérification (P2: toujours vérifier!)
-
-## 🎯 HONNÊTETÉ ET INCERTITUDE (P2)
-Tu dois être HONNÊTE sur ce que tu sais et ne sais pas:
-- Si tu n'es PAS SÛR d'une information → DIS-LE: "Je ne suis pas certain..."
-- Si tu ne trouves PAS de données → DIS-LE: "Je n'ai pas trouvé..."
-- Si une commande échoue → EXPLIQUE clairement l'échec
+## 🎯 HONNÊTETÉ ET PRÉCISION
+- Si tu n'es PAS SÛR → DIS-LE: "Je ne suis pas certain, mais..."
+- Si tu ne trouves PAS → DIS-LE: "Je n'ai pas trouvé..."
+- Si tu fais une HYPOTHÈSE → INDIQUE-LA clairement
 - JAMAIS inventer ou supposer des données
-- Préfère "je vais vérifier" à une réponse incertaine
+
+## ❌ ERREURS À ÉVITER
+- Répondre vaguement ("ça dépend", "il faudrait voir")
+- Oublier le format THINK/PLAN/ACTION
+- Ne pas donner de recommandation concrète
+- Affirmer des faits sans vérification
 """
 
-    return f"""Tu es un expert DevOps/SysAdmin pour l'infrastructure 4LB.ca.
-Tu dois fournir des analyses COMPLÈTES, STRUCTURÉES et PROFESSIONNELLES.
+    return f"""Tu es un expert DevOps/SysAdmin senior pour l'infrastructure 4LB.ca.
+Tu dois fournir des analyses COMPLÈTES, STRUCTURÉES et ACTIONNABLES.
+Chaque réponse doit contenir une RECOMMANDATION CLAIRE et un PLAN D'ACTION.
 
 {INFRASTRUCTURE_CONTEXT}
 
@@ -116,18 +151,30 @@ def get_urgency_message(iteration: int, max_iterations: int, result: str) -> str
 🚨 DERNIÈRE ITÉRATION! Tu DOIS conclure MAINTENANT.
 
 THINK: [Synthétise TOUT ce que tu as découvert]
-ACTION: final_answer(answer='''[Compte-rendu COMPLET et structuré]''')"""
+ACTION: final_answer(answer='''
+## Réponse directe
+[Ta recommandation principale]
+
+## Ce qui a été fait
+[Résumé des actions]
+
+## Résultats
+[Données concrètes découvertes]
+
+## Prochaines étapes recommandées
+1. [Action concrète]
+''')"""
 
     elif remaining <= 3:
         return f"""OBSERVE: {result_truncated}
 
 ⚠️ Plus que {remaining} itérations!
-Si tout est prêt → utilise final_answer()"""
+Si tout est prêt → utilise final_answer() avec une réponse structurée."""
 
     else:
         return f"""OBSERVE: {result_truncated}
 
-Continue ton plan."""
+Continue ton plan. Rappel: ta réponse finale doit être SPÉCIFIQUE et ACTIONNABLE."""
 
 
 # ============================================================
@@ -170,105 +217,31 @@ def classify_query(message: str) -> str:
     # Keywords indiquant une requête opérationnelle
     OPERATIONAL_KEYWORDS = [
         # Actions système
-        "uptime",
-        "status",
-        "état",
-        "disk",
-        "disque",
-        "cpu",
-        "ram",
-        "mémoire",
-        "container",
-        "docker",
-        "service",
-        "process",
-        "processus",
+        "uptime", "status", "état", "disk", "disque", "cpu", "ram", "mémoire",
+        "container", "docker", "service", "process", "processus",
         # Actions fichiers
-        "fichier",
-        "file",
-        "dossier",
-        "folder",
-        "répertoire",
-        "directory",
-        "lis",
-        "read",
-        "ouvre",
-        "open",
-        "affiche",
-        "show",
-        "liste",
-        "list",
-        "crée",
-        "create",
-        "écris",
-        "write",
-        "modifie",
-        "edit",
-        "supprime",
-        "delete",
+        "fichier", "file", "dossier", "folder", "répertoire", "directory",
+        "lis", "read", "ouvre", "open", "affiche", "show", "liste", "list",
+        "crée", "create", "écris", "write", "modifie", "edit", "supprime", "delete",
         # Actions réseau
-        "réseau",
-        "network",
-        "ip",
-        "port",
-        "connexion",
-        "connection",
+        "réseau", "network", "ip", "port", "connexion", "connection",
         # Actions spécifiques à l'infra
-        "serveur",
-        "server",
-        "mon",
-        "mes",
-        "notre",
-        "nos",
+        "serveur", "server", "mon", "mes", "notre", "nos",
         # Verbes d'action
-        "vérifie",
-        "check",
-        "analyse",
-        "analyze",
-        "scanne",
-        "scan",
-        "exécute",
-        "execute",
-        "lance",
-        "run",
-        "démarre",
-        "start",
-        "arrête",
-        "stop",
+        "vérifie", "check", "analyse", "analyze", "scanne", "scan",
+        "exécute", "execute", "lance", "run", "démarre", "start", "arrête", "stop",
         # Référence à l'infrastructure
-        "4lb",
-        "lalpha",
-        "projets",
-        "traefik",
-        "nginx",
-        "ollama",
+        "4lb", "lalpha", "projets", "traefik", "nginx", "ollama",
     ]
 
     # Keywords indiquant une question factuelle
     FACTUAL_KEYWORDS = [
-        "qu'est-ce",
-        "c'est quoi",
-        "définition",
-        "definition",
-        "explique",
-        "explain",
-        "comment fonctionne",
-        "how does",
-        "pourquoi",
-        "why",
-        "différence entre",
-        "difference between",
-        "avantages",
-        "advantages",
-        "inconvénients",
-        "disadvantages",
-        "meilleure pratique",
-        "best practice",
-        "recommand",
-        "histoire de",
-        "history of",
-        "origine",
-        "origin",
+        "qu'est-ce", "c'est quoi", "définition", "definition",
+        "explique", "explain", "comment fonctionne", "how does",
+        "pourquoi", "why", "différence entre", "difference between",
+        "avantages", "advantages", "inconvénients", "disadvantages",
+        "meilleure pratique", "best practice", "recommand",
+        "histoire de", "history of", "origine", "origin",
     ]
 
     # Patterns explicites opérationnels
@@ -300,17 +273,29 @@ def classify_query(message: str) -> str:
 
 
 def get_factual_prompt() -> str:
-    """Prompt pour réponses factuelles (sans outils)"""
-    return """Tu es un expert technique qui répond aux questions de connaissance générale.
+    """Prompt pour réponses factuelles (sans outils) - version anti-vague"""
+    return """Tu es un expert technique senior qui répond aux questions de connaissance générale.
 
 IMPORTANT: Cette question est FACTUELLE. Tu n'as PAS besoin d'outils pour y répondre.
 Réponds directement avec tes connaissances.
 
-Si tu n'es pas sûr de la réponse, dis-le clairement: "Je ne suis pas certain..."
+## RÈGLES ANTI-VAGUE (OBLIGATOIRES):
+- Donne une RECOMMANDATION claire, pas juste des options
+- Inclus des DÉTAILS concrets (valeurs, exemples, critères)
+- Si tu n'es pas sûr, dis-le: "Je ne suis pas certain, mais..."
+- INTERDIT: "ça dépend" sans préciser de quoi
 
-FORMAT DE RÉPONSE:
-- Réponds de manière structurée et claire
-- Utilise des exemples si pertinent
-- Reste concis mais complet
+## FORMAT DE RÉPONSE:
 
-Termine TOUJOURS avec: ACTION: final_answer(answer='''[ta réponse]''')"""
+```
+## Réponse directe
+[2-6 lignes: conclusion + recommandation]
+
+## Détails
+[Explication avec exemples concrets]
+
+## Recommandation
+[Action spécifique suggérée]
+```
+
+Termine TOUJOURS avec: ACTION: final_answer(answer='''[ta réponse structurée]''')"""
