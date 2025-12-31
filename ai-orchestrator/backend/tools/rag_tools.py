@@ -1,256 +1,276 @@
 """
-Outils RAG Apogée pour AI Orchestrator
-Recherche sémantique multilingue avec bge-m3
-
-- rag_search: Recherche dans la base de connaissances
-- rag_index: Indexer un nouveau document
-- rag_stats: Statistiques de l'index RAG
-
-Note: Le reranker bge-reranker-v2-m3 sera intégré via sentence-transformers
-dans une prochaine version (Phase 3).
+RAG Apogée v2.0 - Outils ReAct
+Outils de recherche sémantique pour l'AI Orchestrator
 """
 
+import asyncio
 import logging
-import os
 from datetime import datetime
-from typing import List, Optional, Dict, Any
-
-import httpx
+from typing import Any, Dict, List, Optional
 
 from tools import register_tool
 
-logger = logging.getLogger(__name__)
+# Import de l'architecture RAG v2.0
+try:
+    from services.rag import (
+        get_search_service,
+        get_indexer,
+        search_documents,
+        SearchResponse,
+        get_rag_config,
+    )
+    RAG_V2_AVAILABLE = True
+except ImportError:
+    RAG_V2_AVAILABLE = False
 
-# Configuration RAG Apogée
-CHROMADB_HOST = os.getenv("CHROMADB_HOST", "chromadb")
-CHROMADB_PORT = int(os.getenv("CHROMADB_PORT", "8000"))
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://10.10.10.46:11434")
-
-# Modèles RAG
-EMBEDDING_MODEL = "bge-m3"  # Multilingue FR/EN, 1024 dim, 8K contexte
-COLLECTION_NAME = "ai_orchestrator_memory_v3"
-
-# Cache embeddings
-_embedding_cache: Dict[int, List[float]] = {}
-
-
-async def get_embedding_bge(text: str) -> Optional[List[float]]:
-    """Obtenir embedding via bge-m3 (multilingue, 1024 dim)"""
-    cache_key = hash(text[:500])
-    if cache_key in _embedding_cache:
-        return _embedding_cache[cache_key]
-    
-    try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                f"{OLLAMA_URL}/api/embeddings",
-                json={"model": EMBEDDING_MODEL, "prompt": text}
-            )
-            if response.status_code == 200:
-                embedding = response.json().get("embedding", [])
-                if embedding:
-                    _embedding_cache[cache_key] = embedding
-                    return embedding
-    except Exception as e:
-        logger.error(f"Erreur embedding bge-m3: {e}")
-    return None
-
-
-async def get_collection_id() -> Optional[str]:
-    """Récupérer l'UUID de la collection v3"""
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            r = await client.get(
-                f"http://{CHROMADB_HOST}:{CHROMADB_PORT}/api/v2/tenants/default_tenant/databases/default_database/collections"
-            )
-            if r.status_code == 200:
-                for col in r.json():
-                    if col.get("name") == COLLECTION_NAME:
-                        return col.get("id")
-    except Exception as e:
-        logger.error(f"Erreur récupération collection ID: {e}")
-    return None
+logger = logging.getLogger("tools.rag")
 
 
 @register_tool(
-    "rag_search",
-    description="Recherche sémantique dans la base de connaissances (français/anglais). Utilise bge-m3 multilingue.",
-    parameters={"query": "str", "top_k": "int (optionnel, défaut 5)"}
-)
-async def rag_search(params: dict) -> str:
-    """Recherche RAG avec bge-m3"""
-    query = params.get("query", "")
-    top_k = int(params.get("top_k", 5))
-    
-    if not query:
-        return "❌ Erreur: query requis"
-    
-    # Obtenir l'embedding de la requête
-    query_embedding = await get_embedding_bge(query)
-    if not query_embedding:
-        return "❌ Erreur: impossible de générer l'embedding"
-    
-    # Récupérer l'ID de la collection
-    collection_id = await get_collection_id()
-    if not collection_id:
-        return "❌ Erreur: collection RAG non trouvée"
-    
-    # Recherche dans ChromaDB
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            r = await client.post(
-                f"http://{CHROMADB_HOST}:{CHROMADB_PORT}/api/v2/tenants/default_tenant/databases/default_database/collections/{collection_id}/query",
-                json={
-                    "query_embeddings": [query_embedding],
-                    "n_results": top_k,
-                    "include": ["documents", "metadatas", "distances"]
-                }
-            )
-            
-            if r.status_code != 200:
-                return f"❌ Erreur ChromaDB: {r.status_code}"
-            
-            data = r.json()
-            docs = data.get("documents", [[]])[0]
-            metas = data.get("metadatas", [[]])[0]
-            dists = data.get("distances", [[]])[0]
-            
-            if not docs:
-                return "📭 Aucun résultat trouvé pour cette recherche."
-            
-            # Formater la réponse (distance L2: plus petit = plus similaire)
-            result = [f"🔍 **Recherche RAG:** \"{query}\"", f"📚 **{len(docs)} résultats:**\n"]
-            
-            for i, (doc, meta, dist) in enumerate(zip(docs, metas, dists), 1):
-                source = meta.get("source", "inconnu")
-                topic = meta.get("topic", "")
-                # Normaliser le score (inversement proportionnel à la distance)
-                score = max(0, 1 - (dist / 1000))  # Normalisation approximative
-                content = doc[:300] + "..." if len(doc) > 300 else doc
-                
-                result.append(f"**{i}. [{source}]** (pertinence: {score:.1%})")
-                if topic:
-                    result.append(f"   📁 Topic: {topic}")
-                result.append(f"   {content}\n")
-            
-            return "\n".join(result)
-            
-    except Exception as e:
-        logger.error(f"Erreur recherche RAG: {e}")
-        return f"❌ Erreur recherche: {str(e)}"
-
-
-@register_tool(
-    "rag_index",
-    description="Indexer un nouveau document dans la base de connaissances",
-    parameters={"content": "str", "source": "str", "topic": "str (optionnel)"}
-)
-async def rag_index(params: dict) -> str:
-    """Indexer un document dans ChromaDB avec bge-m3"""
-    content = params.get("content", "")
-    source = params.get("source", "user")
-    topic = params.get("topic", "general")
-    
-    if not content:
-        return "❌ Erreur: content requis"
-    
-    if len(content) < 10:
-        return "❌ Erreur: contenu trop court (min 10 caractères)"
-    
-    # Générer l'embedding
-    embedding = await get_embedding_bge(content)
-    if not embedding:
-        return "❌ Erreur: impossible de générer l'embedding"
-    
-    # Récupérer l'ID de la collection
-    collection_id = await get_collection_id()
-    if not collection_id:
-        return "❌ Erreur: collection RAG non trouvée"
-    
-    # Créer l'ID du document
-    doc_id = f"doc_{hash(content[:100])}_{len(content)}"
-    
-    # Métadonnées
-    metadata = {
-        "source": source,
-        "topic": topic,
-        "lang": "fr",
-        "indexed_at": datetime.now().isoformat(),
-        "content_length": len(content)
+    name="rag_search",
+    description="Recherche sémantique dans la base de connaissances avec reranking. "
+                "Utilise bge-m3 pour les embeddings et un cross-encoder pour le reranking. "
+                "Retourne les documents les plus pertinents avec leurs scores.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Requête de recherche en langage naturel (FR/EN)"
+            },
+            "top_k": {
+                "type": "integer",
+                "description": "Nombre de résultats à retourner (défaut: 5)",
+                "default": 5
+            },
+            "use_reranking": {
+                "type": "boolean",
+                "description": "Appliquer le reranking cross-encoder (défaut: true)",
+                "default": True
+            },
+            "topic_filter": {
+                "type": "string",
+                "description": "Filtrer par topic (guide, session, documentation, code)",
+                "enum": ["guide", "session", "documentation", "code", "readme", "docker", "traefik"]
+            }
+        },
+        "required": ["query"]
     }
+)
+async def rag_search(
+    query: str,
+    top_k: int = 5,
+    use_reranking: bool = True,
+    topic_filter: Optional[str] = None,
+    **kwargs
+) -> str:
+    """Recherche sémantique avec RAG Apogée v2.0"""
+    
+    if not RAG_V2_AVAILABLE:
+        return "❌ RAG Apogée v2.0 non disponible. Vérifiez l'installation."
+    
+    if not query or len(query.strip()) < 3:
+        return "❌ Requête trop courte (minimum 3 caractères)"
     
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            r = await client.post(
-                f"http://{CHROMADB_HOST}:{CHROMADB_PORT}/api/v2/tenants/default_tenant/databases/default_database/collections/{collection_id}/add",
-                json={
-                    "ids": [doc_id],
-                    "documents": [content],
-                    "embeddings": [embedding],
-                    "metadatas": [metadata]
-                }
-            )
+        search_service = get_search_service()
+        response: SearchResponse = await search_service.search(
+            query=query,
+            top_k=top_k,
+            use_reranking=use_reranking,
+            topic_filter=topic_filter
+        )
+        
+        if not response.results:
+            return f"🔍 Aucun résultat trouvé pour: \"{query}\""
+        
+        # Formater les résultats
+        lines = [
+            f"🔍 **Recherche RAG**: \"{query}\"",
+            f"📊 {len(response.results)} résultats (sur {response.total_found} trouvés)",
+            f"⏱️ {response.search_time_ms:.0f}ms (embed: {response.embedding_time_ms:.0f}ms, rerank: {response.rerank_time_ms:.0f}ms)",
+            ""
+        ]
+        
+        for i, result in enumerate(response.results, 1):
+            score_pct = int(result.score * 100)
+            rerank_info = f", rerank: {int(result.rerank_score * 100)}%" if result.rerank_score else ""
             
-            if r.status_code in (200, 201):
-                return f"✅ Document indexé avec succès!\n- ID: {doc_id}\n- Source: {source}\n- Topic: {topic}\n- Taille: {len(content)} caractères"
-            else:
-                return f"❌ Erreur indexation: {r.status_code} - {r.text[:200]}"
-                
+            lines.append(f"**{i}. [{result.filename}]** ({score_pct}% pertinent{rerank_info})")
+            lines.append(f"   📁 {result.source} | Topic: {result.topic}")
+            lines.append(f"   Chunk {result.chunk_index + 1}/{result.total_chunks}")
+            
+            # Aperçu du contenu (300 chars max)
+            preview = result.content[:300].replace('\n', ' ')
+            if len(result.content) > 300:
+                preview += "..."
+            lines.append(f"   {preview}")
+            lines.append("")
+        
+        return "\n".join(lines)
+        
     except Exception as e:
-        logger.error(f"Erreur indexation: {e}")
-        return f"❌ Erreur: {str(e)}"
+        logger.error(f"Erreur rag_search: {e}")
+        return f"❌ Erreur recherche RAG: {e}"
 
 
 @register_tool(
-    "rag_stats",
-    description="Affiche les statistiques de la base de connaissances RAG"
+    name="rag_index",
+    description="Indexe un nouveau document dans la base de connaissances. "
+                "Le document sera découpé en chunks avec overlap et des embeddings bge-m3.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "filepath": {
+                "type": "string",
+                "description": "Chemin du fichier à indexer"
+            },
+            "force": {
+                "type": "boolean",
+                "description": "Forcer la réindexation même si le fichier n'a pas changé",
+                "default": False
+            }
+        },
+        "required": ["filepath"]
+    }
 )
-async def rag_stats(params: dict) -> str:
-    """Statistiques de l'index RAG"""
-    collection_id = await get_collection_id()
+async def rag_index(
+    filepath: str,
+    force: bool = False,
+    **kwargs
+) -> str:
+    """Indexe un fichier dans la base de connaissances"""
     
-    if not collection_id:
-        return "❌ Collection RAG non trouvée"
+    if not RAG_V2_AVAILABLE:
+        return "❌ RAG Apogée v2.0 non disponible."
     
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            # Récupérer les infos de la collection
-            r = await client.get(
-                f"http://{CHROMADB_HOST}:{CHROMADB_PORT}/api/v2/tenants/default_tenant/databases/default_database/collections/{collection_id}"
-            )
-            
-            if r.status_code != 200:
-                return f"❌ Erreur: {r.status_code}"
-            
-            col_info = r.json()
-            
-            # Compter les documents
-            r2 = await client.get(
-                f"http://{CHROMADB_HOST}:{CHROMADB_PORT}/api/v2/tenants/default_tenant/databases/default_database/collections/{collection_id}/count"
-            )
-            
-            count = r2.json() if r2.status_code == 200 else "?"
-            
-            result = [
-                "📊 **Statistiques RAG Apogée**\n",
-                f"- **Collection:** {COLLECTION_NAME}",
-                f"- **ID:** {collection_id[:8]}...",
-                f"- **Documents:** {count}",
-                f"- **Embedding:** {EMBEDDING_MODEL} (1024 dim, multilingue)",
-                f"- **Cache:** {len(_embedding_cache)} embeddings en cache",
-            ]
-            
-            metadata = col_info.get("metadata", {})
-            if metadata:
-                result.append(f"- **Description:** {metadata.get('description', 'N/A')}")
-            
-            return "\n".join(result)
+        indexer = get_indexer()
+        result = await indexer.index_file(filepath, force=force)
+        
+        if result.success:
+            if result.error == "Inchangé":
+                return f"📄 Fichier inchangé: {filepath} (pas de réindexation nécessaire)"
+            else:
+                return f"✅ Fichier indexé: {filepath}\n   {result.chunks_indexed} chunks créés"
+        else:
+            return f"❌ Erreur indexation: {result.error}"
             
     except Exception as e:
-        return f"❌ Erreur: {str(e)}"
+        logger.error(f"Erreur rag_index: {e}")
+        return f"❌ Erreur indexation: {e}"
 
 
-def clear_embedding_cache():
-    """Vider le cache d'embeddings"""
-    global _embedding_cache
-    _embedding_cache = {}
+@register_tool(
+    name="rag_index_directory",
+    description="Indexe tous les fichiers d'un répertoire (markdown, txt). "
+                "Utilise l'indexation incrémentale: seuls les fichiers modifiés sont réindexés.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "directory": {
+                "type": "string",
+                "description": "Chemin du répertoire à indexer"
+            },
+            "patterns": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Patterns de fichiers (défaut: ['*.md', '*.txt'])",
+                "default": ["*.md", "*.txt"]
+            },
+            "force": {
+                "type": "boolean",
+                "description": "Forcer la réindexation de tous les fichiers",
+                "default": False
+            }
+        },
+        "required": ["directory"]
+    }
+)
+async def rag_index_directory(
+    directory: str,
+    patterns: List[str] = None,
+    force: bool = False,
+    **kwargs
+) -> str:
+    """Indexe un répertoire complet"""
+    
+    if not RAG_V2_AVAILABLE:
+        return "❌ RAG Apogée v2.0 non disponible."
+    
+    if patterns is None:
+        patterns = ["*.md", "*.txt"]
+    
+    try:
+        indexer = get_indexer()
+        stats = await indexer.index_directory(directory, patterns=patterns, force=force)
+        
+        return (
+            f"📁 **Indexation répertoire**: {directory}\n"
+            f"   Fichiers traités: {stats.total_files}\n"
+            f"   Chunks indexés: {stats.total_chunks}\n"
+            f"   Nouveaux: {stats.new_files} | Mis à jour: {stats.updated_files} | Inchangés: {stats.unchanged_files}\n"
+            f"   Erreurs: {stats.errors}\n"
+            f"   Durée: {stats.duration_ms:.0f}ms"
+        )
+        
+    except Exception as e:
+        logger.error(f"Erreur rag_index_directory: {e}")
+        return f"❌ Erreur indexation répertoire: {e}"
+
+
+@register_tool(
+    name="rag_stats",
+    description="Affiche les statistiques du système RAG: collection, embeddings, reranking, cache.",
+    parameters={
+        "type": "object",
+        "properties": {},
+        "required": []
+    }
+)
+async def rag_stats(**kwargs) -> str:
+    """Statistiques du système RAG"""
+    
+    if not RAG_V2_AVAILABLE:
+        return "❌ RAG Apogée v2.0 non disponible."
+    
+    try:
+        config = get_rag_config()
+        search_service = get_search_service()
+        indexer = get_indexer()
+        
+        stats = search_service.stats
+        
+        lines = [
+            "📊 **RAG Apogée v2.0 - Statistiques**",
+            "",
+            "**Configuration:**",
+            f"   Collection: {config.collection_name}",
+            f"   Embedding: {config.embedding_model} ({config.embedding_dimensions} dim)",
+            f"   Reranker: {config.reranker_model}",
+            f"   Chunk size: {config.chunk_size_tokens} tokens, {config.chunk_overlap_percent*100:.0f}% overlap",
+            "",
+            "**Recherche:**",
+            f"   Total recherches: {stats['total_searches']}",
+            f"   Retrieval top_k: {config.retrieval_top_k} → Rerank top_k: {config.rerank_top_k}",
+            "",
+            "**Embeddings:**",
+            f"   Générations: {stats['embedding']['total_generations']}",
+            f"   Temps moyen: {stats['embedding']['avg_generation_time_ms']}ms",
+            f"   Cache: {stats['embedding']['cache']['size']}/{stats['embedding']['cache']['max_size']}",
+            f"   Hit rate: {stats['embedding']['cache']['hit_rate']}",
+            "",
+            "**Reranker:**",
+            f"   Activé: {stats['reranker']['enabled']}",
+            f"   Total reranks: {stats['reranker']['total_reranks']}",
+            f"   Temps moyen: {stats['reranker']['avg_time_ms']}ms",
+            "",
+            "**Indexation:**",
+            f"   Fichiers trackés: {indexer.tracked_files_count}",
+        ]
+        
+        return "\n".join(lines)
+        
+    except Exception as e:
+        logger.error(f"Erreur rag_stats: {e}")
+        return f"❌ Erreur stats RAG: {e}"
