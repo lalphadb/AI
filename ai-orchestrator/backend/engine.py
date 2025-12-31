@@ -15,6 +15,13 @@ import httpx
 from fastapi import WebSocket
 
 from config import get_settings
+# RAG Apogée v2.0
+try:
+    from services.rag import inject_rag_context, get_search_service
+    RAG_AVAILABLE = True
+except ImportError:
+    RAG_AVAILABLE = False
+    inject_rag_context = None
 
 logger = logging.getLogger("react_engine")
 settings = get_settings()
@@ -176,34 +183,33 @@ async def react_loop(
 
     successful_tool_results = []  # P0-2 FIX: Collecter les résultats pour synthèse
 
-    # === AUTO-CONTEXT: Memory Recall au demarrage ===
+    # === AUTO-CONTEXT: RAG Apogée v2.0 ===
     try:
         if websocket:
             await websocket.send_json(
-                {"type": "thinking", "message": "Chargement du contexte memoire..."}
+                {"type": "thinking", "message": "Recherche de contexte pertinent..."}
             )
 
-        # Extraire mots-cles de la requete pour recherche semantique
-        context_query = f"{user_message[:200]} infrastructure projets utilisateur"
-        context_result = await execute_tool_func(
-            "memory_recall", {"query": context_query, "limit": 5}, uploaded_files
-        )
-
-        if (
-            context_result
-            and "Aucun souvenir" not in context_result
-            and "Erreur" not in context_result
-        ):
-            # Injecter le contexte dans le system prompt
-            context_injection = (
-                f"\n\n## CONTEXTE MEMORISE (pertinent pour cette requete):\n{context_result}\n"
-            )
-            messages[0]["content"] = system_prompt + context_injection
-            logger.info(f"Auto-contexte injecte: {len(context_result)} chars")
+        # Utiliser RAG Apogée si disponible, sinon fallback sur memory_recall
+        if RAG_AVAILABLE and inject_rag_context:
+            enriched_prompt, rag_result = await inject_rag_context(system_prompt, user_message)
+            if rag_result.injected:
+                messages[0]["content"] = enriched_prompt
+                logger.info(f"RAG contexte injecté: {len(rag_result.sources)} sources, score={rag_result.relevance_score:.2f}")
+            else:
+                logger.info("RAG: Pas de contexte pertinent trouvé")
         else:
-            logger.info("Pas de contexte pertinent trouve dans la memoire")
+            # Fallback: ancienne méthode memory_recall
+            context_query = f"{user_message[:200]} infrastructure projets utilisateur"
+            context_result = await execute_tool_func(
+                "memory_recall", {"query": context_query, "limit": 5}, uploaded_files
+            )
+            if context_result and "Aucun souvenir" not in context_result and "Erreur" not in context_result:
+                context_injection = f"\n\n## CONTEXTE MEMORISE:\n{context_result}\n"
+                messages[0]["content"] = system_prompt + context_injection
+                logger.info(f"Memory contexte injecté: {len(context_result)} chars")
     except Exception as e:
-        logger.warning(f"Auto-context memory_recall failed: {e}")
+        logger.warning(f"Auto-context failed: {e}")
     # === FIN AUTO-CONTEXT ===
 
     for iteration in range(1, MAX_ITERATIONS + 1):
