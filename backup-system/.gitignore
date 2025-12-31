@@ -1,0 +1,19 @@
+# Secrets - CRITIQUE
+.env
+.env.local
+.env.production
+*.pem
+*.key
+
+# Backups locaux
+local/*.tar.gz
+local/*.sql.gz
+local/*.backup
+
+# Logs
+*.log
+cron.log
+
+# Temp
+*.tmp
+*.temp
