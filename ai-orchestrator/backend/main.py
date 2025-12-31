@@ -232,79 +232,102 @@ MODELS = {
         "name": "AUTO (Sélection automatique)",
         "description": "L'agent choisit le meilleur modèle selon la tâche",
         "model": None,
+        "category": "auto",
     },
-    # === MODÈLES LOCAUX ===
+    # === 💻 MODÈLES CODE (Locaux) ===
     "qwen-coder": {
-        "name": "💻 Qwen 2.5 Coder 32B",
+        "name": "Qwen 2.5 Coder 32B",
         "description": "Code, scripts, debug, analyse technique",
         "model": "qwen2.5-coder:32b-instruct-q4_K_M",
-        "keywords": [
-            "code",
-            "script",
-            "python",
-            "bash",
-            "debug",
-            "fonction",
-            "variable",
-            "api",
-            "docker",
-            "git",
-            "npm",
-            "programm",
-        ],
+        "category": "code",
+        "local": True,
+        "keywords": ["code", "script", "python", "bash", "debug", "fonction", "variable", "api", "docker", "git", "npm", "programm"],
     },
     "deepseek-coder": {
-        "name": "🧠 DeepSeek Coder 33B",
+        "name": "DeepSeek Coder 33B",
         "description": "Code alternatif, algorithmes complexes",
         "model": "deepseek-coder:33b",
+        "category": "code",
+        "local": True,
         "keywords": ["algorithme", "optimis", "complex", "performance", "refactor"],
     },
+    # === 👁️ MODÈLES VISION (Locaux) ===
     "llama-vision": {
-        "name": "👁️ Llama 3.2 Vision 11B",
+        "name": "Llama 3.2 Vision 11B",
         "description": "Analyse d'images, OCR, vision",
         "model": "llama3.2-vision:11b-instruct-q8_0",
-        "keywords": [
-            "image",
-            "photo",
-            "screenshot",
-            "capture",
-            "voir",
-            "regarde",
-            "analyse visuel",
-            "ocr",
-        ],
+        "category": "vision",
+        "local": True,
+        "keywords": ["image", "photo", "screenshot", "capture", "voir", "regarde", "analyse visuel", "ocr"],
     },
     "qwen-vision": {
-        "name": "🎨 Qwen3 VL 32B",
+        "name": "Qwen3 VL 32B",
         "description": "Vision multimodale avancée",
         "model": "qwen3-vl:32b",
+        "category": "vision",
+        "local": True,
         "keywords": ["image", "multimodal", "vision", "graphique", "diagramme", "schéma"],
     },
-    # === MODÈLES CLOUD (via Ollama) ===
-    "kimi-k2": {
-        "name": "☁️ Kimi K2 1T",
-        "description": "Modèle cloud Kimi (Moonshot AI)",
-        "model": "kimi-k2:1t-cloud",
-        "keywords": ["kimi", "moonshot", "cloud", "chinois"],
-    },
-    "qwen3-coder-cloud": {
-        "name": "☁️ Qwen3 Coder 480B",
-        "description": "Qwen3 Coder géant via cloud",
-        "model": "qwen3-coder:480b-cloud",
-        "keywords": ["qwen", "cloud", "coder", "gros"],
-    },
-    "gemini-pro": {
-        "name": "☁️ Gemini 3 Pro",
-        "description": "Google Gemini Pro via cloud",
-        "model": "gemini-3-pro-preview:latest",
-        "keywords": ["gemini", "google", "cloud"],
-    },
+    # === 🛡️ MODÈLES SÉCURITÉ (Locaux) ===
     "gpt-safeguard": {
-        "name": "🛡️ GPT Safeguard 13B",
-        "description": "GPT Open Source local (sécurité)",
+        "name": "GPT Safeguard 13B",
+        "description": "GPT Open Source local (sécurité, modération)",
         "model": "gpt-oss-safeguard:latest",
+        "category": "security",
+        "local": True,
         "keywords": ["gpt", "safeguard", "sécurité", "modération"],
     },
+    # === ☁️ MODÈLES CLOUD ===
+    "qwen3-coder-cloud": {
+        "name": "Qwen3 Coder 480B",
+        "description": "Qwen3 Coder géant - Ultra performant",
+        "model": "qwen3-coder:480b-cloud",
+        "category": "cloud",
+        "local": False,
+        "keywords": ["qwen", "cloud", "coder", "gros"],
+    },
+    "kimi-k2": {
+        "name": "Kimi K2 1T",
+        "description": "Modèle cloud Kimi (Moonshot AI) - Ultra rapide",
+        "model": "kimi-k2:1t-cloud",
+        "category": "cloud",
+        "local": False,
+        "keywords": ["kimi", "moonshot", "cloud", "chinois"],
+    },
+    "gemini-pro": {
+        "name": "Gemini 3 Pro",
+        "description": "Google Gemini Pro via cloud",
+        "model": "gemini-3-pro-preview:latest",
+        "category": "cloud",
+        "local": False,
+        "keywords": ["gemini", "google", "cloud"],
+    },
+    # === 📊 MODÈLES EMBEDDINGS (pour RAG) ===
+    "nomic-embed": {
+        "name": "Nomic Embed Text",
+        "description": "Embeddings pour RAG (274 MB)",
+        "model": "nomic-embed-text:latest",
+        "category": "embedding",
+        "local": True,
+        "chat": False,
+    },
+    "mxbai-embed": {
+        "name": "MXBai Embed Large",
+        "description": "Embeddings haute qualité (669 MB)",
+        "model": "mxbai-embed-large:latest",
+        "category": "embedding",
+        "local": True,
+        "chat": False,
+    },
+}
+
+MODEL_CATEGORIES = {
+    "auto": {"label": "🎯 Auto", "order": 0},
+    "cloud": {"label": "☁️ Cloud (Rapide)", "order": 1},
+    "code": {"label": "💻 Code (Local)", "order": 2},
+    "vision": {"label": "👁️ Vision (Local)", "order": 3},
+    "security": {"label": "🛡️ Sécurité (Local)", "order": 4},
+    "embedding": {"label": "📊 Embeddings (RAG)", "order": 5},
 }
 
 DEFAULT_MODEL = "qwen3-coder:480b-cloud"
@@ -870,11 +893,33 @@ async def get_rate_limit_stats_endpoint(
 
 @app.get("/api/models")
 async def list_models():
-    """Liste des modèles disponibles"""
+    """Liste des modèles disponibles avec catégories"""
+    models_by_category = {}
+    
+    for model_id, model_data in MODELS.items():
+        category = model_data.get("category", "other")
+        if category not in models_by_category:
+            models_by_category[category] = []
+        
+        # Exclure les modèles embedding du sélecteur de chat
+        if model_data.get("chat", True) is False:
+            continue
+            
+        models_by_category[category].append({
+            "id": model_id,
+            "name": model_data["name"],
+            "description": model_data["description"],
+            "category": category,
+            "local": model_data.get("local", True),
+        })
+    
     return {
         "models": [
-            {"id": k, "name": v["name"], "description": v["description"]} for k, v in MODELS.items()
+            {"id": k, "name": v["name"], "description": v["description"], "category": v.get("category", "other")} 
+            for k, v in MODELS.items() if v.get("chat", True) is not False
         ],
+        "categories": MODEL_CATEGORIES,
+        "models_by_category": models_by_category,
         "default": "auto",
     }
 

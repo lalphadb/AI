@@ -132,11 +132,8 @@
                     <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-full hover:bg-[#28292a]" title="Menu"><i class="ri-menu-line text-lg"></i></button>
                     <div class="flex items-center gap-2 cursor-pointer hover:bg-[#1e1f20] px-3 py-1.5 rounded-lg transition-colors">
                         <span class="text-lg font-medium text-slate-200">Orchestrator</span>
-                        <select id="model-select" class="bg-transparent text-sm text-slate-400 focus:outline-none cursor-pointer appearance-none pl-1 font-mono">
-                            <option value="auto">Auto</option>
-                            <option value="qwen-coder">Qwen 2.5 Coder</option>
-                            <option value="deepseek-coder">DeepSeek V3</option>
-                            <option value="gpt-safeguard">GPT Safeguard</option>
+                        <select id="model-select" class="bg-transparent text-sm text-slate-400 focus:outline-none cursor-pointer appearance-none pl-1 font-mono max-w-[200px]">
+                            <option value="auto">Chargement...</option>
                         </select>
                         <i class="ri-arrow-down-s-line text-slate-500 text-xs"></i>
                     </div>
@@ -504,10 +501,62 @@
         }
         
         function initApp() {
+            loadModels();
             connectWebSocket();
             loadConversations();
             loadSystemStats();
             setInterval(loadSystemStats, 5000);
+        }
+        
+        async function loadModels() {
+            try {
+                const r = await fetch(`${API_URL}/api/models`);
+                if (!r.ok) return;
+                const data = await r.json();
+                const select = document.getElementById('model-select');
+                select.innerHTML = '';
+                
+                // Ordre des catégories
+                const categoryOrder = ['auto', 'cloud', 'code', 'vision', 'security'];
+                const categoryLabels = {
+                    'auto': '🎯 Auto',
+                    'cloud': '☁️ Cloud (Rapide)',
+                    'code': '💻 Code (Local)',
+                    'vision': '👁️ Vision (Local)',
+                    'security': '🛡️ Sécurité'
+                };
+                
+                // Grouper par catégorie
+                const byCategory = {};
+                data.models.forEach(m => {
+                    const cat = m.category || 'other';
+                    if (!byCategory[cat]) byCategory[cat] = [];
+                    byCategory[cat].push(m);
+                });
+                
+                // Créer les optgroup
+                categoryOrder.forEach(cat => {
+                    if (!byCategory[cat] || byCategory[cat].length === 0) return;
+                    
+                    const group = document.createElement('optgroup');
+                    group.label = categoryLabels[cat] || cat;
+                    
+                    byCategory[cat].forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m.id;
+                        opt.textContent = m.name;
+                        opt.title = m.description;
+                        group.appendChild(opt);
+                    });
+                    
+                    select.appendChild(group);
+                });
+                
+                // Sélectionner auto par défaut
+                select.value = 'auto';
+            } catch (e) {
+                console.error('Erreur chargement modèles:', e);
+            }
         }
         
         function doLogout() { localStorage.removeItem('auth_token'); location.reload(); }
