@@ -1,130 +1,43 @@
-# Documentation API - AI Orchestrator v3.0
+# 📡 API Reference - AI Orchestrator v5.2
 
-## Table des matières
-
-1. [Introduction](#introduction)
-2. [Authentification](#authentification)
-3. [Endpoints](#endpoints)
-4. [WebSocket](#websocket)
-5. [Codes d'erreur](#codes-derreur)
-6. [Exemples](#exemples)
-
----
-
-## Introduction
-
-### Base URL
+## Base URL
 
 ```
 Production: https://ai.4lb.ca
-Développement: http://localhost:8001
+Local:      http://localhost:8001
 ```
-
-### Format des requêtes
-
-- Content-Type: `application/json`
-- Encoding: UTF-8
-
-### Format des réponses
-
-Toutes les réponses sont en JSON.
 
 ---
 
 ## Authentification
 
-### POST /api/auth/login
+### Méthodes Supportées
 
-Obtenir un token d'accès.
+| Méthode | Header | Usage |
+|---------|--------|-------|
+| JWT Bearer | `Authorization: Bearer <token>` | Sessions utilisateur |
+| API Key | `X-API-Key: <key>` | Intégrations |
+| Anonymous | - | Accès limité (si activé) |
 
-**Request:**
-```bash
-curl -X POST https://ai.4lb.ca/api/auth/login \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=admin&password=yourpassword"
+### Obtenir un Token JWT
+
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "votre_password"
+}
 ```
 
-**Response (200):**
+**Réponse** :
 ```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIs...",
-  "refresh_token": "refresh_token_here",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
   "token_type": "bearer",
   "expires_in": 3600
-}
-```
-
-**Response (401):**
-```json
-{
-  "detail": "Invalid credentials"
-}
-```
-
----
-
-### POST /api/auth/refresh
-
-Renouveler un token d'accès.
-
-**Request:**
-```bash
-curl -X POST https://ai.4lb.ca/api/auth/refresh \
-  -H "Content-Type: application/json" \
-  -d '{"refresh_token": "your_refresh_token"}'
-```
-
-**Response (200):**
-```json
-{
-  "access_token": "new_access_token",
-  "token_type": "bearer",
-  "expires_in": 3600
-}
-```
-
----
-
-### POST /api/auth/logout
-
-Révoquer un refresh token.
-
-**Request:**
-```bash
-curl -X POST https://ai.4lb.ca/api/auth/logout \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"refresh_token": "your_refresh_token"}'
-```
-
----
-
-### API Keys
-
-#### POST /api/auth/apikeys (Admin)
-
-Créer une nouvelle API key.
-
-**Request:**
-```bash
-curl -X POST https://ai.4lb.ca/api/auth/apikeys \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "CI/CD Pipeline",
-    "scopes": ["read", "execute"],
-    "expires_days": 90
-  }'
-```
-
-**Response (200):**
-```json
-{
-  "key": "ak_abc123...",
-  "name": "CI/CD Pipeline",
-  "scopes": ["read", "execute"],
-  "created_at": "2024-12-14T18:30:00Z",
-  "expires_at": "2025-03-14T18:30:00Z"
 }
 ```
 
@@ -132,176 +45,210 @@ curl -X POST https://ai.4lb.ca/api/auth/apikeys \
 
 ## Endpoints
 
-### GET /health
+### Health & Status
 
-Vérifier l'état du service.
+#### GET /health
 
-**Response (200):**
+Vérifier la santé de l'API.
+
+```bash
+curl https://ai.4lb.ca/health
+```
+
+**Réponse** :
 ```json
 {
   "status": "healthy",
-  "version": "3.0.0",
-  "tools_count": 34,
-  "models_count": 9,
-  "ollama_url": "http://10.10.10.46:11434",
-  "auth_enabled": true,
-  "rate_limit_enabled": true
+  "version": "5.2",
+  "ollama": "connected",
+  "chromadb": "connected",
+  "tools_count": 57
+}
+```
+
+#### GET /api/stats
+
+Statistiques du système.
+
+```bash
+curl https://ai.4lb.ca/api/stats
+```
+
+**Réponse** :
+```json
+{
+  "uptime": "2d 5h 32m",
+  "conversations": 1247,
+  "messages": 8934,
+  "tools_count": 57,
+  "memory_entries": 523,
+  "models_available": 9
 }
 ```
 
 ---
 
-### GET /api/models
+### Chat
 
-Liste des modèles disponibles.
+#### POST /api/chat
 
-**Response (200):**
+Envoyer un message (synchrone).
+
+```bash
+curl -X POST https://ai.4lb.ca/api/chat \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Quel est le status Docker?",
+    "model": "auto",
+    "conversation_id": "conv-123"
+  }'
+```
+
+**Paramètres** :
+
+| Param | Type | Requis | Description |
+|-------|------|--------|-------------|
+| message | string | ✅ | Message utilisateur |
+| model | string | ❌ | Modèle LLM (défaut: auto) |
+| conversation_id | string | ❌ | ID conversation existante |
+| stream | boolean | ❌ | Streaming SSE (défaut: false) |
+
+**Réponse** :
+```json
+{
+  "response": "Voici le status Docker...",
+  "conversation_id": "conv-123",
+  "model_used": "qwen2.5-coder:32b",
+  "tools_used": ["docker_status"],
+  "tokens": {
+    "prompt": 245,
+    "completion": 312
+  }
+}
+```
+
+#### WebSocket /ws/chat
+
+Chat en temps réel avec streaming.
+
+```javascript
+const ws = new WebSocket('wss://ai.4lb.ca/ws/chat?token=<JWT>');
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  
+  switch(data.type) {
+    case 'think':
+      console.log('💭 Réflexion:', data.content);
+      break;
+    case 'plan':
+      console.log('📋 Plan:', data.content);
+      break;
+    case 'action':
+      console.log('⚡ Action:', data.tool, data.params);
+      break;
+    case 'result':
+      console.log('📊 Résultat:', data.content);
+      break;
+    case 'response':
+      console.log('✅ Réponse finale:', data.content);
+      break;
+    case 'error':
+      console.error('❌ Erreur:', data.content);
+      break;
+  }
+};
+
+// Envoyer un message
+ws.send(JSON.stringify({
+  message: "Liste les conteneurs Docker",
+  model: "qwen-coder"
+}));
+```
+
+**Types d'événements** :
+
+| Type | Description |
+|------|-------------|
+| `think` | Réflexion de l'IA |
+| `plan` | Planification des étapes |
+| `action` | Exécution d'un outil |
+| `result` | Résultat d'un outil |
+| `response` | Réponse finale |
+| `error` | Erreur |
+| `ping` | Keep-alive |
+
+---
+
+### Tools
+
+#### GET /tools
+
+Liste tous les outils disponibles.
+
+```bash
+curl https://ai.4lb.ca/tools
+```
+
+**Réponse** :
+```json
+{
+  "count": 57,
+  "tools": [
+    {
+      "name": "execute_command",
+      "description": "Exécuter une commande shell",
+      "parameters": {
+        "command": "string (required)"
+      },
+      "category": "system"
+    },
+    ...
+  ]
+}
+```
+
+#### GET /tools/{name}
+
+Détails d'un outil spécifique.
+
+```bash
+curl https://ai.4lb.ca/tools/docker_status
+```
+
+---
+
+### Models
+
+#### GET /api/models
+
+Liste les modèles LLM disponibles.
+
+```bash
+curl https://ai.4lb.ca/api/models
+```
+
+**Réponse** :
 ```json
 {
   "models": [
     {
-      "id": "auto",
-      "name": "AUTO (Sélection automatique)",
-      "description": "L'agent choisit le meilleur modèle selon la tâche"
+      "key": "auto",
+      "name": "Sélection automatique",
+      "type": "router"
     },
     {
-      "id": "qwen-coder",
-      "name": "Qwen 2.5 Coder 32B",
-      "description": "Code, scripts, debug, analyse technique"
-    }
-  ],
-  "default": "auto"
-}
-```
-
----
-
-### GET /tools
-
-Liste des outils disponibles.
-
-**Response (200):**
-```json
-{
-  "tools": [
+      "key": "qwen-coder",
+      "name": "qwen2.5-coder:32b-instruct-q4_K_M",
+      "type": "local",
+      "size": "19GB"
+    },
     {
-      "name": "execute_command",
-      "description": "Exécuter une commande bash sur le serveur",
-      "example": "execute_command(command=\"ls -la\")"
-    }
-  ],
-  "count": 34
-}
-```
-
----
-
-### GET /api/stats
-
-Statistiques système en temps réel.
-
-**Response (200):**
-```json
-{
-  "cpu": {
-    "percent": 15.2,
-    "cores": 24
-  },
-  "memory": {
-    "used_gb": 12.5,
-    "total_gb": 64.0,
-    "percent": 19.5
-  },
-  "gpu": {
-    "name": "NVIDIA GeForce RTX 5070 Ti",
-    "memory_used": 1024,
-    "memory_total": 16384,
-    "percent": 6
-  },
-  "docker": {
-    "running": 14,
-    "total": 14
-  }
-}
-```
-
----
-
-### POST /api/chat
-
-Envoyer un message et recevoir une réponse.
-
-**Headers:**
-```
-Authorization: Bearer $TOKEN
-Content-Type: application/json
-```
-
-**Request:**
-```json
-{
-  "message": "Liste les containers Docker",
-  "model": "auto",
-  "conversation_id": "optional_id",
-  "file_ids": ["optional_file_id"]
-}
-```
-
-**Response (200):**
-```json
-{
-  "response": "Voici les containers Docker en cours d'exécution:\n- traefik: Up 5 days\n- ai-orchestrator-backend: Up 4 hours\n...",
-  "conversation_id": "abc123def456",
-  "model_used": "qwen2.5-coder:32b"
-}
-```
-
----
-
-### POST /api/upload
-
-Uploader un fichier.
-
-**Request:**
-```bash
-curl -X POST https://ai.4lb.ca/api/upload \
-  -H "Authorization: Bearer $TOKEN" \
-  -F "file=@screenshot.png" \
-  -F "conversation_id=optional_id"
-```
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "file": {
-    "id": "abc123",
-    "filename": "screenshot.png",
-    "filetype": "image",
-    "size": 102400
-  }
-}
-```
-
----
-
-### GET /api/conversations
-
-Liste des conversations récentes.
-
-**Query params:**
-- `limit` (int, default=20): Nombre maximum de conversations
-
-**Response (200):**
-```json
-{
-  "conversations": [
-    {
-      "id": "abc123",
-      "title": "Docker status check",
-      "created_at": "2024-12-14T10:00:00",
-      "updated_at": "2024-12-14T10:05:00",
-      "first_message": "Montre moi les containers Docker"
+      "key": "kimi-k2",
+      "name": "Kimi K2 1T",
+      "type": "cloud",
+      "provider": "Moonshot"
     }
   ]
 }
@@ -309,211 +256,150 @@ Liste des conversations récentes.
 
 ---
 
-### GET /api/conversations/{id}
+### Conversations
+
+#### GET /api/conversations
+
+Liste les conversations.
+
+```bash
+curl https://ai.4lb.ca/api/conversations \
+  -H "Authorization: Bearer <token>"
+```
+
+**Query params** :
+- `limit` : Nombre max (défaut: 20)
+- `offset` : Pagination
+- `search` : Recherche texte
+
+#### GET /api/conversations/{id}
 
 Détails d'une conversation.
 
-**Response (200):**
-```json
-{
-  "conversation_id": "abc123",
-  "messages": [
-    {
-      "id": 1,
-      "role": "user",
-      "content": "Bonjour",
-      "created_at": "2024-12-14T10:00:00"
-    },
-    {
-      "id": 2,
-      "role": "assistant",
-      "content": "Bonjour! Comment puis-je vous aider?",
-      "model_used": "qwen2.5-coder:32b",
-      "created_at": "2024-12-14T10:00:05"
-    }
-  ]
-}
-```
-
----
-
-### PUT /api/conversations/{id}
-
-Mettre à jour le titre d'une conversation.
-
-**Request:**
-```json
-{
-  "title": "Nouveau titre"
-}
-```
-
-**Response (200):**
-```json
-{
-  "success": true
-}
-```
-
----
-
-### DELETE /api/conversations/{id}
+#### DELETE /api/conversations/{id}
 
 Supprimer une conversation.
 
-**Response (200):**
-```json
-{
-  "success": true
-}
+---
+
+### Memory (ChromaDB)
+
+#### POST /api/memory
+
+Stocker une information en mémoire.
+
+```bash
+curl -X POST https://ai.4lb.ca/api/memory \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "Le projet JSR utilise React et TailwindCSS",
+    "metadata": {
+      "project": "jsr",
+      "type": "tech_stack"
+    }
+  }'
+```
+
+#### GET /api/memory/search
+
+Recherche sémantique en mémoire.
+
+```bash
+curl "https://ai.4lb.ca/api/memory/search?q=projet%20JSR&limit=5"
 ```
 
 ---
 
-## WebSocket
+### Authentication
 
-### /ws/chat
+#### POST /api/auth/login
 
-Connexion WebSocket pour le chat en temps réel.
+Connexion (voir ci-dessus).
 
-#### Connexion
+#### POST /api/auth/refresh
 
-```javascript
-const ws = new WebSocket('wss://ai.4lb.ca/ws/chat');
-// Ou avec token
-const ws = new WebSocket('wss://ai.4lb.ca/ws/chat?token=YOUR_TOKEN');
+Rafraîchir le token.
+
+```bash
+curl -X POST https://ai.4lb.ca/api/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token": "eyJ..."}'
 ```
 
-#### Messages envoyés (Client → Serveur)
+#### GET /api/auth/me
 
-```json
-{
-  "message": "Votre question ici",
-  "model": "auto",
-  "conversation_id": "optional",
-  "file_ids": []
-}
+Profil utilisateur courant.
+
+```bash
+curl https://ai.4lb.ca/api/auth/me \
+  -H "Authorization: Bearer <token>"
 ```
 
-#### Messages reçus (Serveur → Client)
+#### POST /api/auth/logout
 
-**Conversation créée:**
-```json
-{
-  "type": "conversation_created",
-  "conversation_id": "abc123"
-}
-```
-
-**Modèle sélectionné:**
-```json
-{
-  "type": "model_selected",
-  "model": "qwen2.5-coder:32b",
-  "reason": "analyse automatique"
-}
-```
-
-**Réflexion en cours:**
-```json
-{
-  "type": "thinking",
-  "iteration": 1,
-  "message": "Itération 1/12..."
-}
-```
-
-**Étape de raisonnement:**
-```json
-{
-  "type": "step",
-  "iteration": 1,
-  "content": "THINK: Je vais d'abord vérifier...\nACTION: docker_status()"
-}
-```
-
-**Outil exécuté:**
-```json
-{
-  "type": "tool",
-  "tool": "docker_status",
-  "params": {}
-}
-```
-
-**Résultat d'outil:**
-```json
-{
-  "type": "result",
-  "tool": "docker_status",
-  "result": "Conteneurs Docker:\ntraefik  Up 5 days..."
-}
-```
-
-**Auto-apprentissage:**
-```json
-{
-  "type": "activity",
-  "action": "Auto-apprentissage: 2 fait(s) mémorisé(s)",
-  "details": "[user_fact] développeur, [project] ai-orchestrator"
-}
-```
-
-**Réponse finale:**
-```json
-{
-  "type": "complete",
-  "answer": "Voici les containers Docker...",
-  "iterations": 3,
-  "model": "qwen2.5-coder:32b"
-}
-```
-
-**Erreur:**
-```json
-{
-  "type": "error",
-  "message": "Description de l'erreur"
-}
-```
+Déconnexion (invalide le refresh token).
 
 ---
 
-## Codes d'erreur
+### Upload
+
+#### POST /api/upload
+
+Upload de fichier pour analyse.
+
+```bash
+curl -X POST https://ai.4lb.ca/api/upload \
+  -H "Authorization: Bearer <token>" \
+  -F "file=@document.pdf" \
+  -F "conversation_id=conv-123"
+```
+
+**Types supportés** :
+- Images : jpg, png, gif, webp
+- Documents : pdf, txt, md
+- Code : py, js, ts, json, yaml
+
+---
+
+## Codes d'Erreur
 
 | Code | Description |
 |------|-------------|
 | 200 | Succès |
+| 201 | Créé |
 | 400 | Requête invalide |
 | 401 | Non authentifié |
-| 403 | Non autorisé (scope manquant) |
-| 404 | Ressource non trouvée |
-| 429 | Trop de requêtes (rate limit) |
+| 403 | Non autorisé |
+| 404 | Non trouvé |
+| 429 | Rate limit dépassé |
 | 500 | Erreur serveur |
+| 503 | Service indisponible (Ollama down) |
 
-### Format des erreurs
-
+**Format erreur** :
 ```json
 {
-  "detail": "Description de l'erreur"
+  "detail": "Message d'erreur",
+  "code": "ERROR_CODE",
+  "timestamp": "2025-12-31T10:30:00Z"
 }
 ```
 
-### Rate Limit (429)
+---
 
-```json
-{
-  "detail": "Too many requests",
-  "retry_after": 30
-}
-```
+## Rate Limiting
 
-Headers:
-```
-Retry-After: 30
-X-RateLimit-Remaining: 0
-X-RateLimit-Reset: 1734200000
-```
+| Endpoint | Limite | Fenêtre |
+|----------|--------|---------|
+| /api/chat | 30 req | 1 min |
+| /ws/chat | 60 msg | 1 min |
+| /api/* | 100 req | 1 min |
+| /api/auth/login | 5 req | 5 min |
+
+Headers de réponse :
+- `X-RateLimit-Limit` : Limite max
+- `X-RateLimit-Remaining` : Requêtes restantes
+- `X-RateLimit-Reset` : Timestamp reset
 
 ---
 
@@ -524,109 +410,41 @@ X-RateLimit-Reset: 1734200000
 ```python
 import httpx
 
-BASE_URL = "https://ai.4lb.ca"
+client = httpx.Client(base_url="https://ai.4lb.ca")
 
-# Authentification
-async def login(username: str, password: str) -> str:
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{BASE_URL}/api/auth/login",
-            data={"username": username, "password": password}
-        )
-        return response.json()["access_token"]
+# Login
+response = client.post("/api/auth/login", json={
+    "username": "admin",
+    "password": "password"
+})
+token = response.json()["access_token"]
 
 # Chat
-async def chat(token: str, message: str) -> str:
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{BASE_URL}/api/chat",
-            headers={"Authorization": f"Bearer {token}"},
-            json={"message": message, "model": "auto"}
-        )
-        return response.json()["response"]
-
-# Exemple d'utilisation
-import asyncio
-
-async def main():
-    token = await login("admin", "password")
-    response = await chat(token, "Quel est l'uptime du serveur?")
-    print(response)
-
-asyncio.run(main())
+response = client.post("/api/chat", 
+    headers={"Authorization": f"Bearer {token}"},
+    json={"message": "Status du serveur?"}
+)
+print(response.json()["response"])
 ```
 
 ### JavaScript
 
 ```javascript
-const BASE_URL = 'https://ai.4lb.ca';
+const API_BASE = 'https://ai.4lb.ca';
 
-// Authentification
-async function login(username, password) {
-    const response = await fetch(`${BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `username=${username}&password=${password}`
-    });
-    const data = await response.json();
-    return data.access_token;
+async function chat(message, token) {
+  const response = await fetch(`${API_BASE}/api/chat`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ message })
+  });
+  return response.json();
 }
-
-// WebSocket Chat
-function connectChat(token, onMessage) {
-    const ws = new WebSocket(`wss://ai.4lb.ca/ws/chat?token=${token}`);
-
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        onMessage(data);
-    };
-
-    ws.sendMessage = (message, model = 'auto') => {
-        ws.send(JSON.stringify({ message, model }));
-    };
-
-    return ws;
-}
-
-// Exemple
-async function main() {
-    const token = await login('admin', 'password');
-    const ws = connectChat(token, (data) => {
-        if (data.type === 'complete') {
-            console.log('Réponse:', data.answer);
-        }
-    });
-
-    ws.onopen = () => {
-        ws.sendMessage('Liste les containers Docker');
-    };
-}
-
-main();
 ```
 
-### cURL
+---
 
-```bash
-# Variables
-BASE_URL="https://ai.4lb.ca"
-
-# Login
-TOKEN=$(curl -s -X POST "$BASE_URL/api/auth/login" \
-  -d "username=admin&password=password" | jq -r '.access_token')
-
-# Chat
-curl -X POST "$BASE_URL/api/chat" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"message": "uptime", "model": "auto"}' | jq '.response'
-
-# Upload
-curl -X POST "$BASE_URL/api/upload" \
-  -H "Authorization: Bearer $TOKEN" \
-  -F "file=@image.png"
-
-# Avec API Key
-curl "$BASE_URL/api/stats" \
-  -H "X-API-Key: ak_your_api_key_here"
-```
+*API Reference - AI Orchestrator v5.2*

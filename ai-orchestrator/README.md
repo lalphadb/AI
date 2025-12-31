@@ -1,216 +1,215 @@
-# AI Orchestrator v5.2 - Agent Autonome Intelligent
+<p align="center">
+  <img src="https://img.shields.io/badge/Version-5.2-blue?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Python-3.12-green?style=for-the-badge&logo=python" alt="Python">
+  <img src="https://img.shields.io/badge/FastAPI-0.115-teal?style=for-the-badge&logo=fastapi" alt="FastAPI">
+  <img src="https://img.shields.io/badge/Docker-Ready-blue?style=for-the-badge&logo=docker" alt="Docker">
+  <img src="https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge" alt="License">
+</p>
 
-L'AI Orchestrator est un **agent autonome avancé** conçu pour gérer l'infrastructure de 4LB.ca. Il combine la puissance des LLMs (via Ollama) avec une exécution d'outils système sécurisée, une mémoire sémantique persistante (ChromaDB), et un système d'auto-guérison.
+# 🤖 AI Orchestrator v5.2
 
-## Fonctionnalités Principales
+**Agent Autonome Intelligent pour l'Infrastructure 4LB.ca**
 
-- **Boucle ReAct** - Raisonnement "Think, Plan, Act" pour résoudre des tâches complexes
-- **Mode Autonome** - L'agent décide et agit avec une approche blacklist (pas whitelist)
-- **Mémoire Sémantique** - ChromaDB pour mémoriser projets, préférences et faits techniques
-- **Auto-Apprentissage** - Extraction automatique d'informations des conversations
-- **Self-Healing** - Surveillance et réparation automatique du système
-- **Multi-Modèles** - Support de Qwen, DeepSeek, Llama Vision et modèles cloud
-- **Interface Temps Réel** - Frontend WebSocket avec affichage de la "pensée" de l'IA
+AI Orchestrator est un agent ReAct (Reason-Act-Observe) avancé conçu pour gérer de manière autonome une infrastructure complète. Il combine la puissance des LLMs locaux via Ollama avec une exécution sécurisée d'outils système, une mémoire sémantique persistante, et des capacités d'auto-guérison.
 
-## Architecture
+---
+
+## ✨ Fonctionnalités
+
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **Boucle ReAct** | Cycle Think → Plan → Act → Observe pour résolution de tâches complexes |
+| **Mode Autonome** | Décision et action autonomes avec approche blacklist sécurisée |
+| **Multi-Modèles** | Support de 9+ modèles LLM (locaux et cloud) |
+| **57 Outils** | Système, Docker, Git, Réseau, Fichiers, Mémoire |
+| **Mémoire Sémantique** | ChromaDB pour mémorisation contextuelle persistante |
+| **WebSocket Temps Réel** | Streaming de la "pensée" de l'IA en direct |
+| **Self-Healing** | Surveillance et réparation automatique |
+
+---
+
+## 🏗 Architecture
 
 ```
-+------------------+     +------------------+     +------------------+
-|    Frontend      |<--->|    Backend       |<--->|    Ollama LLM    |
-|    (Nginx)       | WSS |    (FastAPI)     | HTTP|    (Qwen/DS)     |
-+------------------+     +--------+---------+     +------------------+
-                                  |
-                    +-------------+-------------+
-                    |             |             |
-              +-----v----+  +-----v----+  +-----v----+
-              | ChromaDB |  |  SQLite  |  |   Host   |
-              | (Memory) |  |   (DB)   |  |   (SSH)  |
-              +----------+  +----------+  +----------+
+┌─────────────────────────────────────────────────────────────────────┐
+│                         INFRASTRUCTURE 4LB.CA                       │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   ┌─────────────┐     ┌─────────────┐     ┌─────────────────────┐  │
+│   │   Traefik   │────▶│   Nginx     │────▶│   Frontend (HTML)   │  │
+│   │   (HTTPS)   │     │  (Static)   │     │   WebSocket Client  │  │
+│   └──────┬──────┘     └─────────────┘     └─────────────────────┘  │
+│          │                                          │               │
+│          ▼                                          ▼               │
+│   ┌─────────────────────────────────────────────────────────────┐  │
+│   │                    BACKEND (FastAPI)                         │  │
+│   │   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────┐    │  │
+│   │   │  Auth   │  │ Engine  │  │ Router  │  │ Rate Limit  │    │  │
+│   │   │  JWT    │  │ ReAct   │  │ Query   │  │  + Audit    │    │  │
+│   │   └────┬────┘  └────┬────┘  └────┬────┘  └─────────────┘    │  │
+│   │        └────────────┴────────────┘                           │  │
+│   │                      │                                        │  │
+│   │         ┌────────────┴────────────┐                          │  │
+│   │         ▼                         ▼                          │  │
+│   │   ┌───────────┐           ┌───────────────┐                  │  │
+│   │   │   Tools   │           │  LLM Client   │                  │  │
+│   │   │  (57+)    │           │   (Ollama)    │                  │  │
+│   │   └───────────┘           └───────────────┘                  │  │
+│   └─────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│   ┌─────────────────────────────────────────────────────────────┐  │
+│   │                       DATA LAYER                             │  │
+│   │    ┌──────────┐     ┌──────────┐     ┌──────────────────┐   │  │
+│   │    │ ChromaDB │     │  SQLite  │     │      Ollama      │   │  │
+│   │    │ (Memory) │     │   (DB)   │     │ (Qwen/DeepSeek)  │   │  │
+│   │    └──────────┘     └──────────┘     └──────────────────┘   │  │
+│   └─────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Stack Technologique
+---
 
-| Composant | Technologie |
-|-----------|-------------|
-| Backend | Python 3.13, FastAPI, Uvicorn |
-| Frontend | HTML5, TailwindCSS, Vanilla JS |
-| LLM | Ollama (Qwen 2.5 Coder, DeepSeek, Llama Vision) |
-| Mémoire | ChromaDB (recherche sémantique) |
-| Base de données | SQLite (conversations, auth) |
-| Authentification | JWT + API Keys |
-| Sécurité | Rate Limiting, Blacklist, Audit Logging |
-| Déploiement | Docker, Docker Compose, Traefik |
-
-## Installation Rapide
+## 🚀 Installation Rapide
 
 ### Prérequis
 
-- Docker et Docker Compose
-- Ollama avec les modèles (qwen2.5-coder:32b, llama3.2-vision:11b)
-- Réseau Docker `unified-net`
+- Docker 24.0+ avec Compose V2
+- Ollama 0.3.0+ avec modèles (qwen2.5-coder:32b, llama3.2-vision:11b)
+- Réseau Docker `unified-net` (192.168.200.0/24)
 
 ### Déploiement
 
 ```bash
-# Cloner le projet
-git clone https://github.com/4lb/ai-orchestrator.git
-cd ai-orchestrator
+# Via unified-stack (recommandé)
+cd /home/lalpha/projets/infrastructure/unified-stack
+./stack.sh up
 
-# Configurer l'environnement
+# Vérification
+curl -s http://localhost:8001/health | jq
+```
+
+### Configuration
+
+```bash
+# Copier et éditer le fichier d'environnement
 cp backend/.env.example backend/.env
-# Éditer .env avec vos secrets
+nano backend/.env
 
-# Démarrer
-docker compose up -d
-
-# Vérifier
-curl http://localhost:8001/health
+# Variables obligatoires
+JWT_SECRET_KEY=<openssl rand -base64 32>
+ADMIN_PASSWORD=<mot de passe fort>
 ```
 
-### Configuration Minimale (.env)
+---
+
+## 💻 Utilisation
+
+### Interface Web
+
+Accéder à **https://ai.4lb.ca** pour :
+- Chat conversationnel avec streaming temps réel
+- Visualisation de la pensée de l'IA (THINK → PLAN → ACTION)
+- Sélection du modèle LLM
+- Upload de fichiers et images
+
+### API REST
 
 ```bash
-AI_JWT_SECRET_KEY=votre-cle-secrete-32-caracteres
-AI_ADMIN_PASSWORD=mot-de-passe-fort
-AI_AUTH_ENABLED=true
-AI_RATE_LIMIT_ENABLED=true
-```
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture détaillée, flux de données |
-| [API.md](docs/API.md) | Référence complète de l'API REST/WebSocket |
-| [TOOLS.md](docs/TOOLS.md) | Documentation de tous les outils disponibles |
-| [SECURITY.md](docs/SECURITY.md) | Guide de sécurité et bonnes pratiques |
-| [UPGRADE.md](docs/UPGRADE.md) | Guide de migration entre versions |
-
-## Outils Disponibles (55+)
-
-### Système
-- `execute_command` - Exécuter une commande shell
-- `system_info` - Informations système (CPU, RAM, GPU)
-- `service_status` / `service_control` - Gestion services systemd
-- `disk_usage` - Analyse espace disque
-- `process_list` - Liste des processus
-- `logs_view` - Lecture des logs journalctl
-
-### Docker
-- `docker_status` - Liste des conteneurs
-- `docker_logs` - Logs d'un conteneur
-- `docker_restart` - Redémarrage conteneur
-- `docker_compose` - Commandes docker compose
-- `docker_exec` - Exécution dans un conteneur
-- `docker_stats` - Statistiques Docker
-
-### Fichiers
-- `read_file` / `write_file` - Lecture/écriture fichiers
-- `list_directory` - Listing répertoire
-- `search_files` - Recherche par pattern
-- `file_info` - Informations fichier
-
-### Git
-- `git_status` / `git_diff` - Statut et différences
-- `git_log` / `git_branch` - Historique et branches
-- `git_pull` - Pull modifications
-
-### Mémoire
-- `memory_store` / `memory_recall` - Stockage/rappel sémantique
-- `memory_list` / `memory_delete` - Gestion mémoire
-- `memory_stats` - Statistiques mémoire
-
-### Réseau
-- `network_info` - Informations réseau
-- `port_check` - Vérification ports
-- `dns_lookup` - Résolution DNS
-
-## API Principales
-
-### Authentification
-
-```bash
-# Login
+# Authentification
 curl -X POST https://ai.4lb.ca/api/auth/login \
-  -d "username=admin&password=votremotdepasse"
-
-# Réponse
-{"access_token": "eyJ...", "refresh_token": "xyz...", "expires_in": 3600}
-```
-
-### Chat
-
-```bash
-curl -X POST https://ai.4lb.ca/api/chat \
-  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"message": "Liste les containers Docker", "model": "auto"}'
+  -d '{"username": "admin", "password": "password"}'
+
+# Chat
+curl -X POST https://ai.4lb.ca/api/chat \
+  -H "Authorization: Bearer <token>" \
+  -d '{"message": "Status Docker?"}'
 ```
 
 ### WebSocket
 
 ```javascript
-const ws = new WebSocket('wss://ai.4lb.ca/ws/chat?token=TOKEN');
-ws.send(JSON.stringify({message: "Status Docker", model: "auto"}));
+const ws = new WebSocket('wss://ai.4lb.ca/ws/chat?token=<JWT>');
 ws.onmessage = (e) => console.log(JSON.parse(e.data));
+ws.send(JSON.stringify({ message: "Hello" }));
 ```
-
-## Sécurité
-
-- **Mode Autonome** - Blacklist des commandes dangereuses (mkfs, dd, rm -rf /)
-- **JWT** - Tokens signés avec expiration (1h access, 7j refresh)
-- **Rate Limiting** - 60 req/min par défaut
-- **Audit Log** - Toutes les actions tracées
-- **CSP** - Content Security Policy strict sur le frontend
-
-## Self-Healing
-
-Le service de self-healing surveille automatiquement:
-- Espace disque (alerte si > 90%)
-- Accessibilité Docker
-- Charge système (alerte si > 20.0)
-
-En cas de problème, l'agent lance automatiquement une session de réparation.
-
-## Changelog v5.2
-
-### Nouveautés
-- **55 outils** - Outils Ollama + outils méta pour auto-amélioration
-- **RAG v2** - Embeddings mxbai-embed-large (1024 dim), 53 documents indexés
-- **Chunking intelligent** - Découpage sémantique pour code, markdown, texte
-- **File Indexer** - Indexation automatique de fichiers avec watcher
-- **Retry 429** - Gestion automatique des erreurs rate-limit Ollama
-- **Self-Healing optimisé** - Seuil de charge système ajusté
-- **Engine robuste** - Extraction final_answer améliorée pour texte français
-
-### v5.1 (précédent)
-- Engine optimisé - Meilleure extraction des réponses finales
-- Outils modulaires - Chargement dynamique avec rechargement à chaud
-- Mode Autonome - Approche blacklist pour plus de flexibilité
-- SSH transparent - Exécution de commandes sur l'hôte via SSH
-- Self-Healing - Service de surveillance et réparation automatique
-- Frontend v4.1 - Gestion améliorée des tokens et reconnexion
-
-## Contribution
-
-Les contributions sont bienvenues. Toute modification des outils système doit respecter le module `security.py`.
-
-```bash
-# Lancer les tests
-cd backend
-python -m pytest tests/
-
-# Vérifier la syntaxe
-python3 -m py_compile main.py engine.py
-```
-
-## Support
-
-- Issues: [GitHub Issues](https://github.com/4lb/ai-orchestrator/issues)
-- Sécurité: security@4lb.ca
 
 ---
 
-**Version**: 5.2.0
-**Auteur**: 4LB.ca
-**Licence**: MIT
+## 🔧 Modèles LLM
+
+| Clé | Modèle | Usage |
+|-----|--------|-------|
+| `auto` | Sélection automatique | Défaut recommandé |
+| `qwen-coder` | qwen2.5-coder:32b | Code, scripts |
+| `deepseek-coder` | deepseek-coder:33b | Algorithmes |
+| `llama-vision` | llama3.2-vision:11b | Analyse images |
+| `kimi-k2` | Cloud (Moonshot) | Ultra-rapide |
+| `gemini-pro` | Cloud (Google) | Tâches complexes |
+
+---
+
+## 🔒 Sécurité
+
+- **Authentification** : JWT avec expiration 1h
+- **Rate Limiting** : 100 req/min/IP
+- **Blacklist** : 30+ commandes dangereuses interdites
+- **Validation** : Chemins et symlinks vérifiés
+- **Audit** : Logging complet des actions
+
+Voir [docs/SECURITY.md](docs/SECURITY.md) pour les détails.
+
+---
+
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture technique |
+| [API.md](docs/API.md) | Référence API complète |
+| [SECURITY.md](docs/SECURITY.md) | Guide de sécurité |
+| [TOOLS.md](docs/TOOLS.md) | Référence des 57 outils |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Guide de déploiement |
+| [CHANGELOG.md](docs/CHANGELOG.md) | Historique des versions |
+| [CLAUDE.md](CLAUDE.md) | Instructions Claude Code |
+
+---
+
+## 📊 Métriques
+
+| Métrique | Valeur |
+|----------|--------|
+| Version | 5.2 |
+| LOC Backend | ~8,600 |
+| Outils | 57 |
+| Modèles LLM | 9 |
+| Tests | 15% couverture |
+
+---
+
+## 🛠 Développement
+
+```bash
+# Test syntaxe
+python3 -m py_compile backend/*.py
+
+# Rebuild Docker
+docker compose build ai-orchestrator-backend
+docker compose up -d ai-orchestrator-backend
+
+# Logs
+docker logs -f ai-orchestrator-backend
+```
+
+---
+
+## 📄 Licence
+
+**Propriétaire** - © 2024-2025 4LB.ca - Tous droits réservés.
+
+---
+
+<p align="center">
+  <b>AI Orchestrator v5.2</b><br>
+  Agent Autonome Intelligent pour l'Infrastructure 4LB.ca
+</p>

@@ -1,497 +1,359 @@
-# Guide de Sécurité - AI Orchestrator v3.0
+# 🔒 Guide de Sécurité - AI Orchestrator v5.2
 
-## Table des matières
+## Vue d'Ensemble
 
-1. [Vue d'ensemble](#vue-densemble)
-2. [Authentification](#authentification)
-3. [Autorisation et Scopes](#autorisation-et-scopes)
-4. [Validation des commandes](#validation-des-commandes)
-5. [Validation des chemins](#validation-des-chemins)
-6. [Rate Limiting](#rate-limiting)
-7. [Configuration CORS](#configuration-cors)
-8. [Audit et Logging](#audit-et-logging)
-9. [Bonnes pratiques](#bonnes-pratiques)
-10. [Checklist de déploiement](#checklist-de-déploiement)
+Ce document décrit les mesures de sécurité implémentées dans AI Orchestrator et les bonnes pratiques pour maintenir un environnement sécurisé.
 
 ---
 
-## Vue d'ensemble
+## Architecture de Sécurité
 
-L'AI Orchestrator v3.0 implémente plusieurs couches de sécurité:
+### Defense in Depth
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   Rate Limiting                      │
-│              (Protection DDoS/Abus)                 │
-├─────────────────────────────────────────────────────┤
-│                  CORS Filtering                      │
-│            (Origines autorisées)                    │
-├─────────────────────────────────────────────────────┤
-│              JWT Authentication                      │
-│         (Tokens + API Keys)                         │
-├─────────────────────────────────────────────────────┤
-│              Scope Authorization                     │
-│       (read, write, execute, admin)                 │
-├─────────────────────────────────────────────────────┤
-│           Command Validation                         │
-│      (Whitelist + Pattern Detection)                │
-├─────────────────────────────────────────────────────┤
-│             Path Validation                          │
-│     (Chemins autorisés/interdits)                   │
-├─────────────────────────────────────────────────────┤
-│              Audit Logging                           │
-│        (Traçabilité complète)                       │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                      COUCHE 1: RÉSEAU                           │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
+│  │ UFW Firewall│  │  GeoBlock   │  │   CrowdSec IPS          │  │
+│  │ Ports 80,443│  │ CA,US,FR... │  │   Community Blocklists  │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
+├─────────────────────────────────────────────────────────────────┤
+│                      COUCHE 2: TRANSPORT                        │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │              TLS 1.3 (Let's Encrypt)                        ││
+│  │              HSTS, Security Headers                          ││
+│  └─────────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────┤
+│                      COUCHE 3: APPLICATION                      │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
+│  │ JWT Auth    │  │ Rate Limit  │  │   CORS Policy           │  │
+│  │ 1h Expiry   │  │ 100/min/IP  │  │   Origins whitelist     │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
+├─────────────────────────────────────────────────────────────────┤
+│                      COUCHE 4: EXÉCUTION                        │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
+│  │ Blacklist   │  │ Path Valid  │  │   Symlink Protection    │  │
+│  │ 30+ cmds    │  │ Traversal   │  │   Sandbox limits        │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
+├─────────────────────────────────────────────────────────────────┤
+│                      COUCHE 5: AUDIT                            │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │              Logging complet • Traçabilité actions          ││
+│  └─────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Authentification
 
-### Méthodes d'authentification
+### JWT (JSON Web Tokens)
 
-#### 1. JWT (JSON Web Tokens)
+| Paramètre | Valeur | Description |
+|-----------|--------|-------------|
+| Algorithme | HS256 | HMAC SHA-256 |
+| Expiration | 1 heure | Access token |
+| Refresh | 7 jours | Refresh token |
+| Secret | Env var | JWT_SECRET_KEY |
 
-```bash
-# Obtenir un token
-curl -X POST https://ai.4lb.ca/api/auth/login \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=admin&password=yourpassword"
-
-# Réponse
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIs...",
-  "refresh_token": "xyz123...",
-  "token_type": "bearer",
-  "expires_in": 3600
-}
-
-# Utiliser le token
-curl https://ai.4lb.ca/api/chat \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+**Configuration** :
+```python
+# backend/auth.py
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ALGORITHM = "HS256"
 ```
 
-#### 2. API Keys
+### API Keys
 
-```bash
-# Créer une API key (admin requis)
-curl -X POST https://ai.4lb.ca/api/auth/apikeys \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "CI/CD", "scopes": ["read", "execute"]}'
+Pour les intégrations programmatiques :
+- Préfixe : `aio_`
+- Longueur : 32 caractères
+- Hachage : SHA-256 en base
+- Scopes configurables
 
-# Réponse
-{
-  "key": "ak_abc123xyz...",
-  "name": "CI/CD",
-  "scopes": ["read", "execute"]
-}
+### Bonnes Pratiques
 
-# Utiliser l'API key
-curl https://ai.4lb.ca/api/chat \
-  -H "X-API-Key: ak_abc123xyz..."
-```
-
-### Configuration
-
-```bash
-# Variables d'environnement
-export AI_JWT_SECRET_KEY="votre-clé-secrète-de-32-caractères-minimum"
-export AI_JWT_EXPIRE_MINUTES=60
-export AI_AUTH_ENABLED=true
-export AI_ADMIN_PASSWORD="mot-de-passe-fort"
-```
-
-### Utilisateur admin par défaut
-
-Au premier démarrage, un utilisateur admin est créé:
-- **Username**: `admin`
-- **Password**: Valeur de `AI_ADMIN_PASSWORD` ou `changeme123`
-
-**IMPORTANT**: Changez ce mot de passe immédiatement!
+1. **Rotation des secrets** : Changer `JWT_SECRET_KEY` régulièrement
+2. **Mots de passe forts** : 12+ caractères, mixte
+3. **HTTPS obligatoire** : Jamais de tokens en HTTP
+4. **Logout** : Invalider les refresh tokens
 
 ---
 
-## Autorisation et Scopes
+## Validation des Commandes
 
-### Scopes disponibles
+### Blacklist (Mode Autonome)
 
-| Scope | Description | Permissions |
-|-------|-------------|-------------|
-| `read` | Lecture seule | Voir fichiers, logs, status |
-| `write` | Écriture | Créer/modifier fichiers |
-| `execute` | Exécution | Exécuter commandes |
-| `admin` | Administration | Tout + gestion utilisateurs |
+L'agent utilise une approche **blacklist** : tout est permis sauf les commandes explicitement interdites.
 
-### Endpoints par scope
-
+**Commandes Interdites** :
 ```python
-# read - accessible à tous les utilisateurs authentifiés
-GET /api/conversations
-GET /tools
-GET /health
-
-# write - nécessite scope "write"
-POST /api/upload
-PUT /api/conversations/{id}
-
-# execute - nécessite scope "execute"
-POST /api/chat  # exécute des commandes
-POST /ws/chat
-
-# admin - nécessite scope "admin"
-POST /api/auth/users
-DELETE /api/auth/users/{id}
-POST /api/auth/apikeys
-```
-
-### Vérification des scopes dans le code
-
-```python
-from auth import require_scope, get_current_active_user
-
-@app.post("/api/sensitive")
-async def sensitive_endpoint(
-    user = Depends(require_scope("execute"))
-):
-    # Seuls les utilisateurs avec scope "execute" peuvent accéder
-    pass
-```
-
----
-
-## Validation des commandes
-
-### Commandes autorisées (Whitelist)
-
-```python
-ALLOWED_COMMANDS = {
+FORBIDDEN_COMMANDS = {
+    # Destructeurs système
+    "mkfs", "fdisk", "dd", "shred",
+    
+    # Réseau dangereux
+    "wget", "curl", "nc", "netcat", "ncat",
+    
+    # Gestion utilisateurs
+    "useradd", "userdel", "usermod", "passwd", "chpasswd",
+    
+    # Cron/Tâches
+    "crontab", "at", "batch",
+    
+    # Firewall/Réseau
+    "iptables", "ip6tables", "nft", "ufw",
+    
+    # Montage/Disques
+    "mount", "umount", "losetup",
+    
     # Système
-    "ls", "cat", "head", "tail", "grep", "find",
-    "uptime", "hostname", "df", "du", "free",
-
-    # Docker
-    "docker",  # Avec sous-commandes limitées
-
-    # Git
-    "git",     # Avec sous-commandes limitées
-
-    # Services
-    "systemctl",  # Avec services limités
+    "shutdown", "reboot", "poweroff", "init", "telinit",
+    
+    # SSH
+    "ssh-keygen", "ssh-add",
+    
+    # Conteneurs (dangereux)
+    "docker run", "docker exec",
 }
 ```
 
-### Sous-commandes Docker autorisées
+### Patterns Dangereux
 
 ```python
-ALLOWED_DOCKER_SUBCOMMANDS = {
-    "ps", "logs", "inspect", "stats",
-    "start", "stop", "restart",
-    "exec",  # Limité à certains containers
-}
-
-# Containers autorisés pour docker exec
-DOCKER_EXEC_WHITELIST = {
-    "ai-orchestrator-backend",
-    "ai-orchestrator-frontend",
-    "chromadb",
-    "traefik",
-}
-```
-
-### Patterns dangereux détectés
-
-```python
-DANGEROUS_PATTERNS = [
-    r";\s*rm\s+-rf",      # rm -rf après ;
-    r"\|\s*sh",            # pipe vers shell
-    r"`.*`",               # command substitution
-    r"\$\(.*\)",           # $(command)
-    r"curl.*\|\s*sh",      # curl pipe shell
-    r"eval\s+",            # eval
-    r"sudo\s+",            # sudo
+FORBIDDEN_PATTERNS = [
+    r"rm\s+-rf\s+/",           # rm -rf /
+    r">\s*/dev/[hs]d",         # Écriture disque raw
+    r"mkfs\.",                  # Format disque
+    r":\(\)\{:\|:&\};:",       # Fork bomb
+    r"/dev/tcp/",              # Reverse shell
+    r"bash\s+-i",              # Interactive shell
+    r"nc\s+-[el]",             # Netcat listen
+    r"eval\s+.*base64",        # Obfuscation
 ]
 ```
 
-### Exemples
+### Validation des Chemins
 
 ```python
-# ✅ Autorisé
-validate_command("ls -la /home/lalpha/projets")
-validate_command("docker ps")
-validate_command("git status")
-
-# ❌ Bloqué
-validate_command("rm -rf /")           # Commande dangereuse
-validate_command("curl url | sh")      # Pattern dangereux
-validate_command("unknowncmd")         # Commande non whitelistée
-validate_command("docker run evil")    # Sous-commande non autorisée
-```
-
----
-
-## Validation des chemins
-
-### Chemins autorisés en lecture
-
-```python
-ALLOWED_READ_PATHS = [
-    "/home/lalpha/projets",
-    "/home/lalpha/documentation",
-    "/data",
-    "/tmp",
-    "/var/log",
-]
-```
-
-### Chemins autorisés en écriture
-
-```python
-ALLOWED_WRITE_PATHS = [
-    "/home/lalpha/projets",
-    "/home/lalpha/scripts",
-    "/data",
-    "/tmp",
-]
-```
-
-### Chemins interdits (Blacklist absolue)
-
-```python
-FORBIDDEN_PATHS = [
-    "/etc/passwd",
-    "/etc/shadow",
-    "/root",
-    "/.ssh",
-    ".env",
-    "credentials",
-    "secret",
-    "private_key",
-]
-```
-
-### Protection contre les traversées
-
-```python
-# ❌ Bloqué automatiquement
-validate_path("/home/lalpha/projets/../../../etc/passwd")
-# Erreur: "Traversée de répertoire interdite"
+def validate_path(path: str) -> Tuple[bool, str]:
+    """
+    Valide un chemin contre:
+    - Traversée de répertoire (../)
+    - Symlinks malicieux
+    - Chemins absolus non autorisés
+    """
+    ALLOWED_ROOTS = [
+        "/home/lalpha/projets",
+        "/tmp",
+        "/var/log"
+    ]
 ```
 
 ---
 
 ## Rate Limiting
 
-### Limites par endpoint
+### Configuration
 
-| Endpoint | Limite | Fenêtre |
-|----------|--------|---------|
-| `/api/chat` | 10 req | 60s |
-| `/ws/chat` | 5 conn | 60s |
-| `/api/auth/login` | 5 req | 300s |
-| `/api/upload` | 20 req | 60s |
-| `/health` | 120 req | 60s |
-| Défaut | 60 req | 60s |
+| Endpoint | Limite | Fenêtre | Action |
+|----------|--------|---------|--------|
+| `/api/chat` | 30 | 1 min | 429 |
+| `/ws/chat` | 60 msg | 1 min | Disconnect |
+| `/api/*` | 100 | 1 min | 429 |
+| `/api/auth/login` | 5 | 5 min | 429 + delay |
 
-### Limite globale par IP
+### Implémentation
 
-- **300 requêtes par minute** par IP
+```python
+# backend/rate_limiter.py
+class RateLimiter:
+    def __init__(self):
+        self.requests = defaultdict(list)
+        self.blocked_ips = set()
+    
+    async def check(self, ip: str, endpoint: str) -> bool:
+        # Sliding window algorithm
+        ...
+```
 
-### Ban automatique
+### Headers de Réponse
 
-- Après **10 violations** consécutives → Ban de **5 minutes**
-
-### Headers de réponse
-
-```http
-HTTP/1.1 200 OK
+```
+X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 45
-X-RateLimit-Reset: 1734200000
-
-# En cas de dépassement
-HTTP/1.1 429 Too Many Requests
-Retry-After: 30
-```
-
-### Whitelist d'IPs
-
-```python
-WHITELIST_IPS = {
-    "127.0.0.1",
-    "::1",
-    "10.10.10.0/24",      # Réseau local
-    "192.168.200.0/24",   # Docker network
-}
-```
-
-### Configuration personnalisée
-
-```python
-from rate_limiter import configure_rate_limits, add_whitelist_ip
-
-# Ajouter des limites personnalisées
-configure_rate_limits({
-    "/api/heavy-endpoint": (5, 60),  # 5 req/min
-})
-
-# Ajouter une IP à la whitelist
-add_whitelist_ip("203.0.113.50")
-```
-
----
-
-## Configuration CORS
-
-### Configuration restrictive (Production)
-
-```python
-# config.py
-cors_origins = [
-    "https://ai.4lb.ca",
-    "https://4lb.ca",
-]
-```
-
-### Configuration permissive (Développement)
-
-```python
-# Avec AI_DEBUG=true
-cors_origins = ["*"]
-```
-
-### Variables d'environnement
-
-```bash
-export AI_CORS_ORIGINS='["https://ai.4lb.ca","https://mon-autre-domaine.com"]'
+X-RateLimit-Reset: 1704020400
 ```
 
 ---
 
 ## Audit et Logging
 
-### Fichier d'audit
+### Événements Loggés
 
-Toutes les actions sensibles sont loggées dans `/data/audit.log`:
+| Catégorie | Événements |
+|-----------|------------|
+| Auth | Login, logout, token refresh, échecs |
+| Tools | Exécution, paramètres, résultats |
+| Security | Commandes bloquées, rate limit, IP suspectes |
+| System | Démarrage, erreurs, health checks |
 
-```
-2024-12-14 18:30:00 - INFO - COMMAND|ALLOWED|user=admin|cmd=docker ps|reason=OK
-2024-12-14 18:30:15 - WARNING - COMMAND|BLOCKED|user=user1|cmd=rm -rf /|reason=Pattern dangereux
-2024-12-14 18:31:00 - INFO - AUTH|SUCCESS|user=admin|ip=192.168.1.100
-2024-12-14 18:31:30 - WARNING - AUTH|FAILED|user=admin|ip=8.8.8.8
-2024-12-14 18:32:00 - INFO - FILE|ALLOWED|user=admin|action=read|path=/home/lalpha/projets/README.md
-```
+### Format des Logs
 
-### Types d'événements
-
-| Type | Description |
-|------|-------------|
-| `COMMAND` | Exécution de commande |
-| `FILE` | Accès fichier |
-| `AUTH` | Authentification |
-| `SECURITY` | Événement de sécurité |
-
-### Analyse des logs
-
-```bash
-# Voir les tentatives bloquées
-grep "BLOCKED" /data/audit.log
-
-# Voir les échecs d'auth
-grep "AUTH|FAILED" /data/audit.log
-
-# Compter par utilisateur
-grep "COMMAND" /data/audit.log | cut -d'|' -f3 | sort | uniq -c
+```json
+{
+  "timestamp": "2025-12-31T10:30:00Z",
+  "level": "WARNING",
+  "category": "security",
+  "event": "command_blocked",
+  "details": {
+    "command": "rm -rf /",
+    "reason": "forbidden_pattern",
+    "user": "admin",
+    "ip": "10.10.10.5"
+  }
+}
 ```
 
----
+### Emplacement
 
-## Bonnes pratiques
-
-### 1. Secrets
-
-```bash
-# Générer une clé secrète forte
-openssl rand -base64 32
-
-# Ne JAMAIS commiter les secrets
-echo ".env" >> .gitignore
 ```
-
-### 2. Mot de passe admin
-
-```bash
-# Changer le mot de passe admin au premier démarrage
-curl -X PUT https://ai.4lb.ca/api/auth/users/admin \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"password": "nouveau-mot-de-passe-fort-32-chars"}'
-```
-
-### 3. API Keys
-
-- Utilisez des API keys avec **scopes minimaux**
-- **Rotez** les clés régulièrement
-- **Révokez** immédiatement les clés compromises
-
-### 4. Monitoring
-
-```bash
-# Surveiller les tentatives de connexion échouées
-tail -f /data/audit.log | grep "FAILED"
-
-# Alerter sur les violations de rate limit
-tail -f /var/log/syslog | grep "Rate limit exceeded"
-```
-
-### 5. Mise à jour
-
-- Appliquez les mises à jour de sécurité régulièrement
-- Surveillez les CVE des dépendances
-- Utilisez `pip-audit` ou `safety` pour scanner les vulnérabilités
-
----
-
-## Checklist de déploiement
-
-### Avant la mise en production
-
-- [ ] Changer `AI_JWT_SECRET_KEY` (minimum 32 caractères)
-- [ ] Changer `AI_ADMIN_PASSWORD`
-- [ ] Configurer `AI_CORS_ORIGINS` avec vos domaines
-- [ ] Vérifier `AI_AUTH_ENABLED=true`
-- [ ] Vérifier `AI_RATE_LIMIT_ENABLED=true`
-- [ ] Configurer HTTPS (TLS 1.2+)
-- [ ] Configurer les headers de sécurité (CSP, HSTS, etc.)
-- [ ] Mettre en place la rotation des logs
-- [ ] Configurer les alertes de sécurité
-- [ ] Tester le rate limiting
-- [ ] Tester les validations de commandes
-- [ ] Vérifier les permissions de fichiers
-
-### Commandes de test
-
-```bash
-# Tester l'authentification
-curl -X POST https://ai.4lb.ca/api/auth/login \
-  -d "username=admin&password=test"
-
-# Tester le rate limiting
-for i in {1..15}; do
-  curl -s -o /dev/null -w "%{http_code}\n" https://ai.4lb.ca/api/chat
-done
-
-# Tester la validation de commande (doit être bloqué)
-curl -X POST https://ai.4lb.ca/api/chat \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"message": "exécute rm -rf /"}'
+/data/audit.log      # Actions utilisateur
+/data/security.log   # Événements sécurité
+docker logs          # Logs application
 ```
 
 ---
 
-## Support
+## Configuration Sécurisée
 
-En cas de problème de sécurité:
-1. Vérifiez les logs d'audit
-2. Consultez cette documentation
-3. Contactez l'administrateur système
+### Variables d'Environnement
 
-**Signaler une vulnérabilité**: security@4lb.ca
+```bash
+# .env (JAMAIS commiter)
+JWT_SECRET_KEY=<openssl rand -base64 32>
+ADMIN_PASSWORD=<mot de passe fort>
+
+# Optionnel
+DEBUG=false
+AUTH_ENABLED=true
+ALLOW_ANONYMOUS=false
+ALLOWED_ORIGINS=https://ai.4lb.ca
+```
+
+### Checklist Déploiement
+
+- [ ] Secrets générés aléatoirement
+- [ ] DEBUG=false en production
+- [ ] AUTH_ENABLED=true
+- [ ] HTTPS configuré (Traefik)
+- [ ] CrowdSec actif avec bouncer
+- [ ] Firewall UFW activé
+- [ ] Ports non essentiels fermés
+- [ ] Logs rotatés
+
+---
+
+## Traefik & Middlewares
+
+### Security Headers
+
+```yaml
+# middlewares.yml
+security-headers:
+  headers:
+    frameDeny: true
+    browserXssFilter: true
+    contentTypeNosniff: true
+    stsSeconds: 31536000
+    stsIncludeSubdomains: true
+    stsPreload: true
+    contentSecurityPolicy: "default-src 'self'"
+```
+
+### GeoBlock
+
+```yaml
+geoblock:
+  plugin:
+    geoblock:
+      allowedCountries:
+        - CA  # Canada
+        - US  # États-Unis
+        - FR  # France
+        - BE  # Belgique
+        - CH  # Suisse
+        - GB  # Royaume-Uni
+```
+
+### CrowdSec
+
+```yaml
+crowdsec:
+  plugin:
+    bouncer:
+      crowdsecLapiKey: "${CROWDSEC_BOUNCER_KEY}"
+      crowdsecLapiHost: "crowdsec:8080"
+```
+
+---
+
+## Vulnérabilités Connues
+
+### Statut Actuel
+
+| ID | Vulnérabilité | Sévérité | Statut |
+|----|---------------|----------|--------|
+| P0-1 | Docker socket mount | CRITIQUE | ⚠️ À corriger |
+| P0-2 | Volume /home RW | CRITIQUE | ⚠️ À corriger |
+| P1-1 | Ports exposés 0.0.0.0 | HAUTE | ⚠️ À corriger |
+| P2-1 | CrowdSec bouncer absent | MOYENNE | ⚠️ À configurer |
+
+### Plan de Remédiation
+
+1. **Docker Socket** : Migrer vers docker-socket-proxy
+2. **Volume** : Restreindre à `/home/lalpha/projets:ro`
+3. **Ports** : Bind sur 127.0.0.1
+4. **CrowdSec** : `cscli bouncers add traefik-bouncer`
+
+---
+
+## Réponse aux Incidents
+
+### Procédure
+
+1. **Détection** : Alerte CrowdSec/logs
+2. **Isolation** : Bloquer IP/token
+3. **Analyse** : Examiner audit.log
+4. **Correction** : Patcher vulnérabilité
+5. **Documentation** : Post-mortem
+
+### Contacts
+
+- **Logs** : `/data/security.log`
+- **Blocage IP** : `cscli decisions add -i <IP>`
+- **Révocation token** : Redémarrer avec nouveau JWT_SECRET_KEY
+
+---
+
+## Checklist Sécurité
+
+### Quotidien
+
+- [ ] Vérifier les logs de sécurité
+- [ ] Contrôler les alertes CrowdSec
+
+### Hebdomadaire
+
+- [ ] Revue des accès utilisateurs
+- [ ] Mise à jour des dépendances (`pip-audit`, `npm audit`)
+
+### Mensuel
+
+- [ ] Rotation des secrets
+- [ ] Audit de configuration
+- [ ] Test de pénétration basique
+
+---
+
+*Guide de Sécurité - AI Orchestrator v5.2*

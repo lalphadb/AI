@@ -1,142 +1,77 @@
-# Documentation des Outils - AI Orchestrator v5.1
+# 🔧 Référence des Outils - AI Orchestrator v5.2
 
-## Introduction
+## Vue d'Ensemble
 
-L'AI Orchestrator dispose d'un systeme d'outils modulaire et dynamique. Chaque outil est defini dans un module Python `*_tools.py` et enregistre via le decorateur `@register_tool`.
-
-## Architecture des Outils
-
-### Chargement Dynamique
-
-```python
-from tools import register_tool
-
-@register_tool("mon_outil", description="Description de l'outil")
-async def mon_outil(params: dict) -> str:
-    # Implementation
-    return "Resultat"
-```
-
-### Rechargement a Chaud
-
-```python
-from tools import reload_tools
-result = reload_tools()
-# {"tools_count": 25, "modules_loaded": ["system_tools", ...]}
-```
+AI Orchestrator dispose de **57 outils** organisés en 9 catégories. Chaque outil est accessible via l'API et utilisable par l'agent ReAct.
 
 ---
 
-## Outils Systeme (system_tools.py)
+## Catégories
+
+| Catégorie | Outils | Description |
+|-----------|--------|-------------|
+| [Système](#système) | 9 | Commandes système, services, processus |
+| [Docker](#docker) | 6 | Gestion des conteneurs |
+| [Fichiers](#fichiers) | 5 | Lecture, écriture, recherche |
+| [Git](#git) | 5 | Gestion des dépôts |
+| [Réseau](#réseau) | 7 | Diagnostic réseau |
+| [Mémoire](#mémoire) | 5 | Mémoire sémantique ChromaDB |
+| [Ollama](#ollama) | 8 | Gestion des modèles LLM |
+| [IA](#ia) | 5 | Outils d'intelligence artificielle |
+| [Meta](#meta) | 6 | Outils d'introspection |
+
+---
+
+## Système
 
 ### execute_command
 
-Execute une commande shell sur le systeme.
+Exécute une commande shell sur le serveur.
 
-**Parametres:**
-- `command` (str, requis): Commande a executer
-
-**Exemple:**
+```json
+{
+  "name": "execute_command",
+  "parameters": {
+    "command": "string (required)"
+  }
+}
 ```
-execute_command(command="ls -la /home/lalpha")
+
+**Exemple** :
+```
+execute_command({"command": "df -h"})
 ```
 
-**Securite:** Passe par le validateur de securite (blacklist)
+**Restrictions** : Commandes blacklistées interdites (voir SECURITY.md)
 
 ---
 
 ### system_info
 
-Affiche les informations systeme de l'hote.
+Retourne les informations système.
 
-**Parametres:** Aucun
-
-**Retour:**
-```
-Hostname: server-4lb
-Uptime: 15 days
-CPU: AMD Ryzen 9 7950X (32 cores)
-RAM: 64GB (15% used)
-Disk: 2TB SSD (45% used)
-GPU: NVIDIA RTX 5070 Ti
+```json
+{
+  "name": "system_info",
+  "parameters": {}
+}
 ```
 
----
-
-### service_status
-
-Verifie le statut d'un service systemd.
-
-**Parametres:**
-- `service` (str, requis): Nom du service
-
-**Exemple:**
-```
-service_status(service="docker")
-```
-
-**Retour:**
-```
-docker: Running
-Active: active (running) since Mon 2024-12-20 10:00:00
-```
-
----
-
-### service_control
-
-Controle un service systemd (start/stop/restart).
-
-**Parametres:**
-- `service` (str, requis): Nom du service
-- `action` (str, requis): Action (start, stop, restart, reload, enable, disable)
-
-**Exemple:**
-```
-service_control(service="nginx", action="restart")
-```
+**Retour** : CPU, RAM, disque, uptime, load average
 
 ---
 
 ### disk_usage
 
-Analyse l'utilisation disque d'un repertoire.
+Analyse l'utilisation disque d'un chemin.
 
-**Parametres:**
-- `path` (str, defaut: "/home/lalpha"): Chemin a analyser
-- `depth` (int, defaut: 1, max: 3): Profondeur d'analyse
-
-**Exemple:**
-```
-disk_usage(path="/var/log", depth=2)
-```
-
----
-
-### package_install
-
-Installe un paquet via apt.
-
-**Parametres:**
-- `package` (str, requis): Nom du paquet
-
-**Exemple:**
-```
-package_install(package="htop")
-```
-
----
-
-### package_update
-
-Met a jour les paquets systeme.
-
-**Parametres:**
-- `upgrade` (bool, defaut: False): Faire aussi apt upgrade
-
-**Exemple:**
-```
-package_update(upgrade=True)
+```json
+{
+  "name": "disk_usage",
+  "parameters": {
+    "path": "string (default: /)"
+  }
+}
 ```
 
 ---
@@ -145,46 +80,109 @@ package_update(upgrade=True)
 
 Liste les processus en cours.
 
-**Parametres:**
-- `sort` (str, defaut: "cpu"): Tri par "cpu" ou "mem"
-- `limit` (int, defaut: 15, max: 30): Nombre de processus
-
-**Exemple:**
+```json
+{
+  "name": "process_list",
+  "parameters": {
+    "limit": "int (default: 20)",
+    "sort_by": "string (cpu|memory|pid)"
+  }
+}
 ```
-process_list(sort="mem", limit=10)
+
+---
+
+### service_status
+
+Vérifie le statut d'un service systemd.
+
+```json
+{
+  "name": "service_status",
+  "parameters": {
+    "service": "string (required)"
+  }
+}
+```
+
+**Exemple** : `service_status({"service": "docker"})`
+
+---
+
+### service_control
+
+Contrôle un service systemd.
+
+```json
+{
+  "name": "service_control",
+  "parameters": {
+    "service": "string (required)",
+    "action": "string (start|stop|restart|status)"
+  }
+}
 ```
 
 ---
 
 ### logs_view
 
-Affiche les logs systeme via journalctl.
+Affiche les logs d'un fichier.
 
-**Parametres:**
-- `service` (str, optionnel): Service specifique
-- `lines` (int, defaut: 50, max: 200): Nombre de lignes
-
-**Exemple:**
-```
-logs_view(service="docker", lines=100)
+```json
+{
+  "name": "logs_view",
+  "parameters": {
+    "file": "string (required)",
+    "lines": "int (default: 50)",
+    "filter": "string (optional)"
+  }
+}
 ```
 
 ---
 
-## Outils Docker (docker_tools.py)
+### package_update
+
+Met à jour les paquets système.
+
+```json
+{
+  "name": "package_update",
+  "parameters": {}
+}
+```
+
+---
+
+### package_install
+
+Installe un paquet.
+
+```json
+{
+  "name": "package_install",
+  "parameters": {
+    "package": "string (required)"
+  }
+}
+```
+
+---
+
+## Docker
 
 ### docker_status
 
-Liste tous les conteneurs Docker.
+Liste les conteneurs Docker.
 
-**Parametres:** Aucun
-
-**Retour:**
-```
-NAMES               STATUS          PORTS
-traefik             Up 5 days       80/tcp, 443/tcp
-ai-orchestrator     Up 2 hours      8001/tcp
-chromadb            Up 2 hours      8000/tcp
+```json
+{
+  "name": "docker_status",
+  "parameters": {
+    "all": "bool (default: false)"
+  }
+}
 ```
 
 ---
@@ -193,658 +191,690 @@ chromadb            Up 2 hours      8000/tcp
 
 Affiche les logs d'un conteneur.
 
-**Parametres:**
-- `container` (str, requis): Nom du conteneur
-- `lines` (int, defaut: 50, max: 500): Nombre de lignes
-
-**Exemple:**
-```
-docker_logs(container="ai-orchestrator-backend", lines=100)
+```json
+{
+  "name": "docker_logs",
+  "parameters": {
+    "container": "string (required)",
+    "lines": "int (default: 100)",
+    "follow": "bool (default: false)"
+  }
+}
 ```
 
 ---
 
 ### docker_restart
 
-Redemarre un conteneur.
+Redémarre un conteneur.
 
-**Parametres:**
-- `container` (str, requis): Nom du conteneur
-
-**Exemple:**
-```
-docker_restart(container="chromadb")
-```
-
----
-
-### docker_compose
-
-Execute une commande docker compose.
-
-**Parametres:**
-- `action` (str, requis): Action (up, down, restart, ps, logs, build, pull)
-- `path` (str, optionnel): Chemin du projet
-
-**Exemple:**
-```
-docker_compose(action="restart", path="/home/lalpha/projets/ai-tools/ai-orchestrator")
+```json
+{
+  "name": "docker_restart",
+  "parameters": {
+    "container": "string (required)"
+  }
+}
 ```
 
 ---
 
 ### docker_exec
 
-Execute une commande dans un conteneur.
+Exécute une commande dans un conteneur.
 
-**Parametres:**
-- `container` (str, requis): Nom du conteneur
-- `command` (str, requis): Commande a executer
-
-**Exemple:**
-```
-docker_exec(container="ai-orchestrator-backend", command="pip list")
+```json
+{
+  "name": "docker_exec",
+  "parameters": {
+    "container": "string (required)",
+    "command": "string (required)"
+  }
+}
 ```
 
 ---
 
 ### docker_stats
 
-Affiche les statistiques des conteneurs.
+Statistiques des conteneurs.
 
-**Parametres:** Aucun
-
-**Retour:**
-```
-NAME                CPU %     MEM USAGE
-traefik             0.15%     45MB
-ai-orchestrator     2.30%     512MB
-ollama              45.00%    8GB
+```json
+{
+  "name": "docker_stats",
+  "parameters": {}
+}
 ```
 
 ---
 
-## Outils Fichiers (file_tools.py)
+### docker_compose
+
+Exécute une commande docker-compose.
+
+```json
+{
+  "name": "docker_compose",
+  "parameters": {
+    "action": "string (up|down|restart|logs|ps)",
+    "service": "string (optional)",
+    "path": "string (default: /home/lalpha/projets/infrastructure/unified-stack)"
+  }
+}
+```
+
+---
+
+## Fichiers
 
 ### read_file
 
 Lit le contenu d'un fichier.
 
-**Parametres:**
-- `path` (str, requis): Chemin du fichier
-
-**Limite:** 500KB max
-
-**Exemple:**
-```
-read_file(path="/home/lalpha/projets/ai-orchestrator/README.md")
+```json
+{
+  "name": "read_file",
+  "parameters": {
+    "path": "string (required)",
+    "lines": "int (optional, limit lines)"
+  }
+}
 ```
 
 ---
 
 ### write_file
 
-Ecrit du contenu dans un fichier.
+Écrit du contenu dans un fichier.
 
-**Parametres:**
-- `path` (str, requis): Chemin du fichier
-- `content` (str, requis): Contenu a ecrire
-
-**Securite:**
-- Cree un backup automatique si le fichier existe
-- Valide la syntaxe Python pour les fichiers .py
-
-**Exemple:**
-```
-write_file(path="/tmp/test.txt", content="Hello World")
+```json
+{
+  "name": "write_file",
+  "parameters": {
+    "path": "string (required)",
+    "content": "string (required)",
+    "append": "bool (default: false)"
+  }
+}
 ```
 
 ---
 
 ### list_directory
 
-Liste le contenu d'un repertoire.
+Liste le contenu d'un répertoire.
 
-**Parametres:**
-- `path` (str, defaut: "."): Chemin du repertoire
-- `recursive` (bool, defaut: False): Listing recursif
-
-**Exemple:**
-```
-list_directory(path="/home/lalpha/projets", recursive=True)
+```json
+{
+  "name": "list_directory",
+  "parameters": {
+    "path": "string (required)",
+    "recursive": "bool (default: false)",
+    "max_depth": "int (default: 2)"
+  }
+}
 ```
 
 ---
 
 ### search_files
 
-Recherche des fichiers par pattern.
+Recherche des fichiers.
 
-**Parametres:**
-- `pattern` (str, requis): Pattern de recherche (glob)
-- `path` (str, defaut: "."): Repertoire de recherche
-
-**Exemple:**
-```
-search_files(pattern="*.py", path="/home/lalpha/projets")
+```json
+{
+  "name": "search_files",
+  "parameters": {
+    "pattern": "string (required)",
+    "path": "string (default: .)",
+    "type": "string (file|dir|all)"
+  }
+}
 ```
 
 ---
 
 ### file_info
 
-Affiche les informations detaillees d'un fichier.
+Informations sur un fichier.
 
-**Parametres:**
-- `path` (str, requis): Chemin du fichier
+```json
+{
+  "name": "file_info",
+  "parameters": {
+    "path": "string (required)"
+  }
+}
+```
 
-**Exemple:**
-```
-file_info(path="/etc/nginx/nginx.conf")
-```
+**Retour** : Taille, permissions, dates, type MIME
 
 ---
 
-## Outils Git (git_tools.py)
+## Git
 
 ### git_status
 
-Affiche le statut d'un depot Git.
+Statut du dépôt Git.
 
-**Parametres:**
-- `path` (str, defaut: "."): Chemin du depot
-
-**Exemple:**
-```
-git_status(path="/home/lalpha/projets/ai-orchestrator")
-```
-
----
-
-### git_diff
-
-Affiche les differences non commitees.
-
-**Parametres:**
-- `path` (str, defaut: "."): Chemin du depot
-- `file` (str, optionnel): Fichier specifique
-
-**Exemple:**
-```
-git_diff(path="/home/lalpha/projets/ai-orchestrator", file="backend/main.py")
+```json
+{
+  "name": "git_status",
+  "parameters": {
+    "path": "string (default: .)"
+  }
+}
 ```
 
 ---
 
 ### git_log
 
-Affiche l'historique des commits.
+Historique des commits.
 
-**Parametres:**
-- `path` (str, defaut: "."): Chemin du depot
-- `count` (int, defaut: 10, max: 50): Nombre de commits
-
-**Exemple:**
+```json
+{
+  "name": "git_log",
+  "parameters": {
+    "path": "string (default: .)",
+    "limit": "int (default: 10)",
+    "oneline": "bool (default: true)"
+  }
+}
 ```
-git_log(path="/home/lalpha/projets/ai-orchestrator", count=20)
+
+---
+
+### git_diff
+
+Différences dans le dépôt.
+
+```json
+{
+  "name": "git_diff",
+  "parameters": {
+    "path": "string (default: .)",
+    "staged": "bool (default: false)"
+  }
+}
 ```
 
 ---
 
 ### git_pull
 
-Pull les dernieres modifications.
+Pull les changements.
 
-**Parametres:**
-- `path` (str, defaut: "."): Chemin du depot
-
-**Exemple:**
-```
-git_pull(path="/home/lalpha/projets/ai-orchestrator")
+```json
+{
+  "name": "git_pull",
+  "parameters": {
+    "path": "string (default: .)"
+  }
+}
 ```
 
 ---
 
 ### git_branch
 
-Liste les branches Git.
+Gestion des branches.
 
-**Parametres:**
-- `path` (str, defaut: "."): Chemin du depot
-
-**Exemple:**
-```
-git_branch(path="/home/lalpha/projets/ai-orchestrator")
+```json
+{
+  "name": "git_branch",
+  "parameters": {
+    "path": "string (default: .)",
+    "action": "string (list|current|create|switch)",
+    "name": "string (optional)"
+  }
+}
 ```
 
 ---
 
-## Outils Memoire (memory_tools.py)
+## Réseau
+
+### ping_host
+
+Ping un hôte.
+
+```json
+{
+  "name": "ping_host",
+  "parameters": {
+    "host": "string (required)",
+    "count": "int (default: 4)"
+  }
+}
+```
+
+---
+
+### dns_lookup
+
+Résolution DNS.
+
+```json
+{
+  "name": "dns_lookup",
+  "parameters": {
+    "domain": "string (required)",
+    "type": "string (default: A)"
+  }
+}
+```
+
+---
+
+### check_url
+
+Vérifie une URL HTTP.
+
+```json
+{
+  "name": "check_url",
+  "parameters": {
+    "url": "string (required)",
+    "method": "string (default: GET)",
+    "timeout": "int (default: 10)"
+  }
+}
+```
+
+---
+
+### network_interfaces
+
+Liste les interfaces réseau.
+
+```json
+{
+  "name": "network_interfaces",
+  "parameters": {}
+}
+```
+
+---
+
+### udm_status
+
+Statut du UDM-Pro.
+
+```json
+{
+  "name": "udm_status",
+  "parameters": {}
+}
+```
+
+---
+
+### udm_network_info
+
+Informations réseau UDM-Pro.
+
+```json
+{
+  "name": "udm_network_info",
+  "parameters": {}
+}
+```
+
+---
+
+### udm_clients
+
+Liste des clients UDM-Pro.
+
+```json
+{
+  "name": "udm_clients",
+  "parameters": {}
+}
+```
+
+---
+
+## Mémoire
 
 ### memory_store
 
-Stocke une information en memoire semantique.
+Stocke une information en mémoire sémantique.
 
-**Parametres:**
-- `key` (str, requis): Cle/identifiant
-- `value` (str, requis): Contenu a memoriser
-- `category` (str, defaut: "general"): Categorie (user, system, project, fact)
-
-**Exemple:**
+```json
+{
+  "name": "memory_store",
+  "parameters": {
+    "content": "string (required)",
+    "metadata": "object (optional)"
+  }
+}
 ```
-memory_store(key="stack_preference", value="Python avec FastAPI", category="preference")
+
+**Exemple** :
+```json
+{
+  "content": "Le projet JSR utilise React et TailwindCSS",
+  "metadata": {"project": "jsr", "type": "tech_stack"}
+}
 ```
 
 ---
 
 ### memory_recall
 
-Rappelle des informations par recherche semantique.
+Recherche sémantique en mémoire.
 
-**Parametres:**
-- `query` (str, requis): Terme de recherche
-- `limit` (int, defaut: 5, max: 20): Nombre de resultats
-- `category` (str, optionnel): Filtrer par categorie
-
-**Exemple:**
-```
-memory_recall(query="preferences utilisateur", limit=5)
+```json
+{
+  "name": "memory_recall",
+  "parameters": {
+    "query": "string (required)",
+    "limit": "int (default: 5)"
+  }
+}
 ```
 
 ---
 
 ### memory_list
 
-Liste tous les souvenirs stockes.
+Liste les entrées en mémoire.
 
-**Parametres:**
-- `category` (str, optionnel): Filtrer par categorie
-- `limit` (int, defaut: 20, max: 100): Nombre max
-
-**Exemple:**
-```
-memory_list(category="project")
+```json
+{
+  "name": "memory_list",
+  "parameters": {
+    "limit": "int (default: 20)",
+    "filter": "object (optional)"
+  }
+}
 ```
 
 ---
 
 ### memory_delete
 
-Supprime un souvenir.
+Supprime une entrée mémoire.
 
-**Parametres:**
-- `key` (str, requis): Cle du souvenir
-- `category` (str, defaut: "general"): Categorie
-
-**Exemple:**
-```
-memory_delete(key="old_preference", category="preference")
+```json
+{
+  "name": "memory_delete",
+  "parameters": {
+    "id": "string (required)"
+  }
+}
 ```
 
 ---
 
-## Outils Ollama (ollama_tools.py)
+### memory_stats
+
+Statistiques de la mémoire.
+
+```json
+{
+  "name": "memory_stats",
+  "parameters": {}
+}
+```
+
+---
+
+## Ollama
 
 ### ollama_list
 
-Liste les modeles Ollama installes sur l'hote.
+Liste les modèles installés.
 
-**Parametres:** Aucun
-
-**Exemple:**
-```
-ollama_list()
+```json
+{
+  "name": "ollama_list",
+  "parameters": {}
+}
 ```
 
 ---
 
 ### ollama_status
 
-Verifie le statut du service Ollama.
+Statut d'Ollama.
 
-**Parametres:** Aucun
-
-**Retour:**
-```
-Service systemd: actif
-API (localhost:11434): repond
-Processus en cours: ...
-```
-
----
-
-### ollama_pull
-
-Telecharge un nouveau modele Ollama.
-
-**Parametres:**
-- `model` (str, requis): Nom du modele
-
-**Exemple:**
-```
-ollama_pull(model="llama3.2:3b")
-```
-
----
-
-### ollama_run
-
-Execute une requete simple sur un modele.
-
-**Parametres:**
-- `model` (str, requis): Nom du modele
-- `prompt` (str, requis): Prompt a envoyer
-
-**Exemple:**
-```
-ollama_run(model="qwen2.5-coder:32b", prompt="Explique le pattern ReAct")
-```
-
----
-
-### ollama_info
-
-Affiche les informations detaillees d'un modele.
-
-**Parametres:**
-- `model` (str, requis): Nom du modele
-
-**Exemple:**
-```
-ollama_info(model="qwen2.5-coder:32b")
-```
-
----
-
-### ollama_rm
-
-Supprime un modele Ollama.
-
-**Parametres:**
-- `model` (str, requis): Nom du modele
-
-**Exemple:**
-```
-ollama_rm(model="old-model:latest")
+```json
+{
+  "name": "ollama_status",
+  "parameters": {}
+}
 ```
 
 ---
 
 ### ollama_ps
 
-Liste les modeles actuellement charges en memoire.
+Modèles actuellement chargés.
 
-**Parametres:** Aucun
-
-**Exemple:**
+```json
+{
+  "name": "ollama_ps",
+  "parameters": {}
+}
 ```
-ollama_ps()
+
+---
+
+### ollama_info
+
+Informations sur un modèle.
+
+```json
+{
+  "name": "ollama_info",
+  "parameters": {
+    "model": "string (required)"
+  }
+}
 ```
 
 ---
 
 ### ollama_restart
 
-Redemarre le service Ollama sur l'hote.
+Redémarre Ollama.
 
-**Parametres:** Aucun
-
-**Exemple:**
-```
-ollama_restart()
-```
-
----
-
-## Outils Meta (meta_tools.py)
-
-### create_tool
-
-Cree un nouvel outil pour l'orchestrateur (auto-amelioration).
-
-**Parametres:**
-- `name` (str, requis): Nom de l'outil
-- `description` (str, requis): Description de l'outil
-- `code` (str, requis): Code Python de l'outil
-- `parameters` (str, optionnel): Parametres au format JSON
-
-**Exemple:**
-```
-create_tool(name="mon_outil", description="Mon nouvel outil", code="return 'Hello'")
-```
-
-**Securite:** Validation de syntaxe Python automatique
-
----
-
-### delete_tool
-
-Supprime un outil auto-genere.
-
-**Parametres:**
-- `name` (str, requis): Nom de l'outil
-
-**Securite:** Ne peut pas supprimer les outils systeme
-
----
-
-### view_tool_code
-
-Affiche le code source d'un outil existant.
-
-**Parametres:**
-- `name` (str, requis): Nom de l'outil
-
-**Exemple:**
-```
-view_tool_code(name="docker_status")
+```json
+{
+  "name": "ollama_restart",
+  "parameters": {}
+}
 ```
 
 ---
 
-### list_my_tools
+### ollama_rm
 
-Liste tous les outils disponibles de l'orchestrateur.
+Supprime un modèle.
 
-**Parametres:** Aucun
-
----
-
-### reload_my_tools
-
-Recharge tous les outils a chaud.
-
-**Parametres:** Aucun
-
-**Usage:** Apres creation/modification d'un outil
+```json
+{
+  "name": "ollama_rm",
+  "parameters": {
+    "model": "string (required)"
+  }
+}
+```
 
 ---
 
-## Outils Reseau (network_tools.py)
-
-### ping_host
-
-Ping un hote.
-
-**Parametres:**
-- `host` (str, requis): Hote a ping
-- `count` (int, defaut: 4): Nombre de pings
-
----
-
-### dns_lookup
-
-Resolution DNS.
-
-**Parametres:**
-- `domain` (str, requis): Domaine a resoudre
-
----
-
-### check_url
-
-Verifie l'accessibilite d'une URL.
-
-**Parametres:**
-- `url` (str, requis): URL a verifier
-
----
-
-### network_interfaces
-
-Liste les interfaces reseau locales.
-
-**Parametres:** Aucun
-
----
-
-## Outils UDM (network_tools.py)
-
-### udm_status
-
-Obtient le statut de l'UDM-Pro.
-
-**Parametres:** Aucun
-
----
-
-### udm_clients
-
-Liste les clients connectes sur l'UDM.
-
-**Parametres:** Aucun
-
----
-
-### udm_network_info
-
-Informations reseau de l'UDM.
-
-**Parametres:** Aucun
-
----
-
-## Outils IA (ai_tools.py)
-
-### analyze_image
-
-Analyse une image avec un modele de vision.
-
-**Parametres:**
-- `image` (str, requis): Chemin ou URL de l'image
-- `prompt` (str, optionnel): Question specifique
-
----
+## IA
 
 ### summarize
 
-Resume un texte long.
+Résume un texte.
 
-**Parametres:**
-- `text` (str, requis): Texte a resumer
+```json
+{
+  "name": "summarize",
+  "parameters": {
+    "text": "string (required)",
+    "max_length": "int (default: 200)"
+  }
+}
+```
 
 ---
 
 ### create_plan
 
-Cree un plan d'action structure.
+Crée un plan d'action.
 
-**Parametres:**
-- `task` (str, requis): Description de la tache
+```json
+{
+  "name": "create_plan",
+  "parameters": {
+    "goal": "string (required)",
+    "context": "string (optional)"
+  }
+}
+```
+
+---
+
+### analyze_image
+
+Analyse une image (vision).
+
+```json
+{
+  "name": "analyze_image",
+  "parameters": {
+    "image_path": "string (required)",
+    "question": "string (optional)"
+  }
+}
+```
 
 ---
 
 ### web_search
 
-Recherche web (placeholder).
+Recherche web.
 
-**Parametres:**
-- `query` (str, requis): Terme de recherche
-
-**Note:** Necessite une API externe (non configure)
+```json
+{
+  "name": "web_search",
+  "parameters": {
+    "query": "string (required)",
+    "limit": "int (default: 5)"
+  }
+}
+```
 
 ---
-
-## Outil Special
 
 ### final_answer
 
-Termine la boucle ReAct avec une reponse finale.
+Retourne la réponse finale (termine la boucle ReAct).
 
-**Parametres:**
-- `answer` (str, requis): Reponse a envoyer
-
-**Exemple:**
+```json
+{
+  "name": "final_answer",
+  "parameters": {
+    "answer": "string (required)"
+  }
+}
 ```
-final_answer(answer="Voici le resultat de mon analyse...")
-```
-
-**Note:** Cet outil est gere directement par le moteur ReAct.
 
 ---
 
-## Ajout d'un Nouvel Outil
+## Meta
 
-### Etape 1: Creer le module
+### list_my_tools
+
+Liste tous les outils disponibles.
+
+```json
+{
+  "name": "list_my_tools",
+  "parameters": {
+    "category": "string (optional)"
+  }
+}
+```
+
+---
+
+### reload_my_tools
+
+Recharge les outils dynamiques.
+
+```json
+{
+  "name": "reload_my_tools",
+  "parameters": {}
+}
+```
+
+---
+
+### view_tool_code
+
+Affiche le code source d'un outil.
+
+```json
+{
+  "name": "view_tool_code",
+  "parameters": {
+    "tool_name": "string (required)"
+  }
+}
+```
+
+---
+
+## Créer un Nouvel Outil
+
+### Template
 
 ```python
-# backend/tools/mon_module_tools.py
+# backend/tools/my_tools.py
 from tools import register_tool
-from utils.async_subprocess import run_command_async
 
 @register_tool(
     "mon_outil",
     description="Description de ce que fait l'outil",
-    parameters={"param1": "str", "param2": "int"}
+    parameters={
+        "param1": "string (required) - Description",
+        "param2": "int (optional) - Description"
+    }
 )
-async def mon_outil(params: dict, security_validator=None, **kwargs) -> str:
+async def mon_outil(params: dict) -> str:
     """
-    Documentation complete de l'outil.
+    Implémentation de l'outil.
+    
+    Args:
+        params: Dictionnaire des paramètres
+        
+    Returns:
+        Résultat sous forme de string
     """
     param1 = params.get("param1", "")
-    param2 = int(params.get("param2", 10))
-
-    if not param1:
-        return "Erreur: param1 requis"
-
-    # Validation de securite si necessaire
-    if security_validator:
-        allowed, reason = security_validator(param1)
-        if not allowed:
-            return f"Bloque: {reason}"
-
-    # Logique de l'outil
-    output, code = await run_command_async(f"echo {param1}", timeout=30)
-
-    status = "OK" if code == 0 else "Erreur"
-    return f"{status}: {output}"
+    param2 = params.get("param2", 10)
+    
+    # Logique métier
+    result = f"Résultat pour {param1}"
+    
+    return result
 ```
 
-### Etape 2: Recharger les outils
+### Bonnes Pratiques
 
-```python
-# Via l'API
-POST /api/tools/reload
-
-# Ou programmatiquement
-from tools import reload_tools
-reload_tools()
-```
-
-### Etape 3: Verifier
-
-```bash
-curl https://ai.4lb.ca/tools | jq '.tools[] | select(.name == "mon_outil")'
-```
+1. **Async** : Toujours utiliser `async def`
+2. **Validation** : Valider les paramètres en entrée
+3. **Erreurs** : Retourner des messages d'erreur clairs
+4. **Logs** : Logger les actions importantes
+5. **Sécurité** : Valider les chemins et commandes
 
 ---
 
-## Bonnes Pratiques
-
-1. **Nommage**: Utiliser des noms descriptifs (verbe_objet)
-2. **Documentation**: Toujours fournir description et parameters
-3. **Validation**: Valider tous les parametres d'entree
-4. **Securite**: Utiliser security_validator pour les commandes sensibles
-5. **Async**: Toujours utiliser async/await pour les I/O
-6. **Timeout**: Definir des timeouts raisonnables
-7. **Erreurs**: Retourner des messages d'erreur clairs avec prefixe emoji
+*Référence des Outils - AI Orchestrator v5.2*
