@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr" class="dark">
 <head>
-    <!-- v4.1.1 - Token refresh fix -->
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
@@ -18,8 +17,7 @@
             cdn.jsdelivr.net;
         img-src 'self' data: blob:;
         connect-src 'self' 
-            ws://localhost:* 
-            wss://ai.4lb.ca 
+            ws://localhost:* wss://ai.4lb.ca 
             https://ai.4lb.ca;
         frame-ancestors 'none';
         base-uri 'self';
@@ -27,10 +25,10 @@
     ">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Orchestrator v4.0</title>
+    <title>AI Orchestrator</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
@@ -42,203 +40,328 @@
             theme: {
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
-                    colors: { slate: { 850: '#1e293b', 900: '#0f172a', 950: '#020617' }, primary: { 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb' } }
+                    colors: { 
+                        slate: { 850: '#1e293b', 900: '#0f172a', 950: '#020617' }, 
+                        primary: { 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb' },
+                        surface: '#131314',
+                        surface2: '#1e1f20'
+                    },
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.4s ease-out forwards',
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
                 }
             }
         }
     </script>
     <style>
+        body { background-color: #131314; color: #e3e3e3; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #475569; }
-        .panel-transition { transition: width 0.3s ease; }
-        .markdown-body { color: #e2e8f0; line-height: 1.8; font-size: 0.95rem; }
-        .markdown-body h1, .markdown-body h2, .markdown-body h3 { color: #f8fafc; margin-top: 1.5em; margin-bottom: 0.75em; font-weight: 600; }
-        .markdown-body h1 { font-size: 1.5em; }
-        .markdown-body h2 { font-size: 1.25em; border-bottom: 1px solid #334155; padding-bottom: 0.4em; color: #60a5fa; }
-        .markdown-body h3 { font-size: 1.1em; color: #93c5fd; }
+        ::-webkit-scrollbar-thumb { background: #444746; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #5e5e5e; }
+        
+        .panel-transition { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        .markdown-body { color: #e3e3e3; line-height: 1.7; font-size: 1rem; }
+        .markdown-body h1, .markdown-body h2, .markdown-body h3 { color: #f0f4f8; margin-top: 1.2em; margin-bottom: 0.6em; font-weight: 500; }
+        .markdown-body h1 { font-size: 1.6em; }
+        .markdown-body h2 { font-size: 1.3em; }
         .markdown-body p { margin-bottom: 1em; }
-        .markdown-body ul, .markdown-body ol { margin-bottom: 1em; padding-left: 1.5em; }
-        .markdown-body li { margin-bottom: 0.4em; line-height: 1.7; }
-        .markdown-body strong { color: #fff; font-weight: 600; }
-        .markdown-body code { background-color: #1e293b; padding: 0.15em 0.4em; border-radius: 0.25em; font-family: 'JetBrains Mono', monospace; font-size: 0.85em; color: #fbbf24; }
-        .markdown-body pre { background-color: #0f172a; padding: 1em; border-radius: 0.5em; overflow-x: auto; margin: 1em 0; border: 1px solid #1e293b; }
-        .markdown-body pre code { background-color: transparent; padding: 0; color: #e2e8f0; font-size: 0.85em; }
-        .markdown-body blockquote { border-left: 3px solid #3b82f6; padding-left: 1em; margin: 1em 0; color: #94a3b8; }
-        .markdown-body table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: 0.9em; }
-        .markdown-body th, .markdown-body td { border: 1px solid #334155; padding: 0.6em 0.8em; text-align: left; }
-        .markdown-body th { background-color: #1e293b; font-weight: 600; }
-        .markdown-body a { color: #60a5fa; }
+        .markdown-body code { background-color: #1e1f20; padding: 0.2em 0.4em; border-radius: 0.4em; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; color: #e8eaed; }
+        .markdown-body pre { background-color: #1e1f20; padding: 1em; border-radius: 0.8em; overflow-x: auto; margin: 1em 0; border: 1px solid #333; }
+        .markdown-body pre code { background-color: transparent; padding: 0; color: inherit; }
+        .markdown-body blockquote { border-left: 3px solid #7cacf8; padding-left: 1em; margin: 1em 0; color: #a8c7fa; font-style: italic; }
+        
         .thinking-content { transition: max-height 0.3s ease, opacity 0.3s ease; max-height: 0; opacity: 0; overflow: hidden; }
         .thinking-content.open { max-height: 400px; opacity: 1; overflow-y: auto; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
-        .assistant-bubble { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border: 1px solid #334155; }
+        
+        .assistant-bubble { background: transparent; padding: 0; } 
+        .user-bubble { background-color: #282a2c; border-radius: 1.5rem 1.5rem 0.2rem 1.5rem; }
+        
+        .input-area-wrapper {
+            background-color: #1e1f20;
+            border-radius: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: all 0.2s;
+        }
+        .input-area-wrapper:focus-within {
+            background-color: #28292a;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+        }
+        
+        .sidebar-item:hover { background-color: #28292a; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-200 h-screen overflow-hidden">
-    <div id="app-container" class="flex h-full">
-        <!-- Left Sidebar -->
-        <aside id="sidebar" class="panel-transition flex-shrink-0 bg-slate-900 border-r border-slate-800 flex flex-col overflow-hidden" style="width: 256px;">
-            <div class="p-4 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center"><i class="ri-robot-2-line text-white"></i></div>
-                    <span class="font-bold text-slate-100">Orchestrator</span>
-                </div>
-                <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-1 hover:bg-slate-800 rounded"><i class="ri-side-bar-line"></i></button>
-            </div>
-            <div class="p-4 flex-shrink-0">
-                <button onclick="startNewChat()" class="w-full bg-primary-600 hover:bg-primary-500 text-white py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 font-medium shadow-lg shadow-primary-600/20">
-                    <i class="ri-add-line"></i><span>Nouvelle Chat</span>
+<body class="h-screen overflow-hidden flex text-slate-200">
+    <div id="app-container" class="flex w-full h-full">
+        <aside id="sidebar" class="panel-transition flex-shrink-0 bg-[#1e1f20] border-r border-[#333] flex flex-col overflow-hidden w-64">
+            <div class="p-5 flex items-center justify-between flex-shrink-0">
+                <button onclick="startNewChat()" class="flex items-center gap-2 bg-[#2d2e30] hover:bg-[#38393b] text-sm text-slate-200 py-2.5 px-4 rounded-full transition-colors w-full shadow-sm">
+                    <i class="ri-add-line text-lg"></i><span>Nouvelle conversation</span>
                 </button>
+                <button onclick="toggleSidebar()" class="ml-2 text-slate-400 hover:text-white p-2 rounded-full hover:bg-[#38393b] md:hidden"><i class="ri-close-line"></i></button>
             </div>
-            <div class="px-4 pb-4 border-b border-slate-800 flex-shrink-0">
-                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Système</div>
-                <div class="space-y-2">
-                    <div class="flex items-center justify-between text-sm"><span class="text-slate-400"><i class="ri-cpu-line mr-2"></i>CPU</span><span id="sidebar-cpu" class="font-mono text-slate-200">--%</span></div>
-                    <div class="flex items-center justify-between text-sm"><span class="text-slate-400"><i class="ri-database-2-line mr-2"></i>RAM</span><span id="sidebar-ram" class="font-mono text-slate-200">--GB</span></div>
-                    <div class="flex items-center justify-between text-sm"><span class="text-slate-400"><i class="ri-dashboard-line mr-2"></i>GPU</span><span id="sidebar-gpu" class="font-mono text-slate-200">--%</span></div>
+            <div class="px-4 pb-2">
+                <div class="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2 px-2">Récent</div>
+                <nav id="conversations-list" class="space-y-0.5 overflow-y-auto max-h-[calc(100vh-250px)] pr-1"></nav>
+            </div>
+            
+            <div class="mt-auto p-4 border-t border-[#333] bg-[#1e1f20]">
+                <div class="grid grid-cols-3 gap-2 mb-4 text-xs font-mono text-slate-500">
+                    <div class="flex flex-col items-center p-1.5 rounded bg-[#28292a]"><i class="ri-cpu-line mb-1"></i><span id="sidebar-cpu">--%</span></div>
+                    <div class="flex flex-col items-center p-1.5 rounded bg-[#28292a]"><i class="ri-database-2-line mb-1"></i><span id="sidebar-ram">--GB</span></div>
+                    <div class="flex flex-col items-center p-1.5 rounded bg-[#28292a]"><i class="ri-dashboard-line mb-1"></i><span id="sidebar-gpu">--%</span></div>
                 </div>
-            </div>
-            <nav class="flex-1 overflow-y-auto px-2 py-3">
-                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider px-2 mb-2">Conversations</div>
-                <div id="conversations-list" class="space-y-1"></div>
-            </nav>
-            <div class="p-4 border-t border-slate-800 bg-slate-900/50 flex-shrink-0">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-xs font-bold text-white">LA</div>
-                    <div class="flex-1 min-w-0"><div class="text-sm font-medium text-white truncate">Lalpha</div><div class="text-xs text-slate-500">Admin</div></div>
-                    <button onclick="doLogout()" class="text-slate-400 hover:text-red-400 p-1" title="Déconnexion"><i class="ri-logout-box-r-line"></i></button>
+                
+                <div class="flex items-center gap-3 px-2">
+                    <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold text-white">LA</div>
+                    <div class="flex-1 min-w-0"><div class="text-sm font-medium text-slate-200 truncate">Lalpha</div></div>
+                    <button onclick="doLogout()" class="text-slate-500 hover:text-red-400" title="Déconnexion"><i class="ri-logout-box-r-line"></i></button>
                 </div>
             </div>
         </aside>
-
-        <!-- Main Content -->
-        <main id="main-content" class="flex-1 flex flex-col min-w-0 bg-slate-950">
-            <header class="h-14 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-950/90 backdrop-blur flex-shrink-0 z-10">
-                <div class="flex items-center gap-3">
-                    <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-1.5 hover:bg-slate-800 rounded-lg" title="Sidebar"><i class="ri-menu-line text-lg"></i></button>
-                    <div class="h-6 w-px bg-slate-800"></div>
-                    <select id="model-select" class="bg-slate-900 border border-slate-700 text-sm text-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:border-primary-500">
-                        <option value="auto">🤖 Auto (Recommandé)</option>
-                        <option value="qwen-coder">💻 Qwen 2.5 Coder 32B</option>
-                        <option value="deepseek-coder">🧠 DeepSeek Coder 33B</option>
-                        <option value="llama-vision">👁️ Llama Vision 11B</option>
-                        <option value="qwen-vision">🎨 Qwen3 VL 32B</option>
-                        <option value="kimi-k2">☁️ Kimi K2 1T (Cloud)</option>
-                        <option value="qwen3-coder-cloud">☁️ Qwen3 Coder 480B (Cloud)</option>
-                        <option value="gemini-pro">☁️ Gemini 3 Pro (Cloud)</option>
-                        <option value="gpt-safeguard">🛡️ GPT Safeguard 13B</option>
-                    </select>
-                </div>
+        <main id="main-content" class="flex-1 flex flex-col min-w-0 relative bg-[#131314]">
+            <header class="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-6 z-20">
                 <div class="flex items-center gap-4">
-                    <div id="ws-status" class="hidden md:flex items-center gap-1.5 text-xs">
-                        <span class="w-2 h-2 rounded-full bg-green-500"></span>
-                        <span class="text-slate-400">Connecté</span>
+                    <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-full hover:bg-[#28292a]" title="Menu"><i class="ri-menu-line text-lg"></i></button>
+                    <div class="flex items-center gap-2 cursor-pointer hover:bg-[#1e1f20] px-3 py-1.5 rounded-lg transition-colors">
+                        <span class="text-lg font-medium text-slate-200">Orchestrator</span>
+                        <select id="model-select" class="bg-transparent text-sm text-slate-400 focus:outline-none cursor-pointer appearance-none pl-1 font-mono">
+                            <option value="auto">Auto</option>
+                            <option value="qwen-coder">Qwen 2.5 Coder</option>
+                            <option value="deepseek-coder">DeepSeek V3</option>
+                            <option value="gpt-safeguard">GPT Safeguard</option>
+                        </select>
+                        <i class="ri-arrow-down-s-line text-slate-500 text-xs"></i>
                     </div>
-                    <div class="hidden md:flex items-center gap-4 text-xs font-mono text-slate-400">
-                        <div class="flex items-center gap-1.5"><i class="ri-cpu-line"></i><span id="cpu-val">--%</span></div>
-                        <div class="flex items-center gap-1.5"><i class="ri-database-2-line"></i><span id="ram-val">--/--GB</span></div>
-                        <div class="flex items-center gap-1.5"><i class="ri-dashboard-line"></i><span id="gpu-val">--%</span></div>
-                    </div>
-                    <div class="h-6 w-px bg-slate-800 hidden md:block"></div>
-                    <button onclick="toggleActivityPanel()" class="text-slate-400 hover:text-primary-400 p-1.5 hover:bg-slate-800 rounded-lg relative" title="Activité">
-                        <i class="ri-layout-right-line text-lg"></i>
-                        <span id="activity-badge" class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary-500 rounded-full hidden"></span>
+                </div>
+                
+                <div class="flex items-center gap-3">
+                    <div id="ws-status" class="flex items-center gap-1.5 text-xs"></div>
+                    <button onclick="toggleActivityPanel()" class="text-slate-400 hover:text-blue-400 p-2 hover:bg-[#28292a] rounded-full relative transition-colors" title="Activité">
+                        <i class="ri-terminal-box-line text-xl"></i>
+                        <span id="activity-badge" class="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full hidden"></span>
                     </button>
                 </div>
             </header>
-
-            <div id="chat-container" class="flex-1 overflow-y-auto">
-                <div class="max-w-4xl mx-auto px-4 py-6" id="messages">
-                    <div id="welcome-msg" class="flex flex-col items-center justify-center text-center py-20">
-                        <div class="w-20 h-20 bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl flex items-center justify-center mb-6 shadow-xl"><i class="ri-robot-2-line text-4xl text-primary-400"></i></div>
-                        <h2 class="text-2xl font-semibold text-slate-100 mb-3">Comment puis-je vous aider ?</h2>
-                        <p class="text-slate-500 max-w-md leading-relaxed">Je peux analyser votre infrastructure, gérer vos conteneurs Docker, auditer votre code ou exécuter des commandes système.</p>
+            <div id="chat-container" class="flex-1 overflow-y-auto pt-20 pb-40 scroll-smooth">
+                <div class="max-w-3xl mx-auto px-4" id="messages">
+                    <div id="welcome-msg" class="flex flex-col items-start justify-center min-h-[60vh] animate-fade-in-up">
+                        <div class="mb-8">
+                            <h1 class="text-4xl md:text-5xl font-medium text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 mb-4">Bonjour, Louis.</h1>
+                            <h2 class="text-2xl md:text-3xl text-slate-500 font-light">Comment puis-je t'aider aujourd'hui ?</h2>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                            <button onclick="sendSuggestion('Analyse les logs Docker pour trouver des erreurs')" class="text-left p-4 rounded-xl bg-[#1e1f20] hover:bg-[#2d2e30] border border-[#333] hover:border-slate-600 transition-all group">
+                                <div class="flex items-center justify-between mb-2">
+                                    <i class="ri-docker-line text-blue-400 text-xl"></i>
+                                    <i class="ri-arrow-right-line opacity-0 group-hover:opacity-100 transition-opacity text-slate-400"></i>
+                                </div>
+                                <span class="text-sm text-slate-300">Analyser les logs Docker</span>
+                            </button>
+                            <button onclick="sendSuggestion('Fais un audit de sécurité sur le serveur')" class="text-left p-4 rounded-xl bg-[#1e1f20] hover:bg-[#2d2e30] border border-[#333] hover:border-slate-600 transition-all group">
+                                <div class="flex items-center justify-between mb-2">
+                                    <i class="ri-shield-check-line text-green-400 text-xl"></i>
+                                    <i class="ri-arrow-right-line opacity-0 group-hover:opacity-100 transition-opacity text-slate-400"></i>
+                                </div>
+                                <span class="text-sm text-slate-300">Audit de sécurité serveur</span>
+                            </button>
+                            <button onclick="sendSuggestion('Quel est l état actuel du système ?')" class="text-left p-4 rounded-xl bg-[#1e1f20] hover:bg-[#2d2e30] border border-[#333] hover:border-slate-600 transition-all group">
+                                <div class="flex items-center justify-between mb-2">
+                                    <i class="ri-server-line text-purple-400 text-xl"></i>
+                                    <i class="ri-arrow-right-line opacity-0 group-hover:opacity-100 transition-opacity text-slate-400"></i>
+                                </div>
+                                <span class="text-sm text-slate-300">État du système</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-
-            <div class="border-t border-slate-800 bg-slate-950 p-4 flex-shrink-0">
-                <div class="max-w-4xl mx-auto">
-                    <div id="attachments-preview" class="flex flex-wrap gap-2 mb-2 empty:hidden"></div>
-                    <div class="relative bg-slate-900 rounded-xl border border-slate-700 focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500/30">
-                        <textarea id="user-input" rows="1" placeholder="Posez une question ou demandez une action..." class="w-full bg-transparent text-slate-200 p-4 pr-24 resize-none focus:outline-none max-h-40 text-sm leading-relaxed" oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 160) + 'px'"></textarea>
-                        <div class="absolute bottom-2.5 right-2.5 flex items-center gap-1">
-                            <button onclick="document.getElementById('file-input').click()" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800" title="Fichier"><i class="ri-attachment-2"></i></button>
-                            <button id="send-btn" onclick="sendMessage()" class="p-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg disabled:opacity-50"><i class="ri-send-plane-fill"></i></button>
+            <div class="absolute bottom-6 left-0 right-0 px-4 pointer-events-none">
+                <div class="max-w-3xl mx-auto pointer-events-auto">
+                    <div id="attachments-preview" class="flex flex-wrap gap-2 mb-3 empty:hidden pl-2"></div>
+                    
+                    <div class="input-area-wrapper relative flex flex-col">
+                        <textarea id="user-input" rows="1" placeholder="Pose une question ou demande une action..." 
+                            class="w-full bg-transparent text-slate-200 py-4 pl-6 pr-14 resize-none focus:outline-none max-h-48 text-base leading-relaxed placeholder-slate-500 rounded-[2rem]"
+                            oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 200) + 'px'"></textarea>
+                        
+                        <div class="flex items-center justify-between px-3 pb-2">
+                            <button onclick="document.getElementById('file-input').click()" class="p-2 text-slate-400 hover:text-blue-400 rounded-full hover:bg-[#333] transition-colors" title="Joindre un fichier">
+                                <i class="ri-attachment-2 text-lg"></i>
+                            </button>
+                            
+                            <button id="send-btn" onclick="sendMessage()" class="p-2.5 bg-slate-200 hover:bg-white text-black rounded-full transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="ri-arrow-up-line text-lg font-bold"></i>
+                            </button>
                         </div>
                     </div>
-                    <p class="text-center text-xs text-slate-600 mt-2">AI Orchestrator peut faire des erreurs. Vérifiez les actions critiques.</p>
+                    <p class="text-center text-[10px] text-slate-600 mt-3 font-medium">Orchestrator peut commettre des erreurs. Vérifiez toujours les actions critiques.</p>
                 </div>
             </div>
             <input type="file" id="file-input" class="hidden" multiple>
         </main>
-
-        <!-- Right Panel -->
-        <aside id="activity-panel" class="panel-transition flex-shrink-0 bg-slate-900 border-l border-slate-800 flex flex-col overflow-hidden" style="width: 0px;">
+        <aside id="activity-panel" class="panel-transition flex-shrink-0 bg-[#1e1f20] border-l border-[#333] flex flex-col overflow-hidden" style="width: 0px;">
             <div class="w-80 h-full flex flex-col">
-                <div class="p-4 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
-                    <h3 class="font-semibold text-slate-200">Activité Système</h3>
-                    <button onclick="toggleActivityPanel()" class="text-slate-400 hover:text-white p-1 hover:bg-slate-800 rounded"><i class="ri-close-line text-lg"></i></button>
+                <div class="p-4 border-b border-[#333] flex items-center justify-between flex-shrink-0">
+                    <h3 class="font-medium text-slate-200 text-sm uppercase tracking-wide">Système</h3>
+                    <button onclick="toggleActivityPanel()" class="text-slate-400 hover:text-white p-1 rounded-full hover:bg-[#333]"><i class="ri-close-line text-lg"></i></button>
                 </div>
-                <div class="flex border-b border-slate-800 flex-shrink-0">
-                    <button onclick="switchTab('logs')" id="tab-btn-logs" class="flex-1 py-2.5 text-xs font-medium text-primary-400 border-b-2 border-primary-500 bg-slate-800/50">Logs</button>
-                    <button onclick="switchTab('docker')" id="tab-btn-docker" class="flex-1 py-2.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent">Docker</button>
-                    <button onclick="switchTab('files')" id="tab-btn-files" class="flex-1 py-2.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent">Fichiers</button>
+                <div class="flex border-b border-[#333] flex-shrink-0 p-1 bg-[#131314] m-2 rounded-lg">
+                    <button onclick="switchTab('logs')" id="tab-btn-logs" class="flex-1 py-1.5 text-xs font-medium rounded text-slate-300 hover:bg-[#28292a]">Logs</button>
+                    <button onclick="switchTab('docker')" id="tab-btn-docker" class="flex-1 py-1.5 text-xs font-medium rounded text-slate-500 hover:text-slate-300 hover:bg-[#28292a]">Docker</button>
+                    <button onclick="switchTab('files')" id="tab-btn-files" class="flex-1 py-1.5 text-xs font-medium rounded text-slate-500 hover:text-slate-300 hover:bg-[#28292a]">Fichiers</button>
                 </div>
-                <div class="flex-1 overflow-y-auto p-4">
-                    <div id="tab-logs" class="space-y-2"></div>
+                <div class="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                    <div id="tab-logs" class="space-y-2 font-mono text-[11px]"></div>
                     <div id="tab-docker" class="hidden space-y-2"></div>
                     <div id="tab-files" class="hidden font-mono text-xs text-slate-400"></div>
+                </div>
+                <div class="p-3 border-t border-[#333] bg-[#1e1f20] text-[10px] text-slate-600 font-mono text-center">
+                    <div class="flex justify-between px-4"><span>CPU: <span id="cpu-val" class="text-slate-400">--%</span></span><span>RAM: <span id="ram-val" class="text-slate-400">--GB</span></span></div>
                 </div>
             </div>
         </aside>
     </div>
-
     <script>
         const API_URL = window.location.origin;
         let authToken = localStorage.getItem('auth_token');
         let ws = null, currentConversationId = null, attachedFiles = [], isProcessing = false, sidebarOpen = true, activityPanelOpen = false;
         let reconnectAttempts = 0;
         const MAX_RECONNECT = 5;
-
-        marked.setOptions({ highlight: (code, lang) => lang && hljs.getLanguage(lang) ? hljs.highlight(code, { language: lang }).value : hljs.highlightAuto(code).value, breaks: true, gfm: true });
-
+        
+        marked.setOptions({ 
+            highlight: (code, lang) => lang && hljs.getLanguage(lang) ? hljs.highlight(code, { language: lang }).value : hljs.highlightAuto(code).value, 
+            breaks: true, 
+            gfm: true 
+        });
+        
         function updateWsStatus(connected) {
             const status = document.getElementById('ws-status');
             if (connected) {
-                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span><span class="text-slate-400">Connecté</span>';
+                status.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>';
             } else {
-                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span><span class="text-slate-400">Déconnecté</span>';
+                status.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>';
             }
         }
-
-        function toggleSidebar() { const s = document.getElementById('sidebar'); sidebarOpen = !sidebarOpen; s.style.width = sidebarOpen ? '256px' : '0px'; }
-        function toggleActivityPanel() { const p = document.getElementById('activity-panel'); activityPanelOpen = !activityPanelOpen; p.style.width = activityPanelOpen ? '320px' : '0px'; if (activityPanelOpen) document.getElementById('activity-badge').classList.add('hidden'); }
-        function switchTab(t) { ['logs','docker','files'].forEach(x => { document.getElementById(`tab-btn-${x}`).className = x === t ? 'flex-1 py-2.5 text-xs font-medium text-primary-400 border-b-2 border-primary-500 bg-slate-800/50' : 'flex-1 py-2.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent'; document.getElementById(`tab-${x}`).classList.toggle('hidden', x !== t); }); if (t === 'docker') loadDockerStatus(); if (t === 'files') loadFileTree(); }
-
-        function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+        
+        function toggleSidebar() { 
+            const s = document.getElementById('sidebar'); 
+            sidebarOpen = !sidebarOpen; 
+            s.style.width = sidebarOpen ? '256px' : '0px'; 
+        }
+        
+        function toggleActivityPanel() { 
+            const p = document.getElementById('activity-panel'); 
+            activityPanelOpen = !activityPanelOpen; 
+            p.style.width = activityPanelOpen ? '320px' : '0px'; 
+            if (activityPanelOpen) document.getElementById('activity-badge').classList.add('hidden'); 
+        }
+        
+        function switchTab(t) { 
+            ['logs','docker','files'].forEach(x => { 
+                const btn = document.getElementById(`tab-btn-${x}`);
+                if (x === t) {
+                    btn.className = 'flex-1 py-1.5 text-xs font-medium rounded bg-[#28292a] text-blue-400 shadow-sm';
+                } else {
+                    btn.className = 'flex-1 py-1.5 text-xs font-medium rounded text-slate-500 hover:text-slate-300 hover:bg-[#1e1f20]';
+                }
+                document.getElementById(`tab-${x}`).classList.toggle('hidden', x !== t); 
+            }); 
+            if (t === 'docker') loadDockerStatus(); 
+            if (t === 'files') loadFileTree(); 
+        }
+        
+        function escapeHtml(t) { 
+            const d = document.createElement('div'); 
+            d.textContent = t; 
+            return d.innerHTML; 
+        }
         
         function addMessage(role, content) {
             const m = document.getElementById('messages'), w = document.getElementById('welcome-msg');
             if (w) w.remove();
             const d = document.createElement('div');
-            d.className = `flex gap-4 mb-6 animate-fade-in ${role === 'user' ? 'flex-row-reverse' : ''}`;
-            const av = role === 'user' ? '<div class="w-9 h-9 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex-shrink-0 flex items-center justify-center text-xs font-bold text-white shadow-md">LA</div>' : '<div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500/20 to-primary-600/20 flex-shrink-0 flex items-center justify-center shadow-md"><i class="ri-robot-2-line text-primary-400"></i></div>';
-            const bc = role === 'user' ? `<div class="bg-primary-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-[85%] shadow-lg"><div class="whitespace-pre-wrap text-sm leading-relaxed">${escapeHtml(content)}</div></div>` : `<div class="assistant-bubble rounded-2xl rounded-tl-sm px-5 py-4 max-w-full shadow-lg relative group"><div class="thinking-section mb-4 hidden"><button onclick="toggleThinking(this)" class="flex items-center gap-2 text-xs font-mono text-slate-500 hover:text-slate-300"><i class="ri-arrow-right-s-line transition-transform duration-200"></i><span class="thinking-header">Réflexion...</span><span class="status-dot w-2 h-2 rounded-full bg-primary-500 animate-pulse ml-2"></span></button><div class="thinking-content mt-3 pl-4 border-l-2 border-slate-700 text-xs font-mono text-slate-400 space-y-1.5"></div></div><div class="markdown-body">${marked.parse(content)}</div></div>`;
-            d.innerHTML = av + bc;
+            
+            if (role === 'user') {
+                d.className = 'flex justify-end mb-8 animate-fade-in-up';
+                d.innerHTML = `<div class="user-bubble px-5 py-3 max-w-[85%] text-slate-200 shadow-sm border border-[#333]"><div class="whitespace-pre-wrap leading-relaxed">${escapeHtml(content)}</div></div>`;
+            } else {
+                d.className = 'flex gap-4 mb-8 animate-fade-in-up w-full';
+                const avatar = '<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 flex-shrink-0 flex items-center justify-center shadow-lg"><i class="ri-sparkling-fill text-white text-xs"></i></div>';
+                const body = `
+                    <div class="assistant-bubble flex-1 min-w-0">
+                        <div class="thinking-section mb-3 hidden">
+                            <button onclick="toggleThinking(this)" class="flex items-center gap-2 text-xs font-mono text-slate-500 hover:text-blue-400 transition-colors p-1 rounded hover:bg-[#1e1f20]">
+                                <i class="ri-arrow-right-s-line transition-transform duration-200"></i>
+                                <span class="thinking-header">Analyse en cours...</span>
+                                <span class="status-dot w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse ml-1"></span>
+                            </button>
+                            <div class="thinking-content mt-2 ml-1 pl-3 border-l border-[#333] text-xs font-mono text-slate-400 space-y-1"></div>
+                        </div>
+                        <div class="markdown-body">${marked.parse(content)}</div>
+                    </div>`;
+                d.innerHTML = avatar + body;
+            }
+            
             m.appendChild(d);
             document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
             return d;
         }
-
-        function toggleThinking(b) { const c = b.nextElementSibling, i = b.querySelector('i'); c.classList.toggle('open'); i.style.transform = c.classList.contains('open') ? 'rotate(90deg)' : 'rotate(0deg)'; }
-        function updateThinkingStep(d, s, t = 'step') { const ts = d.querySelector('.thinking-section'), tc = d.querySelector('.thinking-content'), th = d.querySelector('.thinking-header'); if (!ts) return; ts.classList.remove('hidden'); if (t === 'thinking' && !tc.classList.contains('open')) toggleThinking(ts.querySelector('button')); const sd = document.createElement('div'); if (t === 'thinking') th.textContent = s; else if (t === 'tool') { sd.className = 'text-primary-400 flex items-center gap-1'; sd.innerHTML = `<i class="ri-tools-line"></i> ${s}`; tc.appendChild(sd); } else if (t === 'result') { sd.className = 'text-green-400/80 truncate'; sd.innerHTML = `<i class="ri-check-line"></i> ${s}`; tc.appendChild(sd); } tc.scrollTop = tc.scrollHeight; }
-        function finalizeMessage(d, c) { const mb = d.querySelector('.markdown-body'); if (mb) { let cl = c.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\'/g, "'"); mb.innerHTML = marked.parse(cl); mb.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b)); const sd = d.querySelector('.status-dot'); if (sd) sd.classList.add('hidden'); const bb = d.querySelector('.assistant-bubble'); if (bb && !bb.querySelector('.copy-btn')) { const cb = document.createElement('button'); cb.className = 'copy-btn absolute top-3 right-3 p-1.5 text-slate-500 hover:text-white bg-slate-800/70 hover:bg-slate-700 rounded-lg opacity-0 group-hover:opacity-100 transition-all'; cb.innerHTML = '<i class="ri-file-copy-line text-sm"></i>'; cb.onclick = () => { navigator.clipboard.writeText(cl); cb.querySelector('i').className = 'ri-check-line text-sm text-green-400'; setTimeout(() => cb.querySelector('i').className = 'ri-file-copy-line text-sm', 2000); }; bb.appendChild(cb); } } }
-        function addLog(t, s, m) { const l = document.getElementById('tab-logs'), d = document.createElement('div'); d.className = `text-xs font-mono border-l-2 ${t === 'error' ? 'border-red-500 text-red-400' : t === 'success' ? 'border-green-500 text-green-400' : 'border-slate-600 text-slate-400'} pl-2 py-1.5`; d.innerHTML = `<span class="text-slate-500">[${new Date().toLocaleTimeString()}]</span> <span class="font-semibold">${s}:</span> ${m}`; l.insertBefore(d, l.firstChild); if (l.children.length > 100) l.removeChild(l.lastChild); if (!activityPanelOpen) document.getElementById('activity-badge').classList.remove('hidden'); }
-
+        
+        function toggleThinking(b) { 
+            const c = b.nextElementSibling, i = b.querySelector('i'); 
+            c.classList.toggle('open'); 
+            i.style.transform = c.classList.contains('open') ? 'rotate(90deg)' : 'rotate(0deg)'; 
+        }
+        
+        function updateThinkingStep(d, s, t = 'step') { 
+            const ts = d.querySelector('.thinking-section'), tc = d.querySelector('.thinking-content'), th = d.querySelector('.thinking-header'); 
+            if (!ts) return; 
+            ts.classList.remove('hidden'); 
+            if (t === 'thinking' && !tc.classList.contains('open')) toggleThinking(ts.querySelector('button')); 
+            const sd = document.createElement('div'); 
+            if (t === 'thinking') th.textContent = s; 
+            else if (t === 'tool') { 
+                sd.className = 'text-blue-400 flex items-center gap-2'; 
+                sd.innerHTML = `<i class="ri-code-s-slash-line"></i> ${s}`; 
+                tc.appendChild(sd); 
+            } else if (t === 'result') { 
+                sd.className = 'text-emerald-400/80 truncate'; 
+                sd.innerHTML = `<i class="ri-check-line"></i> ${s}`; 
+                tc.appendChild(sd); 
+            } 
+            tc.scrollTop = tc.scrollHeight; 
+        }
+        
+        function finalizeMessage(d, c) { 
+            const mb = d.querySelector('.markdown-body'); 
+            if (mb) { 
+                let cl = c.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\'/g, "'"); 
+                mb.innerHTML = marked.parse(cl); 
+                mb.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b)); 
+                const sd = d.querySelector('.status-dot'); 
+                if (sd) sd.classList.add('hidden'); 
+            } 
+        }
+        
+        function addLog(t, s, m) { 
+            const l = document.getElementById('tab-logs'), d = document.createElement('div'); 
+            const color = t === 'error' ? 'text-red-400 border-red-900/50' : t === 'success' ? 'text-emerald-400 border-emerald-900/50' : 'text-slate-400 border-slate-800';
+            d.className = `border-l-2 ${color} pl-2 py-1`; 
+            d.innerHTML = `<span class="opacity-50">[${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}]</span> <span class="font-bold text-slate-300">${s}</span> <span class="opacity-80">${m}</span>`; 
+            l.insertBefore(d, l.firstChild); 
+            if (l.children.length > 100) l.removeChild(l.lastChild); 
+            if (!activityPanelOpen) document.getElementById('activity-badge').classList.remove('hidden'); 
+        }
+        
         function connectWebSocket() {
             if (!authToken) return;
             const p = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -252,34 +375,73 @@
             
             ws.onclose = (e) => {
                 updateWsStatus(false);
-                // Code 4001 = token invalide/expiré
                 if (e.code === 4001) {
-                    addLog('error', 'Auth', 'Session expirée, reconnexion...');
+                    addLog('error', 'Auth', 'Session expirée');
                     localStorage.removeItem('auth_token');
                     authToken = null;
                     setTimeout(() => checkAuth(), 500);
                 } else if (reconnectAttempts < MAX_RECONNECT) {
                     reconnectAttempts++;
-                    addLog('error', 'Système', `Connexion perdue, tentative ${reconnectAttempts}/${MAX_RECONNECT}...`);
+                    addLog('error', 'Système', `Reconnexion ${reconnectAttempts}/${MAX_RECONNECT}...`);
                     setTimeout(connectWebSocket, 2000 * reconnectAttempts);
                 } else {
-                    addLog('error', 'Système', 'Reconnexion échouée. Rechargez la page.');
+                    addLog('error', 'Système', 'Échec connexion. Rafraîchir.');
                 }
             };
             
-            ws.onerror = () => addLog('error', 'WebSocket', 'Erreur de connexion');
+            ws.onerror = () => addLog('error', 'WebSocket', 'Erreur réseau');
             ws.onmessage = (e) => { try { handleWSMessage(JSON.parse(e.data)); } catch (err) {} };
         }
-
-        function handleWSMessage(d) { const m = window.currentMsgDiv; switch(d.type) { case 'conversation_created': currentConversationId = d.conversation_id; loadConversations(); break; case 'model_selected': addLog('info', 'Modèle', `Modèle sélectionné: ${d.model}`); break; case 'thinking': if (m) updateThinkingStep(m, d.iteration || 'Réflexion...', 'thinking'); break; case 'tool': if (m) updateThinkingStep(m, `${d.tool}(...)`, 'tool'); addLog('info', 'Tool', `Exécution de ${d.tool}`); break; case 'result': if (m) updateThinkingStep(m, `Résultat: ${(d.result || '').substring(0, 60)}...`, 'result'); break; case 'complete': if (m) finalizeMessage(m, d.answer); isProcessing = false; document.getElementById('send-btn').disabled = false; window.currentMsgDiv = null; loadConversations(); break; case 'error': if (m) finalizeMessage(m, `❌ Erreur: ${d.message}`); isProcessing = false; document.getElementById('send-btn').disabled = false; addLog('error', 'Erreur', d.message); break; } }
+        
+        function handleWSMessage(d) { 
+            const m = window.currentMsgDiv; 
+            switch(d.type) { 
+                case 'conversation_created': currentConversationId = d.conversation_id; loadConversations(); break; 
+                case 'model_selected': addLog('info', 'Modèle', d.model); break; 
+                case 'thinking': if (m) updateThinkingStep(m, d.iteration || 'Analyse...', 'thinking'); break; 
+                case 'tool': if (m) updateThinkingStep(m, `${d.tool}`, 'tool'); addLog('info', 'Outil', d.tool); break; 
+                case 'result': if (m) updateThinkingStep(m, 'Terminé', 'result'); break; 
+                case 'complete': if (m) finalizeMessage(m, d.answer); isProcessing = false; document.getElementById('send-btn').disabled = false; window.currentMsgDiv = null; loadConversations(); break; 
+                case 'error': if (m) finalizeMessage(m, `❌ ${d.message}`); isProcessing = false; document.getElementById('send-btn').disabled = false; addLog('error', 'Erreur', d.message); break; 
+            } 
+        }
+        
+        function sendSuggestion(text) {
+            addMessage('user', text);
+            sendMessageWithText(text);
+        }
+        
+        function sendMessageWithText(text) {
+            if (!text || isProcessing) return;
+            
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                addLog('error', 'Erreur', 'Non connecté');
+                connectWebSocket();
+                return;
+            }
+            
+            isProcessing = true;
+            document.getElementById('send-btn').disabled = true;
+            const a = addMessage('assistant', '');
+            window.currentMsgDiv = a;
+            
+            ws.send(JSON.stringify({ 
+                message: text, 
+                conversation_id: currentConversationId, 
+                model: document.getElementById('model-select').value, 
+                file_ids: attachedFiles.map(f => f.id || f) 
+            }));
+            attachedFiles = [];
+            document.getElementById('attachments-preview').innerHTML = '';
+        }
         
         async function sendMessage() {
-            const i = document.getElementById('user-input'), m = i.value.trim();
+            const i = document.getElementById('user-input');
+            let m = i.value.trim();
             if (!m || isProcessing) return;
             
-            // Vérifier la connexion WebSocket
             if (!ws || ws.readyState !== WebSocket.OPEN) {
-                addLog('error', 'Erreur', 'Non connecté, tentative de reconnexion...');
+                addLog('error', 'Erreur', 'Non connecté');
                 connectWebSocket();
                 return;
             }
@@ -292,11 +454,16 @@
             i.value = '';
             i.style.height = '';
             
-            ws.send(JSON.stringify({ message: m, conversation_id: currentConversationId, model: document.getElementById('model-select').value, file_ids: attachedFiles.map(f => f.id || f) }));
+            ws.send(JSON.stringify({ 
+                message: m, 
+                conversation_id: currentConversationId, 
+                model: document.getElementById('model-select').value, 
+                file_ids: attachedFiles.map(f => f.id || f) 
+            }));
             attachedFiles = [];
             document.getElementById('attachments-preview').innerHTML = '';
         }
-
+        
         async function doLogin(password) {
             try {
                 const f = new FormData();
@@ -312,15 +479,13 @@
             } catch (e) { console.error(e); }
             return false;
         }
-
+        
         async function checkAuth() {
-            // Vérifier si le token existe et n'est pas expiré
             if (authToken) {
                 try {
                     const parts = authToken.split('.');
                     const payload = JSON.parse(atob(parts[1]));
                     if (payload.exp * 1000 < Date.now()) {
-                        // Token expiré
                         localStorage.removeItem('auth_token');
                         authToken = null;
                     }
@@ -333,17 +498,11 @@
             if (!authToken) {
                 const p = prompt("Mot de passe admin:");
                 if (p) {
-                    if (await doLogin(p)) {
-                        initApp();
-                    } else {
-                        alert('Erreur authentification');
-                    }
+                    if (await doLogin(p)) { initApp(); } else { alert('Erreur authentification'); }
                 }
-            } else {
-                initApp();
-            }
+            } else { initApp(); }
         }
-
+        
         function initApp() {
             connectWebSocket();
             loadConversations();
@@ -352,17 +511,94 @@
         }
         
         function doLogout() { localStorage.removeItem('auth_token'); location.reload(); }
-        function startNewChat() { currentConversationId = null; document.getElementById('messages').innerHTML = '<div id="welcome-msg" class="flex flex-col items-center justify-center text-center py-20"><div class="w-20 h-20 bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl flex items-center justify-center mb-6 shadow-xl"><i class="ri-robot-2-line text-4xl text-primary-400"></i></div><h2 class="text-2xl font-semibold text-slate-100 mb-3">Comment puis-je vous aider ?</h2><p class="text-slate-500 max-w-md leading-relaxed">Je peux analyser votre infrastructure, gérer vos conteneurs Docker, auditer votre code ou exécuter des commandes système.</p></div>'; }
-
-        async function authFetch(u, o = {}) { if (!o.headers) o.headers = {}; o.headers['Authorization'] = `Bearer ${authToken}`; return fetch(u, o); }
-        async function loadConversations() { try { const r = await authFetch(`${API_URL}/api/conversations`); if (!r.ok) return; const data = await r.json(); const c = data.conversations || data || []; document.getElementById('conversations-list').innerHTML = c.slice(0, 20).map(x => `<button onclick="loadConversation('${x.id}')" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 truncate"><i class="ri-chat-3-line mr-2 text-slate-500"></i>${x.title || 'Sans titre'}</button>`).join(''); } catch (e) { console.error('loadConversations error:', e); } }
-        async function loadConversation(id) { currentConversationId = id; document.getElementById('messages').innerHTML = ''; }
-        async function loadSystemStats() { try { const r = await fetch(`${API_URL}/api/stats`), d = await r.json(); document.getElementById('cpu-val').textContent = `${d.cpu?.percent || 0}%`; document.getElementById('ram-val').textContent = `${d.memory?.used_gb || 0}/${d.memory?.total_gb || 64}GB`; document.getElementById('gpu-val').textContent = `${d.gpu?.percent || 0}%`; const sc = document.getElementById('sidebar-cpu'); if (sc) { sc.textContent = `${d.cpu?.percent || 0}%`; sc.className = `font-mono ${d.cpu?.percent > 80 ? 'text-red-400' : 'text-slate-200'}`; document.getElementById('sidebar-ram').textContent = `${d.memory?.used_gb || 0}GB`; document.getElementById('sidebar-gpu').textContent = `${d.gpu?.percent || 0}%`; } } catch (e) {} }
-        async function loadDockerStatus() { try { const r = await authFetch(`${API_URL}/api/docker/status`); if (!r.ok) return; const c = await r.json(); document.getElementById('tab-docker').innerHTML = c.map(x => `<div class="flex items-center justify-between p-2 bg-slate-800/50 rounded-lg text-xs"><span class="font-mono truncate flex-1">${x.name}</span><span class="px-2 py-0.5 rounded ${x.status?.includes('Up') ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${x.status?.split(' ')[0] || '?'}</span></div>`).join(''); } catch (e) { document.getElementById('tab-docker').innerHTML = '<p class="text-slate-500 text-sm">Erreur chargement</p>'; } }
-        async function loadFileTree() { document.getElementById('tab-files').innerHTML = '<p class="text-slate-500">Chargement...</p>'; }
-
-        document.getElementById('user-input').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
-        document.getElementById('file-input').addEventListener('change', (e) => { Array.from(e.target.files).forEach(f => { const r = new FileReader(); r.onload = () => { attachedFiles.push({ name: f.name, content: r.result, type: f.type }); const t = document.createElement('div'); t.className = 'flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg text-xs'; t.innerHTML = `<i class="ri-file-line text-slate-400"></i><span class="text-slate-300">${f.name}</span><button onclick="this.parentElement.remove(); attachedFiles = attachedFiles.filter(x => x.name !== '${f.name}')" class="text-slate-500 hover:text-red-400"><i class="ri-close-line"></i></button>`; document.getElementById('attachments-preview').appendChild(t); }; r.readAsDataURL(f); }); e.target.value = ''; });
+        
+        function startNewChat() { 
+            currentConversationId = null; 
+            document.getElementById('messages').innerHTML = `
+            <div id="welcome-msg" class="flex flex-col items-start justify-center min-h-[60vh] animate-fade-in-up">
+                <div class="mb-8">
+                    <h1 class="text-4xl md:text-5xl font-medium text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 mb-4">Bonjour.</h1>
+                    <h2 class="text-2xl md:text-3xl text-slate-500 font-light">Prêt à travailler ?</h2>
+                </div>
+            </div>`; 
+        }
+        
+        async function authFetch(u, o = {}) { 
+            if (!o.headers) o.headers = {}; 
+            o.headers['Authorization'] = `Bearer ${authToken}`; 
+            return fetch(u, o); 
+        }
+        
+        async function loadConversations() { 
+            try { 
+                const r = await authFetch(`${API_URL}/api/conversations`); 
+                if (!r.ok) return; 
+                const data = await r.json(); 
+                const c = data.conversations || data || []; 
+                document.getElementById('conversations-list').innerHTML = c.slice(0, 20).map(x => `
+                    <button onclick="loadConversation('${x.id}')" class="sidebar-item w-full text-left px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-slate-100 truncate transition-colors">
+                        ${x.title || 'Nouvelle conversation'}
+                    </button>`).join(''); 
+            } catch (e) { console.error('loadConversations error:', e); } 
+        }
+        
+        async function loadConversation(id) { 
+            currentConversationId = id; 
+            document.getElementById('messages').innerHTML = ''; 
+        }
+        
+        async function loadSystemStats() { 
+            try { 
+                const r = await fetch(`${API_URL}/api/stats`);
+                const d = await r.json(); 
+                document.getElementById('cpu-val').textContent = `${d.cpu?.percent || 0}%`; 
+                document.getElementById('ram-val').textContent = `${d.memory?.used_gb || 0}/${d.memory?.total_gb || 64}GB`; 
+                const sc = document.getElementById('sidebar-cpu'); 
+                if (sc) { 
+                    sc.textContent = `${d.cpu?.percent || 0}%`; 
+                    sc.className = d.cpu?.percent > 80 ? 'text-red-400' : 'text-slate-400'; 
+                    document.getElementById('sidebar-ram').textContent = `${d.memory?.used_gb || 0}GB`; 
+                    document.getElementById('sidebar-gpu').textContent = `${d.gpu?.percent || 0}%`; 
+                } 
+            } catch (e) {} 
+        }
+        
+        async function loadDockerStatus() { 
+            try { 
+                const r = await authFetch(`${API_URL}/api/docker/status`); 
+                if (!r.ok) return; 
+                const c = await r.json(); 
+                document.getElementById('tab-docker').innerHTML = c.map(x => `<div class="flex items-center justify-between p-2 bg-[#28292a] rounded text-xs border border-[#333]"><span class="font-mono truncate flex-1 text-slate-300">${x.name}</span><span class="w-2 h-2 rounded-full ${x.status?.includes('Up') ? 'bg-emerald-500' : 'bg-red-500'}"></span></div>`).join(''); 
+            } catch (e) { 
+                document.getElementById('tab-docker').innerHTML = '<p class="text-slate-500 text-sm">Erreur chargement</p>'; 
+            } 
+        }
+        
+        async function loadFileTree() { 
+            document.getElementById('tab-files').innerHTML = '<p class="text-slate-500">Chargement...</p>'; 
+        }
+        
+        document.getElementById('user-input').addEventListener('keydown', (e) => { 
+            if (e.key === 'Enter' && !e.shiftKey) { 
+                e.preventDefault(); 
+                sendMessage(); 
+            } 
+        });
+        
+        document.getElementById('file-input').addEventListener('change', (e) => { 
+            Array.from(e.target.files).forEach(f => { 
+                const r = new FileReader(); 
+                r.onload = () => { 
+                    attachedFiles.push({ name: f.name, content: r.result, type: f.type }); 
+                    const t = document.createElement('div'); 
+                    t.className = 'flex items-center gap-2 bg-[#28292a] px-3 py-1 rounded-full text-xs border border-[#333]'; 
+                    t.innerHTML = `<i class="ri-file-line text-blue-400"></i><span class="text-slate-300">${f.name}</span><button onclick="this.parentElement.remove(); attachedFiles = attachedFiles.filter(x => x.name !== '${f.name}')" class="text-slate-500 hover:text-red-400"><i class="ri-close-line"></i></button>`; 
+                    document.getElementById('attachments-preview').appendChild(t); 
+                }; 
+                r.readAsDataURL(f); 
+            }); 
+            e.target.value = ''; 
+        });
         
         checkAuth();
     </script>

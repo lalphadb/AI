@@ -1,0 +1,106 @@
+{
+  "timestamp": "2025-12-31T06:00:01.966180",
+  "score": 100,
+  "status": "excellent",
+  "metrics": {
+    "docker": {
+      "total": 15,
+      "running": 15,
+      "stopped": 0,
+      "unhealthy": 0,
+      "containers": [
+        {
+          "name": "postgres",
+          "status": "Up 7 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "redis",
+          "status": "Up 7 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "traefik",
+          "status": "Up 8 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "crowdsec",
+          "status": "Up 8 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "ai-orchestrator-frontend",
+          "status": "Up 8 hours",
+          "state": "running"
+        },
+        {
+          "name": "grafana",
+          "status": "Up 8 hours",
+          "state": "running"
+        },
+        {
+          "name": "open-webui",
+          "status": "Up 8 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "ai-orchestrator-backend",
+          "status": "Up 8 hours (healthy)",
+          "state": "running"
+        },
+        {
+          "name": "chromadb",
+          "status": "Up 8 hours",
+          "state": "running"
+        },
+        {
+          "name": "jsr-solutions",
+          "status": "Up 8 hours",
+          "state": "running"
+        },
+        {
+          "name": "code-server",
+          "status": "Up 8 hours",
+          "state": "running"
+        },
+        {
+          "name": "jsr-dev",
+          "status": "Up 8 hours",
+          "state": "running"
+        },
+        {
+          "name": "prometheus",
+          "status": "Up 8 hours",
+          "state": "running"
+        },
+        {
+          "name": "node-exporter",
+          "status": "Up 8 hours",
+          "state": "running"
+        },
+        {
+          "name": "cadvisor",
+          "status": "Up 8 hours (healthy)",
+          "state": "running"
+        }
+      ]
+    },
+    "uptime_days": 2.5,
+    "load_1m": 0.34,
+    "load_5m": 0.25,
+    "load_15m": 0.2,
+    "gpu_util": 0.0,
+    "gpu_mem_used": 711.0,
+    "gpu_mem_total": 16303.0,
+    "gpu_temp": 36.0,
+    "gpu_mem_percent": 4.3611605226032015,
+    "collected_at": "2025-12-31T06:00:01.960655"
+  },
+  "alerts": [],
+  "recommendations": [],
+  "auto_actions": [],
+  "trends": {
+    "score": "\u2192 stable"
+  }
+}
