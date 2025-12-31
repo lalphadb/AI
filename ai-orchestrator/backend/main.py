@@ -319,6 +319,22 @@ MODELS = {
         "local": True,
         "chat": False,
     },
+    "bge-m3": {
+        "name": "BGE-M3 Multilingue",
+        "description": "Embeddings multilingues FR/EN (1.2 GB) - RAG Apogée",
+        "model": "bge-m3:latest",
+        "category": "embedding",
+        "local": True,
+        "chat": False,
+    },
+    "bge-reranker": {
+        "name": "BGE Reranker v2 M3",
+        "description": "Reranking multilingue pour filtrer les résultats RAG (636 MB)",
+        "model": "qllama/bge-reranker-v2-m3:latest",
+        "category": "embedding",
+        "local": True,
+        "chat": False,
+    },
 }
 
 MODEL_CATEGORIES = {

@@ -53,8 +53,8 @@ def get_chroma_collection():
         host="chromadb", port=8000, settings=Settings(anonymized_telemetry=False)
     )
     return client.get_or_create_collection(
-        name="ai_orchestrator_memory_v2",
-        metadata={"description": "Mémoire sémantique v2 avec embeddings mxbai-embed-large"},
+        name="ai_orchestrator_memory_v3",
+        metadata={"description": "Mémoire sémantique v3 avec embeddings bge-m3 multilingue FR/EN"},
     )
 
 

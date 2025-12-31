@@ -2,7 +2,7 @@
 """
 Document Chunker pour AI Orchestrator
 Decoupe les documents longs en chunks semantiques avec overlap
-Optimise pour embeddings mxbai-embed-large (1024 dim, ~512 tokens max)
+Optimise pour embeddings bge-m3 (1024 dim, 8192 tokens max, multilingue FR/EN)
 """
 
 import re
@@ -21,10 +21,10 @@ class Chunk:
     metadata: Dict
 
 
-# Configuration chunking
-DEFAULT_CHUNK_SIZE = 500  # tokens approximatifs (~2000 chars)
-DEFAULT_OVERLAP = 50  # tokens overlap (~200 chars)
-CHARS_PER_TOKEN = 4  # estimation moyenne francais
+# Configuration chunking optimisée pour bge-m3
+DEFAULT_CHUNK_SIZE = 768  # tokens (~3072 chars) - optimal pour bge-m3
+DEFAULT_OVERLAP = 115  # 15% overlap (~460 chars) - meilleure cohérence
+CHARS_PER_TOKEN = 4  # estimation moyenne français
 
 
 def count_tokens_approx(text: str) -> int:

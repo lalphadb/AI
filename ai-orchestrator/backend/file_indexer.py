@@ -41,8 +41,8 @@ logger = logging.getLogger(__name__)
 CHROMADB_HOST = os.getenv("CHROMADB_HOST", "chromadb")
 CHROMADB_PORT = int(os.getenv("CHROMADB_PORT", "8000"))
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://10.10.10.46:11434")
-EMBEDDING_MODEL = "mxbai-embed-large"
-COLLECTION_NAME = "ai_orchestrator_memory_v2"
+EMBEDDING_MODEL = "bge-m3"  # Multilingue FR/EN - 1024 dim - 8K contexte
+COLLECTION_NAME = "ai_orchestrator_memory_v3"  # Version avec bge-m3
 
 # Chemins a surveiller
 WATCH_PATHS = [
