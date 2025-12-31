@@ -1,6 +1,6 @@
 """
 Outils de mémoire sémantique pour AI Orchestrator v5.0
-Intégration ChromaDB avec embeddings Ollama (mxbai-embed-large)
+Intégration ChromaDB avec embeddings Ollama (bge-m3)
 
 - memory_store: Stocker une information en mémoire
 - memory_recall: Rappeler des informations par recherche sémantique
@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 CHROMADB_HOST = os.getenv("CHROMADB_HOST", "chromadb")
 CHROMADB_PORT = int(os.getenv("CHROMADB_PORT", "8000"))
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://10.10.10.46:11434")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "mxbai-embed-large")
-MEMORY_COLLECTION = "ai_orchestrator_memory_v2"
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "bge-m3")
+MEMORY_COLLECTION = "ai_orchestrator_memory_v3"
 
 # Clients (lazy loading)
 _chroma_client = None
@@ -32,7 +32,7 @@ _memory_collection = None
 
 
 async def get_embedding(text: str) -> Optional[List[float]]:
-    """Obtenir embedding via Ollama (mxbai-embed-large - 1024 dim)"""
+    """Obtenir embedding via Ollama (bge-m3 - 1024 dim)"""
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
