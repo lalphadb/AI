@@ -30,7 +30,8 @@ if not SECRET_KEY:
 else:
     print("🔐 AUTH: JWT secret loaded from environment")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 heures
+# SECURITE: Tokens a duree de vie reduite (audit 2025-12-30)
+ACCESS_TOKEN_EXPIRE_MINUTES = 60  # 1 heure (etait 24h)
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 # Base de données des utilisateurs
@@ -101,7 +102,8 @@ def init_auth_db():
     c = conn.cursor()
 
     # Table utilisateurs
-    c.execute("""CREATE TABLE IF NOT EXISTS users (
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
         email TEXT,
@@ -112,10 +114,12 @@ def init_auth_db():
         scopes TEXT DEFAULT '[]',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )""")
+    )"""
+    )
 
     # Table API Keys
-    c.execute("""CREATE TABLE IF NOT EXISTS api_keys (
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS api_keys (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         key_hash TEXT UNIQUE NOT NULL,
         name TEXT NOT NULL,
@@ -125,10 +129,12 @@ def init_auth_db():
         expires_at TIMESTAMP,
         last_used TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
-    )""")
+    )"""
+    )
 
     # Table sessions
-    c.execute("""CREATE TABLE IF NOT EXISTS sessions (
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
         refresh_token_hash TEXT UNIQUE NOT NULL,
@@ -137,16 +143,19 @@ def init_auth_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         expires_at TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
-    )""")
+    )"""
+    )
 
     # Table tentatives de connexion (pour rate limiting)
-    c.execute("""CREATE TABLE IF NOT EXISTS login_attempts (
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS login_attempts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT,
         ip_address TEXT,
         success BOOLEAN,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )""")
+    )"""
+    )
 
     conn.commit()
 
@@ -605,12 +614,16 @@ async def get_optional_user(
 ) -> Optional[User]:
     """
     Obtenir l'utilisateur courant si l'auth est activée
-    Retourne None si l'auth est désactivée
+    Retourne un utilisateur avec permissions limitees si l'auth est désactivée
+    SECURITE: Ne plus donner admin par defaut (audit 2025-12-30)
     """
     if not AUTH_ENABLED:
-        # Auth désactivée - retourner un utilisateur admin par défaut
+        # Auth désactivée - retourner un utilisateur avec permissions LIMITEES
+        # SECURITE: Pas de privileges admin sans authentification!
         return User(
-            username="anonymous", is_admin=True, scopes=["admin", "read", "write", "execute"]
+            username="anonymous",
+            is_admin=False,  # SECURITE: Jamais admin sans auth
+            scopes=["read"],  # SECURITE: Lecture seule par defaut
         )
     return current_user
 

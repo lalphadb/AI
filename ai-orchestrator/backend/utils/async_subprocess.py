@@ -36,17 +36,9 @@ async def run_command_async(
         - return_code = -2 pour erreur d'exécution
     """
     try:
-        # Déterminer si on doit utiliser le shell
-        needs_shell = False
-        if use_shell is not None:
-            needs_shell = use_shell
-        elif isinstance(command, str):
-            # Patterns qui nécessitent le shell
-            shell_patterns = ["|", "&&", "||", "2>&1", ">", "<", "$(", "`", ";", "cd "]
-            needs_shell = any(p in command for p in shell_patterns)
-
-        if needs_shell and isinstance(command, str):
-            # Utiliser shell pour les commandes complexes
+        # En mode sécurisé, on n'utilise jamais le shell par défaut
+        # sauf si explicitement demandé (et validé en amont par security.py)
+        if use_shell is True:
             process = await asyncio.create_subprocess_shell(
                 command,
                 stdout=asyncio.subprocess.PIPE,
@@ -55,7 +47,7 @@ async def run_command_async(
                 env=env,
             )
         else:
-            # Mode sécurisé sans shell
+            # Mode sécurisé par défaut sans shell
             if isinstance(command, str):
                 import shlex
 

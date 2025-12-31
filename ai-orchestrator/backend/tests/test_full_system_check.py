@@ -23,6 +23,7 @@ class MockLLMResponse:
     def __init__(self, responses):
         self.responses = responses
         self.call_count = 0
+        self.status_code = 200
 
     def json(self):
         resp = self.responses[self.call_count % len(self.responses)]

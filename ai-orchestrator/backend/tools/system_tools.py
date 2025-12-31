@@ -1,8 +1,10 @@
 """
-Outils système v5.0 - Mode Autonome avec SSH vers hôte
+Outils système v5.1 - Mode Autonome avec SSH vers hôte
+SECURITE: Injection SSH corrigee avec shlex.quote (audit 2025-12-30)
 """
 
 import os
+import shlex
 
 from tools import register_tool
 from utils.async_subprocess import run_command_async
@@ -52,7 +54,10 @@ HOST_PATTERNS = [
 
 
 async def ssh(cmd: str, timeout: int = 60) -> tuple:
-    return await run_command_async(f'{SSH} "{cmd}"', timeout=timeout)
+    """Execute commande via SSH avec echappement securise"""
+    # SECURITE: shlex.quote previent l'injection de commandes
+    escaped_cmd = shlex.quote(cmd)
+    return await run_command_async(f"{SSH} {escaped_cmd}", timeout=timeout)
 
 
 def should_run_on_host(cmd: str) -> bool:
@@ -125,9 +130,34 @@ async def system_info(params: dict) -> str:
     return "\n".join(info)
 
 
+def sanitize_service_name(name: str) -> str:
+    """Valider et nettoyer un nom de service (securite)"""
+    import re
+
+    name = name.replace(".service", "").strip()
+    # Autoriser uniquement alphanum, tirets, underscores, @
+    if not re.match(r"^[a-zA-Z0-9_@-]+$", name):
+        raise ValueError(f"Nom de service invalide: {name}")
+    return name
+
+
+def sanitize_package_name(name: str) -> str:
+    """Valider et nettoyer un nom de paquet (securite)"""
+    import re
+
+    name = name.strip()
+    # Autoriser uniquement alphanum, tirets, points, plus
+    if not re.match(r"^[a-zA-Z0-9_.+-]+$", name):
+        raise ValueError(f"Nom de paquet invalide: {name}")
+    return name
+
+
 @register_tool("service_status")
 async def service_status(params: dict) -> str:
-    svc = params.get("service", "").replace(".service", "").strip()
+    try:
+        svc = sanitize_service_name(params.get("service", ""))
+    except ValueError as e:
+        return f"Erreur: {e}"
     if not svc:
         return "Erreur: service requis"
     out, _ = await ssh(f"systemctl status {svc} --no-pager 2>&1 | head -15", 10)
@@ -146,7 +176,10 @@ async def service_status(params: dict) -> str:
 
 @register_tool("service_control")
 async def service_control(params: dict) -> str:
-    svc = params.get("service", "").replace(".service", "").strip()
+    try:
+        svc = sanitize_service_name(params.get("service", ""))
+    except ValueError as e:
+        return f"Erreur: {e}"
     action = params.get("action", "")
     if not svc:
         return "Erreur: service requis"
@@ -166,7 +199,10 @@ async def disk_usage(params: dict) -> str:
 
 @register_tool("package_install")
 async def package_install(params: dict) -> str:
-    pkg = params.get("package", "")
+    try:
+        pkg = sanitize_package_name(params.get("package", ""))
+    except ValueError as e:
+        return f"Erreur: {e}"
     if not pkg:
         return "Erreur: paquet requis"
     out, code = await ssh(f"sudo apt-get install -y {pkg}", 300)

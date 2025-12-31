@@ -1,6 +1,7 @@
 """
-Module de sécurité pour AI Orchestrator v5.1
+Module de sécurité pour AI Orchestrator v5.2
 Mode Autonome (blacklist commandes) + Validation chemins
+SECURITE: Blacklist etendue (audit 2025-12-30)
 """
 
 import logging
@@ -15,23 +16,76 @@ logger = logging.getLogger(__name__)
 # MODE AUTONOME - Tout est permis sauf la blacklist
 AUTONOMOUS_MODE = True
 
-# Commandes INTERDITES (blacklist)
+# Commandes INTERDITES (blacklist) - ETENDUE 2025-12-30
 FORBIDDEN_COMMANDS = {
+    # Formatage / Partitionnement
     "mkfs",
     "fdisk",
     "parted",
     "dd",
+    # Modules kernel
     "insmod",
     "rmmod",
     "modprobe",
+    # Telechargement (risque malware)
+    "wget",
+    "curl",  # Note: curl utilise via API est OK, mais pas en shell direct
+    # Reverse shells / Reseau dangereux
+    "nc",
+    "netcat",
+    "ncat",
+    "socat",
+    "telnet",
+    # Modification permissions/proprietaires sensibles
+    "chown",
+    # Gestion utilisateurs (creation backdoors)
+    "useradd",
+    "usermod",
+    "userdel",
+    "groupadd",
+    "passwd",
+    "adduser",
+    # Crontab (persistance)
+    "crontab",
+    # Interpreters (execution code arbitraire) - commentes car necessaires
+    # "python", "python3", "perl", "ruby", "node",
+    # SSH (mouvement lateral)
+    "ssh-keygen",
+    "ssh-copy-id",
+    # Iptables (manipulation firewall)
+    "iptables",
+    "ip6tables",
+    "nft",
+    "ufw",
+    # Montage filesystems
+    "mount",
+    "umount",
+    # Arret systeme
+    "shutdown",
+    "reboot",
+    "poweroff",
+    "halt",
+    "init",
 }
 
-# Patterns dangereux
+# Patterns dangereux - ETENDUS
 FORBIDDEN_PATTERNS = [
     r"rm\s+-rf\s+/\s*$",
     r"rm\s+-rf\s+/\*",
+    r"rm\s+-rf\s+~",
+    r"rm\s+-rf\s+\$HOME",
     r">\s*/dev/sd[a-z]",
-    r":(){ :|:& };:",
+    r">\s*/dev/nvme",
+    r":(){ :|:& };:",  # Fork bomb
+    r"/dev/tcp/",  # Bash reverse shell
+    r"/dev/udp/",
+    r"mkfifo",  # Named pipes (reverse shells)
+    r"base64\s+-d.*\|.*sh",  # Obfuscated execution
+    r"eval\s+.*base64",
+    r"\|\s*sh\s*$",  # Pipe to shell
+    r"\|\s*bash\s*$",
+    r"chmod\s+[0-7]*777",  # World writable
+    r"chmod\s+\+s",  # SUID bit
 ]
 
 # Chemins interdits en écriture
@@ -107,14 +161,27 @@ class PathNotAllowedError(SecurityError):
 
 
 def sanitize_path(path: str) -> str:
-    """Nettoyer et normaliser un chemin"""
+    """
+    Nettoyer et normaliser un chemin
+    SECURITE: Verification des symlinks (audit 2025-12-30)
+    """
+    if not path:
+        raise PathNotAllowedError("Chemin vide")
+
+    # Verifier traversee AVANT resolution
+    if ".." in path:
+        raise PathNotAllowedError(f"Traversée de répertoire interdite: {path}")
+
     try:
-        resolved = str(Path(path).resolve())
+        path_obj = Path(path)
+        resolved = str(path_obj.resolve())
     except Exception:
         raise PathNotAllowedError(f"Chemin invalide: {path}")
 
-    if ".." in path:
-        raise PathNotAllowedError(f"Traversée de répertoire interdite: {path}")
+    # SECURITE: Verifier si c'est un symlink qui pointe hors des chemins autorises
+    if path_obj.is_symlink():
+        logger.warning(f"Symlink detecte: {path} -> {resolved}")
+        # La verification sera faite dans is_path_allowed avec le chemin resolu
 
     return resolved
 
@@ -122,6 +189,7 @@ def sanitize_path(path: str) -> str:
 def is_path_allowed(path: str, write: bool = False) -> Tuple[bool, str]:
     """
     Vérifier si un chemin est autorisé
+    SECURITE: Verification du chemin RESOLU (pas le symlink source)
 
     Returns:
         (autorisé, raison)
@@ -131,21 +199,29 @@ def is_path_allowed(path: str, write: bool = False) -> Tuple[bool, str]:
     except PathNotAllowedError as e:
         return False, str(e)
 
-    # Vérifier les chemins interdits
+    # Vérifier les chemins interdits SUR LE CHEMIN RESOLU
     for forbidden in FORBIDDEN_PATHS:
         if forbidden in resolved.lower():
-            logger.warning(f"Tentative d'accès à un chemin interdit: {path}")
+            logger.warning(f"Tentative d'accès à un chemin interdit: {path} (resolu: {resolved})")
             return False, f"Chemin interdit: contient '{forbidden}'"
 
-    # Vérifier les chemins autorisés
+    # Vérifier les chemins autorisés SUR LE CHEMIN RESOLU
     allowed_paths = ALLOWED_WRITE_PATHS if write else ALLOWED_READ_PATHS
 
+    path_allowed = False
     for allowed in allowed_paths:
         if resolved.startswith(allowed):
-            return True, "OK"
+            path_allowed = True
+            break
 
-    action = "écriture" if write else "lecture"
-    return False, f"Chemin non autorisé pour {action}: {resolved}"
+    if not path_allowed:
+        action = "écriture" if write else "lecture"
+        # SECURITE: Inclure le chemin resolu dans le message pour debug
+        if path != resolved:
+            return False, f"Chemin non autorisé pour {action}: {path} (symlink vers {resolved})"
+        return False, f"Chemin non autorisé pour {action}: {resolved}"
+
+    return True, "OK"
 
 
 def validate_path(path: str, write: bool = False) -> str:

@@ -1,15 +1,21 @@
 """
-Meta-outils pour l'auto-amélioration de l'AI Orchestrator v5.0
+Meta-outils pour l'auto-amélioration de l'AI Orchestrator v5.1
 Permet à l'IA de créer, modifier et gérer ses propres outils.
+SECURITE: create_tool desactive en production (audit 2025-12-30)
 """
 
 import ast
+import os
 import re
 from pathlib import Path
 
-from tools import get_tool_names, get_tools_description, register_tool, reload_tools
+from tools import (get_tool_names, get_tools_description, register_tool,
+                   reload_tools)
 
 TOOLS_DIR = Path(__file__).parent
+
+# SECURITE: Desactiver creation d'outils en production
+ALLOW_TOOL_CREATION = os.getenv("ALLOW_TOOL_CREATION", "false").lower() == "true"
 
 
 @register_tool(
@@ -39,6 +45,17 @@ async def create_tool(params: dict) -> str:
         - Accepter params: dict comme premier argument
         - Retourner une string
     """
+    # SECURITE: Bloquer en production sauf si explicitement autorise
+    if not ALLOW_TOOL_CREATION:
+        return """🔒 **Création d'outils désactivée**
+
+Cette fonctionnalité est désactivée en production pour des raisons de sécurité.
+
+Pour l'activer (développement uniquement):
+- Définir `ALLOW_TOOL_CREATION=true` dans l'environnement
+
+⚠️ Ne JAMAIS activer en production!"""
+
     name = params.get("name", "").strip()
     description = params.get("description", "").strip()
     code = params.get("code", "").strip()
@@ -199,6 +216,9 @@ async def view_tool_code(params: dict) -> str:
 )
 async def delete_tool(params: dict) -> str:
     """Supprime un outil créé par l'IA."""
+    # SECURITE: Bloquer en production
+    if not ALLOW_TOOL_CREATION:
+        return "🔒 Suppression d'outils désactivée en production."
 
     name = params.get("name", "").strip()
 
