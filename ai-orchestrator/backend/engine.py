@@ -34,7 +34,7 @@ def extract_final_answer(text: str) -> Optional[str]:
 
     # Méthode 1: Triple quotes (priorité haute) - supporte ''' et """
     for pattern in [
-        r'final_answer\s*\(\s*answer\s*=\s*"""(.*?) যোগ্য"""',
+        r'final_answer\s*\(\s*answer\s*=\s*"""(.*?)"""',
         r"final_answer\s*\(\s*answer\s*=\s*'''(.*?)'''",
     ]:
         m = re.search(pattern, text, re.DOTALL)
@@ -142,7 +142,8 @@ async def react_loop(
 ):
     """Boucle ReAct v5.5 - THINK -> PLAN -> ACTION -> OBSERVE"""
 
-    from prompts import build_system_prompt, classify_query, get_urgency_message
+    from prompts import build_system_prompt, classify_query, get_urgency_message, get_factual_prompt
+    from dynamic_context import get_dynamic_context
     from tools import get_tools_description
 
     # P1-2 FIX: Classification de la requête
@@ -158,7 +159,15 @@ async def react_loop(
 
     # Prompt initial
     tools_desc = get_tools_description()
-    system_prompt = build_system_prompt(tools_desc, files_info)
+    # Récupérer contexte dynamique pour les requêtes opérationnelles
+    dynamic_ctx = ""
+    if query_type == "operational":
+        try:
+            dynamic_ctx = await get_dynamic_context()
+        except Exception as e:
+            logger.warning(f"⚠️ Impossible de récupérer dynamic_context: {e}")
+    
+    system_prompt = build_system_prompt(tools_desc, files_info, dynamic_context=dynamic_ctx)
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -234,7 +243,7 @@ Résultats obtenus: {", ".join([r[:100] for r in successful_tool_results[-3:]])}
                                 "model": current_model,
                                 "messages": messages,
                                 "stream": False,
-                                "options": {"temperature": 0.2, "num_predict": 4000},
+                                "options": {"temperature": 0.7, "num_predict": 4000},
                             },
                         )
 
