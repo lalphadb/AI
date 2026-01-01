@@ -1,0 +1,46 @@
+{
+  "project_root": "/home/lalpha/projets/ai-tools/ai-orchestrator",
+  "project_type": "single",
+  "services": {
+    "backend": {
+      "path": "./backend",
+      "tech_stack": ["python", "fastapi", "pydantic", "pyjwt", "sqlite", "chromadb"],
+      "port": 8001,
+      "dev_command": "uvicorn main:app --host 0.0.0.0 --port 8001 --reload",
+      "test_command": "pytest backend/tests/ -v --cov=backend --cov-fail-under=80",
+      "entry_point": "backend/main.py"
+    },
+    "frontend": {
+      "path": "./frontend",
+      "tech_stack": ["nginx", "html", "css", "javascript"],
+      "port": 80,
+      "dev_command": "nginx -g 'daemon off;'"
+    }
+  },
+  "infrastructure": {
+    "docker": true,
+    "docker_compose": "docker-compose.yml",
+    "docker_services": ["backend", "frontend"],
+    "database": "sqlite",
+    "vector_db": "chromadb"
+  },
+  "conventions": {
+    "linter": "ruff",
+    "formatter": "ruff format",
+    "testing": "pytest",
+    "line_length": 100,
+    "python_version": "3.12"
+  },
+  "key_files": {
+    "main_entry": "backend/main.py",
+    "security": "backend/security.py",
+    "auth": "backend/auth.py",
+    "config": "backend/config.py",
+    "engine": "backend/engine.py",
+    "tools_registry": "backend/tools/__init__.py",
+    "requirements": "backend/requirements.txt",
+    "dockerfile": "backend/Dockerfile",
+    "docker_compose": "docker-compose.yml",
+    "pyproject": "backend/pyproject.toml"
+  }
+}

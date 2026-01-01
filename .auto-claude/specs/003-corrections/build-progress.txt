@@ -1,0 +1,139 @@
+=== AUTO-BUILD PROGRESS ===
+
+Project: AI Orchestrator v5.2 - Security Audit and Code Quality Corrections
+Workspace: /home/lalpha/projets/ai-tools/ai-orchestrator
+Started: 2025-12-31
+
+Workflow Type: investigation
+Rationale: Security and code quality audit requires comprehensive tool-based analysis first, then targeted corrections for CRITICAL/HIGH issues only. Investigation workflow ensures thorough documentation before any fixes.
+
+Session 1 (Planner):
+- Created implementation_plan.json
+- Phases: 6
+- Total subtasks: 20
+- Created init.sh
+- Updated project_index.json with full service details
+- Updated context.json with known issues
+
+Phase Summary:
+- Phase 1 (Run Audit Tools): 5 subtasks, depends on []
+  - Install audit tools (ruff, pylint, vulture, pip-audit)
+  - Run Ruff security scan with E,F,I,S,B,C4,UP rules
+  - Run Pylint for code quality score
+  - Run pip-audit for dependency vulnerabilities
+  - Run Vulture for dead code detection
+
+- Phase 2 (Analyze Findings): 3 subtasks, depends on [phase-1]
+  - Create AUDIT_REPORT.md with severity categorization
+  - Document CRITICAL: datetime.utcnow() deprecation (4 occurrences in auth.py)
+  - Document HIGH: python-jose deprecated dependency
+
+- Phase 3 (Fix CRITICAL Issues): 3 subtasks, depends on [phase-2]
+  - Create backup of auth.py
+  - Fix datetime.utcnow() -> datetime.now(timezone.utc)
+  - Add tests for JWT with timezone-aware datetime
+
+- Phase 4 (Fix HIGH Issues): 4 subtasks, depends on [phase-3]
+  - Remove python-jose from requirements.txt
+  - Update pyproject.toml with security rules (S prefix)
+  - Run Ruff auto-fix
+  - Achieve Pylint score >= 9.0
+
+- Phase 5 (Fix Docker Issues): 3 subtasks, depends on [phase-4]
+  - Add non-root user to Dockerfile
+  - Add resource limits to docker-compose.yml
+  - Verify Docker build succeeds
+
+- Phase 6 (Harden and Verify): 5 subtasks, depends on [phase-5]
+  - Run full test suite
+  - Verify all Python syntax
+  - Final pip-audit scan
+  - Deploy and health check
+  - Update AUDIT_REPORT.md with final status
+
+Services Involved:
+- backend: Primary service - FastAPI application with JWT auth, ReAct loop, 34+ tools
+
+Known Issues Identified (Pre-Audit):
+CRITICAL:
+  - datetime.utcnow() used 4x in backend/auth.py (deprecated in Python 3.12)
+    Lines: 350, 351, 359, 432
+    Fix: Replace with datetime.now(timezone.utc)
+
+HIGH:
+  - python-jose in requirements.txt (deprecated, PyJWT already present)
+    Fix: Remove python-jose[cryptography]==3.3.0
+  - Ruff config missing security rules (S prefix not in select)
+    Fix: Add S, C4, UP to select list in pyproject.toml
+
+MEDIUM:
+  - Dockerfile runs as root (no USER directive)
+  - docker-compose.yml missing resource limits (mem_limit, cpus)
+
+Parallelism Analysis:
+- Max parallel phases: 1
+- Recommended workers: 1
+- Parallel groups: None (sequential investigation workflow)
+
+=== STARTUP COMMAND ===
+
+To continue building this spec, run:
+
+  source auto-claude/.venv/bin/activate && python auto-claude/run.py --spec 003 --parallel 1
+
+Example:
+  source auto-claude/.venv/bin/activate && python auto-claude/run.py --spec 003 --parallel 1
+
+=== VERIFICATION CHECKLIST ===
+
+Before QA sign-off, ensure:
+[ ] All existing tests pass
+[ ] Pylint score >= 9.0 on core files
+[ ] 0 Ruff errors (E,F,I,S,B,C4,UP rules)
+[ ] 0 pip-audit vulnerabilities
+[ ] python-jose removed from requirements.txt
+[ ] datetime.utcnow() replaced with datetime.now(timezone.utc)
+[ ] Docker build succeeds
+[ ] Health check returns {"status":"ok"}
+
+=== END SESSION 1 ===
+
+=== SESSION 2: Ruff Security Scan ===
+Date: 2024-12-31
+
+Subtask 1-2: Run Ruff security scan with extended rules (E,F,I,S,B,C4,UP)
+Status: COMPLETED
+
+Command: ./.venv-audit/bin/python -m ruff check --select=E,F,I,S,B,C4,UP ai-orchestrator/backend/
+
+RESULTS SUMMARY:
+- Total Errors: 625
+- Fixable: 249 with --fix (8 hidden with --unsafe-fixes)
+
+SECURITY ISSUES FOUND (S-prefix):
+[CRITICAL] S608 (1) - SQL injection vector in auth.py:327
+[CRITICAL] S306 (1) - Suspicious mktemp usage
+[HIGH] S324 (3) - Insecure hash function (hashlib)
+[HIGH] S105 (5) - Hardcoded password strings
+[HIGH] S106 (5) - Hardcoded password function args
+[MEDIUM] S607 (8) - Subprocess with partial path
+[LOW] S104 (2) - Binding to all interfaces 0.0.0.0
+[LOW] S108 (9) - Hardcoded temp file paths
+[LOW] S110 (4) - Exception swallowed (try-except-pass)
+[LOW] S112 (1) - try-except-continue
+[INFO] S101 (130) - assert statements (mostly in tests - acceptable)
+
+CODE QUALITY ISSUES:
+[E501] (103) - Line too long (>100 chars)
+[E722] (4) - Bare except clauses
+[F401] (56) - Unused imports
+[I001] (22) - Unsorted imports
+[UP006] (104) - Use list instead of typing.List
+[UP045] (82) - Use X | None instead of Optional[X]
+[UP035] (42) - Deprecated typing imports
+[B008] (14) - Function call in default argument (FastAPI Depends - acceptable pattern)
+
+Full report saved to: .auto-claude/specs/003-corrections/ruff-audit.txt
+Summary saved to: .auto-claude/specs/003-corrections/ruff-summary.txt
+
+=== END SESSION 2 ===

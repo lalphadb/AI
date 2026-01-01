@@ -1,0 +1,552 @@
+{
+  "integrations_researched": [
+    {
+      "name": "Ruff",
+      "type": "library",
+      "verified_package": {
+        "name": "ruff",
+        "install_command": "pip install ruff",
+        "version": ">=0.14.10",
+        "verified": true
+      },
+      "api_patterns": {
+        "imports": [],
+        "initialization": "CLI tool - no Python import needed",
+        "key_functions": [
+          "ruff check .",
+          "ruff check --fix .",
+          "ruff format .",
+          "ruff check --select=E,F,S .",
+          "ruff check --watch ."
+        ],
+        "verified_against": "Context7 /astral-sh/ruff + official docs"
+      },
+      "configuration": {
+        "env_vars": [],
+        "config_files": [
+          "pyproject.toml ([tool.ruff] section)",
+          "ruff.toml",
+          ".ruff.toml"
+        ],
+        "dependencies": []
+      },
+      "infrastructure": {
+        "requires_docker": false
+      },
+      "gotchas": [
+        "Ruff includes native Bandit security rules (select S prefix) - can replace standalone Bandit",
+        "Default rules are E4, E7, E9, F - need to explicitly select more",
+        "Config in pyproject.toml needs [tool.ruff] prefix for sections",
+        "Ruff is 10-100x faster than traditional Python linters"
+      ],
+      "research_sources": [
+        "https://docs.astral.sh/ruff/configuration/",
+        "https://github.com/astral-sh/ruff",
+        "Context7 MCP: /astral-sh/ruff"
+      ]
+    },
+    {
+      "name": "Pylint",
+      "type": "library",
+      "verified_package": {
+        "name": "pylint",
+        "install_command": "pip install pylint",
+        "version": ">=3.0.0",
+        "verified": true
+      },
+      "api_patterns": {
+        "imports": [],
+        "initialization": "CLI tool - no Python import needed",
+        "key_functions": [
+          "pylint --fail-under=8.0 **/*.py",
+          "pylint --output-format=json backend/",
+          "pylint --generate-rcfile > .pylintrc"
+        ],
+        "verified_against": "Context7 /pylint-dev/pylint + official docs"
+      },
+      "configuration": {
+        "env_vars": [],
+        "config_files": [
+          ".pylintrc",
+          "pyproject.toml ([tool.pylint] section)",
+          "setup.cfg ([pylint.SECTION] format)"
+        ],
+        "dependencies": []
+      },
+      "infrastructure": {
+        "requires_docker": false
+      },
+      "gotchas": [
+        "--fail-under=8.0 flag requires Pylint 2.5.0+ to work",
+        "Score formula changed in Pylint 2.13.0 - minimum score is now 0 (previously no lower bound)",
+        "Production projects typically use 9.0-9.5 threshold",
+        "Can disable specific rules with comments: # pylint: disable=C0114"
+      ],
+      "research_sources": [
+        "https://pylint.readthedocs.io/en/stable/user_guide/configuration/all-options.html",
+        "Context7 MCP: /pylint-dev/pylint"
+      ]
+    },
+    {
+      "name": "Bandit",
+      "type": "library",
+      "verified_package": {
+        "name": "bandit",
+        "install_command": "pip install bandit",
+        "version": ">=1.7.7",
+        "verified": true
+      },
+      "api_patterns": {
+        "imports": [],
+        "initialization": "CLI tool - no Python import needed",
+        "key_functions": [
+          "bandit -r ./backend/",
+          "bandit -r ./backend/ -f json -o security_report.json",
+          "bandit -r ./backend/ -ll",
+          "bandit -v -r ./backend/"
+        ],
+        "verified_against": "Context7 /pycqa/bandit + official docs"
+      },
+      "configuration": {
+        "env_vars": [],
+        "config_files": [
+          ".bandit",
+          "pyproject.toml ([tool.bandit] section)"
+        ],
+        "dependencies": []
+      },
+      "infrastructure": {
+        "requires_docker": false
+      },
+      "gotchas": [
+        "Requires Python >=3.10",
+        "Ruff includes native Bandit rules (S prefix) as faster alternative",
+        "Output formats: CSV, HTML, JSON, text, XML, YAML",
+        "Common false positives with subprocess calls - may need whitelist"
+      ],
+      "research_sources": [
+        "https://bandit.readthedocs.io/",
+        "https://github.com/PyCQA/bandit",
+        "Context7 MCP: /pycqa/bandit"
+      ]
+    },
+    {
+      "name": "Vulture",
+      "type": "library",
+      "verified_package": {
+        "name": "vulture",
+        "install_command": "pip install vulture",
+        "version": ">=2.11",
+        "verified": true
+      },
+      "api_patterns": {
+        "imports": ["import vulture"],
+        "initialization": "v = vulture.Vulture()",
+        "key_functions": [
+          "vulture backend/",
+          "vulture backend/ --min-confidence 100",
+          "vulture backend/ --sort-by-size",
+          "vulture backend/ --make-whitelist > whitelist.py"
+        ],
+        "verified_against": "Context7 /jendrikseipp/vulture + official docs"
+      },
+      "configuration": {
+        "env_vars": [],
+        "config_files": [
+          "whitelist.py (for allowed unused code)"
+        ],
+        "dependencies": []
+      },
+      "infrastructure": {
+        "requires_docker": false
+      },
+      "gotchas": [
+        "Confidence values: 60%-100% (100% = definitely dead code)",
+        "Use --min-confidence 100 for highest certainty only",
+        "Supports flake8 noqa comments for F401 (unused import) and F841 (unused var)",
+        "--exclude patterns match absolute paths",
+        "Cannot detect dynamic usage (getattr, __getattr__, etc.)"
+      ],
+      "research_sources": [
+        "https://github.com/jendrikseipp/vulture",
+        "https://pypi.org/project/vulture/",
+        "Context7 MCP: /jendrikseipp/vulture"
+      ]
+    },
+    {
+      "name": "pytest-cov",
+      "type": "library",
+      "verified_package": {
+        "name": "pytest-cov",
+        "install_command": "pip install pytest-cov",
+        "version": ">=5.0.0",
+        "verified": true
+      },
+      "api_patterns": {
+        "imports": [],
+        "initialization": "pytest plugin - auto-loaded",
+        "key_functions": [
+          "pytest --cov=backend/ --cov-report=html",
+          "pytest --cov=backend/ --cov-fail-under=80",
+          "pytest --cov=backend/ --cov-report=term-missing"
+        ],
+        "verified_against": "Context7 /pytest-dev/pytest-cov + official docs"
+      },
+      "configuration": {
+        "env_vars": [],
+        "config_files": [
+          "pyproject.toml ([tool.pytest.ini_options] section)",
+          ".coveragerc",
+          "setup.cfg"
+        ],
+        "dependencies": ["pytest>=7.0.0", "coverage"]
+      },
+      "infrastructure": {
+        "requires_docker": false
+      },
+      "gotchas": [
+        "--cov-fail-under uses precision from coverage config",
+        "Version 7.0.0 released Nov 2025 with precision improvements",
+        "Add filters for ResourceWarning from sqlite3 if using filterwarnings=error",
+        "Combine with --cov-report=xml for CI integration"
+      ],
+      "research_sources": [
+        "https://pytest-cov.readthedocs.io/en/latest/config.html",
+        "https://github.com/pytest-dev/pytest-cov",
+        "Context7 MCP: /pytest-dev/pytest-cov"
+      ]
+    },
+    {
+      "name": "pip-audit",
+      "type": "library",
+      "verified_package": {
+        "name": "pip-audit",
+        "install_command": "pip install pip-audit",
+        "version": ">=2.7.0",
+        "verified": true
+      },
+      "api_patterns": {
+        "imports": [],
+        "initialization": "CLI tool - no Python import needed",
+        "key_functions": [
+          "pip-audit",
+          "pip-audit -r requirements.txt",
+          "pip-audit --fix --dry-run",
+          "pip-audit -f json -o audit.json",
+          "pip-audit --ignore-vuln CVE-XXX-YYYY"
+        ],
+        "verified_against": "PyPI + GitHub official docs"
+      },
+      "configuration": {
+        "env_vars": [],
+        "config_files": [],
+        "dependencies": []
+      },
+      "infrastructure": {
+        "requires_docker": false
+      },
+      "gotchas": [
+        "Uses Python Packaging Advisory Database via PyPI JSON API",
+        "Can also use OSV database as alternative source",
+        "Does NOT analyze code - only dependency versions",
+        "--ignore-vuln supports CVE-xxx, GHSA-xxx, and PYSEC-xxx IDs",
+        "Output formats: columns, markdown, JSON, CycloneDX SBOM"
+      ],
+      "research_sources": [
+        "https://github.com/pypa/pip-audit",
+        "https://pypi.org/project/pip-audit/",
+        "Context7 MCP: /pypa/pip-audit"
+      ]
+    },
+    {
+      "name": "FastAPI",
+      "type": "library",
+      "verified_package": {
+        "name": "fastapi",
+        "install_command": "pip install fastapi",
+        "version": ">=0.115.0",
+        "verified": true
+      },
+      "api_patterns": {
+        "imports": [
+          "from fastapi import FastAPI, Depends, HTTPException, status",
+          "from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm"
+        ],
+        "initialization": "app = FastAPI()",
+        "key_functions": [
+          "@app.get()",
+          "@app.post()",
+          "Depends()",
+          "HTTPException(status_code=...)"
+        ],
+        "verified_against": "Context7 /fastapi/fastapi + official docs"
+      },
+      "configuration": {
+        "env_vars": [],
+        "config_files": [],
+        "dependencies": ["pydantic>=2.0", "starlette", "uvicorn"]
+      },
+      "infrastructure": {
+        "requires_docker": false
+      },
+      "gotchas": [
+        "For JWT security, use PyJWT (NOT python-jose - it's deprecated)",
+        "Use OAuth2PasswordBearer for token authentication",
+        "Use Depends() for dependency injection security",
+        "Always validate input with Pydantic models",
+        "Run security audits with Bandit and OWASP ZAP"
+      ],
+      "research_sources": [
+        "https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/",
+        "Context7 MCP: /fastapi/fastapi"
+      ]
+    },
+    {
+      "name": "PyJWT",
+      "type": "library",
+      "verified_package": {
+        "name": "PyJWT",
+        "install_command": "pip install PyJWT[crypto]",
+        "version": ">=2.9.0",
+        "verified": true
+      },
+      "api_patterns": {
+        "imports": ["import jwt"],
+        "initialization": "token = jwt.encode(payload, secret, algorithm='HS256')",
+        "key_functions": [
+          "jwt.encode(payload, secret, algorithm)",
+          "jwt.decode(token, secret, algorithms=['HS256'])",
+          "jwt.PyJWTError (exception)",
+          "jwt.ExpiredSignatureError (exception)"
+        ],
+        "verified_against": "Context7 /jpadilla/pyjwt + official docs"
+      },
+      "configuration": {
+        "env_vars": [
+          "JWT_SECRET_KEY",
+          "JWT_ALGORITHM",
+          "JWT_EXPIRE_MINUTES"
+        ],
+        "config_files": [],
+        "dependencies": ["cryptography (for RS256/ES256)"]
+      },
+      "infrastructure": {
+        "requires_docker": false
+      },
+      "gotchas": [
+        "CRITICAL: python-jose is deprecated - migrate to PyJWT",
+        "Access tokens: 15 min max, Refresh tokens: 7 days max",
+        "Always verify signature with algorithms= list parameter",
+        "Use 'exp' claim for expiration, 'nbf' for not-before",
+        "For RSA/ECDSA: pip install PyJWT[crypto]",
+        "Store tokens in HTTP-only cookies, NOT localStorage"
+      ],
+      "research_sources": [
+        "https://pyjwt.readthedocs.io/en/latest/usage.html",
+        "https://github.com/fastapi/fastapi/discussions/11345",
+        "Context7 MCP: /jpadilla/pyjwt"
+      ]
+    },
+    {
+      "name": "ChromaDB",
+      "type": "library",
+      "verified_package": {
+        "name": "chromadb",
+        "install_command": "pip install chromadb",
+        "version": ">=1.0.0",
+        "verified": true
+      },
+      "api_patterns": {
+        "imports": ["import chromadb"],
+        "initialization": "client = chromadb.PersistentClient(path='/data/chroma')",
+        "key_functions": [
+          "client.create_collection(name)",
+          "client.get_collection(name)",
+          "collection.add(documents, ids, metadatas)",
+          "collection.query(query_texts, n_results)"
+        ],
+        "verified_against": "Context7 /chroma-core/chroma + official docs"
+      },
+      "configuration": {
+        "env_vars": [],
+        "config_files": [],
+        "dependencies": ["onnxruntime", "tokenizers"]
+      },
+      "infrastructure": {
+        "requires_docker": false,
+        "embedded_database": true,
+        "notes": "Uses SQLite 3.35+ internally"
+      },
+      "gotchas": [
+        "Requires SQLite 3.35+ - may need Python 3.11+ on some systems",
+        "Client() = in-memory, PersistentClient() = saves to disk",
+        "Default path is .chroma if not specified",
+        "Project uses chromadb-client (lightweight client-only package)",
+        "Default embeddings: Sentence Transformers"
+      ],
+      "research_sources": [
+        "https://github.com/chroma-core/chroma",
+        "https://pypi.org/project/chromadb/",
+        "Context7 MCP: /chroma-core/chroma"
+      ]
+    },
+    {
+      "name": "Hadolint",
+      "type": "infrastructure",
+      "verified_package": {
+        "name": "hadolint",
+        "install_command": "docker pull hadolint/hadolint",
+        "version": "latest",
+        "verified": true
+      },
+      "api_patterns": {
+        "imports": [],
+        "initialization": "CLI/Docker tool",
+        "key_functions": [
+          "hadolint Dockerfile",
+          "docker run --rm -i hadolint/hadolint < Dockerfile",
+          "hadolint --ignore DL3008 Dockerfile"
+        ],
+        "verified_against": "GitHub official docs"
+      },
+      "configuration": {
+        "env_vars": [],
+        "config_files": [".hadolint.yaml"],
+        "dependencies": []
+      },
+      "infrastructure": {
+        "requires_docker": true,
+        "docker_image": "hadolint/hadolint",
+        "ports": [],
+        "volumes": []
+      },
+      "gotchas": [
+        "Uses ShellCheck internally for RUN command linting",
+        "Does NOT detect package vulnerabilities (use Trivy for that)",
+        "Can integrate with pre-commit hooks",
+        "Docker-based invocation recommended for consistency"
+      ],
+      "research_sources": [
+        "https://github.com/hadolint/hadolint",
+        "https://hadolint.github.io/hadolint/"
+      ]
+    },
+    {
+      "name": "Trivy",
+      "type": "infrastructure",
+      "verified_package": {
+        "name": "trivy",
+        "install_command": "docker pull aquasec/trivy",
+        "version": "latest",
+        "verified": true
+      },
+      "api_patterns": {
+        "imports": [],
+        "initialization": "CLI/Docker tool",
+        "key_functions": [
+          "trivy image myimage:tag",
+          "trivy config .",
+          "trivy fs --security-checks vuln,config .",
+          "trivy image --severity CRITICAL,HIGH myimage:tag"
+        ],
+        "verified_against": "GitHub official docs"
+      },
+      "configuration": {
+        "env_vars": [],
+        "config_files": ["trivy.yaml"],
+        "dependencies": []
+      },
+      "infrastructure": {
+        "requires_docker": true,
+        "docker_image": "aquasec/trivy",
+        "ports": [],
+        "volumes": []
+      },
+      "gotchas": [
+        "Scans: container images, filesystems, IaC configs, Dockerfiles",
+        "Can detect Dockerfile misconfigurations like missing USER command",
+        "Severity levels: UNKNOWN, LOW, MEDIUM, HIGH, CRITICAL",
+        "Complementary to Hadolint (Trivy = vulnerabilities, Hadolint = linting)"
+      ],
+      "research_sources": [
+        "https://github.com/aquasecurity/trivy",
+        "https://aquasecurity.github.io/trivy/"
+      ]
+    }
+  ],
+  "unverified_claims": [
+    {
+      "claim": "python-jose should be kept in requirements.txt",
+      "reason": "python-jose is deprecated/unmaintained since 2022. FastAPI documentation now recommends PyJWT instead. Current project has BOTH packages which is redundant.",
+      "risk_level": "high",
+      "recommendation": "Remove python-jose from requirements.txt, keep only PyJWT"
+    },
+    {
+      "claim": "chromadb-client is the correct package",
+      "reason": "Project uses chromadb-client (lightweight client) vs full chromadb package. Need to verify server-side setup or if embedded mode is actually needed.",
+      "risk_level": "low",
+      "recommendation": "Verify if ChromaDB server is running separately or if full chromadb package is needed"
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": "CRITICAL",
+      "recommendation": "Remove python-jose==3.3.0 from requirements.txt - it has known security vulnerabilities and is abandoned. PyJWT is already being used correctly in the codebase (import jwt)."
+    },
+    {
+      "priority": "HIGH",
+      "recommendation": "Use Ruff as primary linter - it includes Bandit security rules (S prefix) and is 10-100x faster. Can potentially replace both flake8 and bandit."
+    },
+    {
+      "priority": "HIGH",
+      "recommendation": "Set JWT access token expiration to 15-60 minutes maximum. Current config shows 60 minutes which is acceptable but should not exceed this."
+    },
+    {
+      "priority": "MEDIUM",
+      "recommendation": "Add hadolint for Dockerfile linting and Trivy for container vulnerability scanning to CI/CD pipeline."
+    },
+    {
+      "priority": "MEDIUM",
+      "recommendation": "Create pyproject.toml to consolidate tool configurations (ruff, pylint, pytest-cov, bandit) instead of multiple config files."
+    },
+    {
+      "priority": "LOW",
+      "recommendation": "Consider upgrading pytest-cov to 7.0.0 (current: 5.0.0) for improved precision and coverage features."
+    }
+  ],
+  "audit_tool_commands": {
+    "linting": {
+      "ruff_check": "ruff check backend/ --select=E,F,I,S,B,C4,UP",
+      "ruff_format": "ruff format backend/",
+      "pylint": "pylint --fail-under=8.0 backend/"
+    },
+    "security": {
+      "bandit": "bandit -r backend/ -f json -o security_report.json",
+      "pip_audit": "pip-audit -r backend/requirements.txt -f json -o vulnerabilities.json"
+    },
+    "code_quality": {
+      "vulture": "vulture backend/ --min-confidence 80",
+      "dead_imports": "ruff check backend/ --select=F401"
+    },
+    "testing": {
+      "coverage": "pytest --cov=backend/ --cov-fail-under=60 --cov-report=html --cov-report=term-missing"
+    },
+    "docker": {
+      "hadolint": "docker run --rm -i hadolint/hadolint < Dockerfile",
+      "trivy_image": "trivy image --severity CRITICAL,HIGH ai-orchestrator-backend",
+      "trivy_config": "trivy config ."
+    }
+  },
+  "context7_libraries_used": [
+    "/astral-sh/ruff",
+    "/pylint-dev/pylint",
+    "/pycqa/bandit",
+    "/jendrikseipp/vulture",
+    "/pytest-dev/pytest-cov",
+    "/pypa/pip-audit",
+    "/fastapi/fastapi",
+    "/jpadilla/pyjwt",
+    "/chroma-core/chroma"
+  ],
+  "created_at": "2024-12-31T12:00:00Z"
+}

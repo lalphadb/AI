@@ -1,0 +1,590 @@
+{
+  "feature": "Security Audit and Code Quality Corrections for AI Orchestrator v5.2",
+  "workflow_type": "investigation",
+  "workflow_rationale": "Security and code quality audit requires comprehensive tool-based analysis first, then targeted corrections for CRITICAL/HIGH issues only. Investigation workflow ensures thorough documentation before any fixes.",
+  "phases": [
+    {
+      "id": "phase-1-reproduce",
+      "name": "Run Audit Tools",
+      "type": "investigation",
+      "description": "Execute all audit tools to establish baseline findings: Ruff, Pylint, pip-audit, Vulture",
+      "depends_on": [],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-1-1",
+          "description": "Setup audit environment and install required tools",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "pip install ruff pylint vulture pip-audit pytest-cov --quiet && ruff --version && pylint --version",
+            "expected": "Version output for ruff and pylint"
+          },
+          "status": "completed",
+          "notes": "Audit environment setup complete. Created .venv-audit/ with: ruff 0.14.10, pylint 4.0.4, vulture 2.14, pip-audit 2.10.0, pytest-cov 7.0.0. Tools must be run via Python modules: ./.venv-audit/bin/python -m ruff, etc.",
+          "updated_at": "2026-01-01T00:12:06.360792+00:00"
+        },
+        {
+          "id": "subtask-1-2",
+          "description": "Run Ruff security scan with extended rules (E,F,I,S,B,C4,UP)",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "expected_output": "Document with: Ruff findings categorized by severity",
+          "verification": {
+            "type": "command",
+            "command": "cd backend && ruff check --select=E,F,I,S,B,C4,UP . 2>&1 || true",
+            "expected": "Ruff output captured (may have errors)"
+          },
+          "status": "in_progress",
+          "notes": "Starting Ruff security scan with extended rules (E,F,I,S,B,C4,UP)",
+          "updated_at": "2026-01-01T00:12:44.021207+00:00"
+        },
+        {
+          "id": "subtask-1-3",
+          "description": "Run Pylint with score threshold check",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "expected_output": "Document with: Pylint score and key findings",
+          "verification": {
+            "type": "command",
+            "command": "cd backend && pylint --output-format=text main.py auth.py security.py config.py engine.py 2>&1 || true",
+            "expected": "Pylint output with score"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-1-4",
+          "description": "Run pip-audit for dependency vulnerabilities",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "expected_output": "Document with: Vulnerable dependencies list",
+          "verification": {
+            "type": "command",
+            "command": "cd backend && pip-audit -r requirements.txt --format=json 2>&1 || true",
+            "expected": "pip-audit JSON output"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-1-5",
+          "description": "Run Vulture for dead code detection",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "expected_output": "Document with: Unused code candidates",
+          "verification": {
+            "type": "command",
+            "command": "cd backend && vulture . --min-confidence 100 2>&1 || true",
+            "expected": "Vulture output"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-2-investigate",
+      "name": "Analyze Findings and Categorize",
+      "type": "investigation",
+      "description": "Analyze audit results, categorize by severity (CRITICAL/HIGH/MEDIUM/LOW), create prioritized fix list",
+      "depends_on": [
+        "phase-1-reproduce"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-2-1",
+          "description": "Create AUDIT_REPORT.md with all findings categorized by severity",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [
+            ".auto-claude/specs/003-corrections/AUDIT_REPORT.md"
+          ],
+          "patterns_from": [],
+          "expected_output": "AUDIT_REPORT.md with: (1) CRITICAL issues, (2) HIGH issues, (3) MEDIUM issues, (4) LOW issues, (5) Statistics",
+          "verification": {
+            "type": "command",
+            "command": "test -f .auto-claude/specs/003-corrections/AUDIT_REPORT.md && grep -c 'CRITICAL\\|HIGH\\|MEDIUM\\|LOW' .auto-claude/specs/003-corrections/AUDIT_REPORT.md",
+            "expected": "File exists and contains severity categories"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-2-2",
+          "description": "Document known CRITICAL issue: datetime.utcnow() deprecation in auth.py",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "expected_output": "Documented in AUDIT_REPORT.md with exact lines and fix strategy",
+          "verification": {
+            "type": "command",
+            "command": "grep -c 'utcnow' backend/auth.py",
+            "expected": "4 occurrences"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-2-3",
+          "description": "Document HIGH issue: python-jose deprecated dependency",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "expected_output": "Documented in AUDIT_REPORT.md with removal plan",
+          "verification": {
+            "type": "command",
+            "command": "grep 'python-jose' backend/requirements.txt",
+            "expected": "python-jose[cryptography]==3.3.0"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-3-fix-critical",
+      "name": "Fix CRITICAL Issues",
+      "type": "implementation",
+      "description": "Correct all CRITICAL severity issues with proper backups and tests",
+      "depends_on": [
+        "phase-2-investigate"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-3-1",
+          "description": "Create backup of auth.py before modification",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cp backend/auth.py backend/auth.py.backup.$(date +%Y%m%d) && ls backend/auth.py.backup.*",
+            "expected": "Backup file created"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-3-2",
+          "description": "Fix datetime.utcnow() deprecation - replace with datetime.now(timezone.utc)",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/auth.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "notes": "Add 'from datetime import timezone' import, replace all 4 occurrences of datetime.utcnow() with datetime.now(timezone.utc)",
+          "verification": {
+            "type": "command",
+            "command": "grep -c 'timezone.utc' backend/auth.py && python3 -m py_compile backend/auth.py",
+            "expected": "At least 4 occurrences, syntax OK"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-3-3",
+          "description": "Add test for JWT token with timezone-aware datetime",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/tests/test_auth.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "backend/tests/test_auth.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python3 -m pytest tests/test_auth.py -v -k 'jwt or token' 2>&1 | tail -20",
+            "expected": "All JWT tests pass"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-4-fix-high",
+      "name": "Fix HIGH Issues",
+      "type": "implementation",
+      "description": "Correct all HIGH severity issues",
+      "depends_on": [
+        "phase-3-fix-critical"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-4-1",
+          "description": "Remove deprecated python-jose from requirements.txt",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/requirements.txt"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "notes": "Remove line: python-jose[cryptography]==3.3.0 - PyJWT is already present and sufficient",
+          "verification": {
+            "type": "command",
+            "command": "! grep 'python-jose' backend/requirements.txt && grep 'PyJWT' backend/requirements.txt",
+            "expected": "python-jose removed, PyJWT present"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-4-2",
+          "description": "Update pyproject.toml with security rules (S prefix)",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/pyproject.toml"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "notes": "Add S, C4, UP to select list; add per-file-ignores for tests",
+          "verification": {
+            "type": "command",
+            "command": "grep -E 'select.*=.*\\[.*S' backend/pyproject.toml",
+            "expected": "S rule in select list"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-4-3",
+          "description": "Run Ruff with new config to verify and auto-fix issues",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/main.py",
+            "backend/engine.py",
+            "backend/auth.py",
+            "backend/security.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && ruff check --fix . && ruff check --select=E,F,I,S,B,C4,UP . 2>&1 | head -30",
+            "expected": "Fewer or zero errors"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-4-4",
+          "description": "Run Pylint and achieve score >= 9.0",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && pylint main.py auth.py security.py config.py engine.py --fail-under=9.0 2>&1 | tail -5",
+            "expected": "Score >= 9.0"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-5-fix-docker",
+      "name": "Fix Docker Security Issues (MEDIUM)",
+      "type": "implementation",
+      "description": "Optimize Dockerfile and docker-compose.yml for security",
+      "depends_on": [
+        "phase-4-fix-high"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-5-1",
+          "description": "Update Dockerfile: add non-root user, optimize layers",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/Dockerfile"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "notes": "Add USER appuser, group creation, minimal permissions",
+          "verification": {
+            "type": "command",
+            "command": "grep -E 'USER|useradd|adduser' backend/Dockerfile",
+            "expected": "Non-root user configuration present"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-5-2",
+          "description": "Add resource limits to docker-compose.yml",
+          "service": "backend",
+          "files_to_modify": [
+            "docker-compose.yml"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "notes": "Add deploy.resources.limits for memory and cpus",
+          "verification": {
+            "type": "command",
+            "command": "grep -E 'mem_limit|cpus|memory' docker-compose.yml || grep -E 'limits:' docker-compose.yml",
+            "expected": "Resource limits present"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-5-3",
+          "description": "Verify Docker build succeeds with new configuration",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "docker compose build backend 2>&1 | tail -10",
+            "expected": "Successfully built"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-6-harden",
+      "name": "Harden and Verify",
+      "type": "integration",
+      "description": "Add comprehensive tests for all fixes, verify no regressions",
+      "depends_on": [
+        "phase-5-fix-docker"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-6-1",
+          "description": "Run full test suite to verify no regressions",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python3 -m pytest tests/ -v --tb=short 2>&1 | tail -30",
+            "expected": "All tests pass"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-6-2",
+          "description": "Verify all Python files pass syntax check",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "python3 -m py_compile backend/*.py backend/tools/*.py backend/services/*.py 2>&1 && echo 'All syntax OK'",
+            "expected": "All syntax OK"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-6-3",
+          "description": "Final pip-audit scan to verify 0 vulnerabilities",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && pip-audit -r requirements.txt 2>&1",
+            "expected": "No known vulnerabilities found"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-6-4",
+          "description": "Deploy and verify health check passes",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "docker compose up -d backend && sleep 10 && curl -s http://localhost:8001/health",
+            "expected": "{\"status\":\"ok\"}"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-6-5",
+          "description": "Update AUDIT_REPORT.md with final status and all fixes applied",
+          "service": "backend",
+          "files_to_modify": [
+            ".auto-claude/specs/003-corrections/AUDIT_REPORT.md"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "grep -c 'FIXED\\|RESOLVED' .auto-claude/specs/003-corrections/AUDIT_REPORT.md",
+            "expected": "Multiple FIXED/RESOLVED entries"
+          },
+          "status": "pending"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_phases": 6,
+    "total_subtasks": 20,
+    "services_involved": [
+      "backend"
+    ],
+    "parallelism": {
+      "max_parallel_phases": 1,
+      "parallel_groups": [],
+      "recommended_workers": 1,
+      "speedup_estimate": "Sequential execution required due to investigation dependencies"
+    },
+    "startup_command": "source auto-claude/.venv/bin/activate && python auto-claude/run.py --spec 003 --parallel 1"
+  },
+  "verification_strategy": {
+    "risk_level": "high",
+    "skip_validation": false,
+    "test_creation_phase": "phase-6-harden",
+    "test_types_required": [
+      "unit",
+      "integration"
+    ],
+    "security_scanning_required": true,
+    "staging_deployment_required": false,
+    "acceptance_criteria": [
+      "All existing tests pass",
+      "Pylint score >= 9.0",
+      "0 Ruff errors (E,F,I,S,B,C4,UP rules)",
+      "0 pip-audit vulnerabilities",
+      "python-jose fully removed",
+      "datetime.utcnow() replaced globally",
+      "Docker build succeeds",
+      "Health check passes"
+    ],
+    "verification_steps": [
+      {
+        "name": "Syntax Validation",
+        "command": "python3 -m py_compile backend/*.py backend/tools/*.py",
+        "expected_outcome": "All files compile without errors",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Unit Tests",
+        "command": "cd backend && pytest tests/ -v --tb=short",
+        "expected_outcome": "All tests pass",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Ruff Security Scan",
+        "command": "cd backend && ruff check --select=E,F,I,S,B,C4,UP .",
+        "expected_outcome": "0 errors",
+        "type": "security",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Pylint Score",
+        "command": "cd backend && pylint --fail-under=9.0 main.py auth.py security.py config.py engine.py",
+        "expected_outcome": "Score >= 9.0",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Dependency Audit",
+        "command": "cd backend && pip-audit -r requirements.txt",
+        "expected_outcome": "No known vulnerabilities",
+        "type": "security",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Docker Build",
+        "command": "docker compose build backend",
+        "expected_outcome": "Build succeeds",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Health Check",
+        "command": "curl -s http://localhost:8001/health",
+        "expected_outcome": "Returns {\"status\":\"ok\"}",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      }
+    ],
+    "reasoning": "High risk security audit requires comprehensive testing: syntax validation, unit tests, security scans (Ruff S-rules + pip-audit), code quality (Pylint), and deployment verification."
+  },
+  "qa_acceptance": {
+    "unit_tests": {
+      "required": true,
+      "commands": [
+        "cd backend && pytest tests/ -v --cov=backend --cov-report=term-missing"
+      ],
+      "minimum_coverage": 80
+    },
+    "integration_tests": {
+      "required": true,
+      "commands": [
+        "cd backend && pytest tests/test_full_system_check.py -v"
+      ],
+      "services_to_test": [
+        "backend"
+      ]
+    },
+    "e2e_tests": {
+      "required": false,
+      "commands": [],
+      "flows": []
+    },
+    "browser_verification": {
+      "required": true,
+      "pages": [
+        {
+          "url": "http://localhost:8001/health",
+          "checks": [
+            "returns JSON with status:ok"
+          ]
+        },
+        {
+          "url": "http://localhost:8001/api/stats",
+          "checks": [
+            "returns valid JSON with tools_count"
+          ]
+        }
+      ]
+    },
+    "database_verification": {
+      "required": true,
+      "checks": [
+        "sqlite3 data/auth.db '.tables' shows: users api_keys sessions login_attempts",
+        "SELECT COUNT(*) FROM users returns >= 1 (admin user)"
+      ]
+    },
+    "security_verification": {
+      "required": true,
+      "checks": [
+        "No hardcoded secrets: ruff check --select=S105,S106,S107 backend/",
+        "JWT secret from env: grep 'os.getenv.*JWT_SECRET' backend/auth.py",
+        "Passwords hashed: grep 'pbkdf2_hmac' backend/auth.py",
+        "Command blacklist: grep 'FORBIDDEN_COMMANDS' backend/security.py"
+      ]
+    }
+  },
+  "qa_signoff": null,
+  "last_updated": "2026-01-01T00:12:44.021213+00:00"
+}

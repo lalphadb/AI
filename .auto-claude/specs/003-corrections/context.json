@@ -1,0 +1,71 @@
+{
+  "task_description": "Complete security and code quality audit for AI Orchestrator v5.2 with corrections for CRITICAL and HIGH severity issues",
+  "scoped_services": ["backend"],
+  "files_to_modify": {
+    "backend": [
+      "backend/auth.py",
+      "backend/security.py",
+      "backend/config.py",
+      "backend/requirements.txt",
+      "backend/pyproject.toml",
+      "backend/main.py",
+      "backend/engine.py",
+      "backend/Dockerfile"
+    ],
+    "root": [
+      "docker-compose.yml"
+    ]
+  },
+  "files_to_reference": [
+    "backend/tests/test_security.py",
+    "backend/tests/test_auth.py",
+    "CLAUDE.md"
+  ],
+  "patterns": {
+    "test_pattern": "Class-based tests with @pytest.fixture(autouse=True), descriptive docstrings, explicit assertions",
+    "security_pattern": "Return Tuple[bool, str] for (allowed, reason) with logger.warning for blocked attempts",
+    "config_pattern": "pydantic_settings.BaseSettings with @lru_cache() for caching"
+  },
+  "existing_implementations": {
+    "jwt_handling": "backend/auth.py - Uses PyJWT with HS256, token expiration, refresh tokens stored in sessions table",
+    "password_hashing": "backend/auth.py - pbkdf2_hmac with random salt (salt$hash format)",
+    "command_validation": "backend/security.py - Blacklist approach with FORBIDDEN_COMMANDS set and regex FORBIDDEN_PATTERNS",
+    "path_validation": "backend/security.py - Allowlist/blocklist with symlink detection",
+    "rate_limiting": "backend/rate_limiter.py - Token bucket with sliding window"
+  },
+  "known_issues": {
+    "critical": [
+      {
+        "issue": "datetime.utcnow() deprecated",
+        "files": ["backend/auth.py"],
+        "lines": [350, 351, 359, 432],
+        "fix": "Replace with datetime.now(timezone.utc)"
+      }
+    ],
+    "high": [
+      {
+        "issue": "python-jose deprecated alongside PyJWT",
+        "files": ["backend/requirements.txt"],
+        "fix": "Remove python-jose[cryptography]==3.3.0"
+      },
+      {
+        "issue": "Ruff config missing security rules (S prefix)",
+        "files": ["backend/pyproject.toml"],
+        "fix": "Add S, C4, UP to select list"
+      }
+    ],
+    "medium": [
+      {
+        "issue": "Dockerfile runs as root",
+        "files": ["backend/Dockerfile"],
+        "fix": "Add non-root user, use multi-stage build"
+      },
+      {
+        "issue": "docker-compose.yml missing resource limits",
+        "files": ["docker-compose.yml"],
+        "fix": "Add mem_limit, cpus deploy constraints"
+      }
+    ]
+  },
+  "created_at": "2025-12-31T19:15:00Z"
+}

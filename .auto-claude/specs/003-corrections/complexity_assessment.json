@@ -1,0 +1,129 @@
+{
+  "complexity": "complex",
+  "workflow_type": "investigation",
+  "confidence": 0.88,
+  "reasoning": "Comprehensive security and code quality audit across 24+ Python files, Docker configurations, and infrastructure. Requires multiple external analysis tools (Bandit, Pylint, Vulture, pip-audit), security-sensitive code review (JWT, shell sanitization, credentials), and cross-cutting architectural analysis. High risk due to potential corrections affecting production functionality.",
+
+  "analysis": {
+    "scope": {
+      "estimated_files": 24,
+      "estimated_services": 2,
+      "is_cross_cutting": true,
+      "notes": "Full codebase audit: 12 backend modules + 12 tool files + Docker configs. All files analyzed, but only CRITICAL/HIGH issues corrected."
+    },
+    "integrations": {
+      "external_services": [],
+      "new_dependencies": ["ruff", "pylint", "bandit", "vulture", "pip-audit", "pytest-cov"],
+      "research_needed": false,
+      "notes": "Analysis tools are well-documented industry standards. No new runtime integrations, only dev/audit tooling."
+    },
+    "infrastructure": {
+      "docker_changes": false,
+      "database_changes": false,
+      "config_changes": true,
+      "notes": "Dockerfile and docker-compose.yml will be audited but changes only if CRITICAL/HIGH issues found. Config changes may include .env security improvements."
+    },
+    "knowledge": {
+      "patterns_exist": true,
+      "research_required": true,
+      "unfamiliar_tech": [],
+      "notes": "Patterns exist in codebase. Research needed for security best practices (OWASP, CWE) to validate findings and recommend fixes."
+    },
+    "risk": {
+      "level": "high",
+      "concerns": [
+        "Corrections could break existing API functionality",
+        "Security changes might affect JWT authentication flow",
+        "Shell command sanitization fixes could break tool execution",
+        "Database access pattern changes could affect performance"
+      ],
+      "notes": "Strong constraint to maintain API compatibility. All changes require backup (.backup.YYYYMMDD) and py_compile validation."
+    }
+  },
+
+  "recommended_phases": [
+    "discovery",
+    "requirements",
+    "research",
+    "context",
+    "spec_writing",
+    "self_critique",
+    "planning",
+    "validation"
+  ],
+
+  "flags": {
+    "needs_research": true,
+    "needs_self_critique": true,
+    "needs_infrastructure_setup": false
+  },
+
+  "validation_recommendations": {
+    "risk_level": "high",
+    "skip_validation": false,
+    "minimal_mode": false,
+    "test_types_required": ["unit", "integration", "e2e"],
+    "security_scan_required": true,
+    "staging_deployment_required": false,
+    "reasoning": "Security-focused audit with corrections to auth, shell execution, and API validation requires full test coverage. Security scan mandatory to verify fixes don't introduce new vulnerabilities. No staging needed since local Docker environment suffices for testing."
+  },
+
+  "audit_dimensions": {
+    "security": {
+      "priority": "critical",
+      "areas": [
+        "Hardcoded credentials/secrets",
+        "API input validation",
+        "JWT implementation (expiration, refresh, storage)",
+        "File/Docker permissions",
+        "Dependency vulnerabilities (pip-audit)",
+        "Shell command sanitization"
+      ]
+    },
+    "code_quality": {
+      "priority": "high",
+      "tools": ["ruff", "pylint", "bandit", "vulture", "pytest-cov"],
+      "metrics": {
+        "pylint_minimum_score": 8.0
+      }
+    },
+    "architecture": {
+      "priority": "medium",
+      "areas": [
+        "Separation of responsibilities",
+        "Design patterns",
+        "Coupling analysis",
+        "Error handling/logging",
+        "Configuration management"
+      ]
+    },
+    "performance": {
+      "priority": "medium",
+      "areas": [
+        "N+1 query patterns",
+        "Blocking synchronous calls",
+        "Connection pool management",
+        "Cache strategy"
+      ]
+    },
+    "docker": {
+      "priority": "medium",
+      "areas": [
+        "Dockerfile best practices",
+        "docker-compose health/limits",
+        "Volume permissions"
+      ]
+    }
+  },
+
+  "estimated_effort": {
+    "discovery_phase": "30min",
+    "analysis_phase": "2-3h",
+    "spec_writing_phase": "1-2h",
+    "implementation_phase": "4-8h",
+    "validation_phase": "1-2h",
+    "total": "9-15h"
+  },
+
+  "created_at": "2025-12-31T12:00:00Z"
+}

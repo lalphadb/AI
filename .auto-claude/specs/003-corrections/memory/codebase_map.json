@@ -1,0 +1,15 @@
+{
+  "discovered_files": {
+    ".venv-audit/": {
+      "description": "Audit tools installed in .venv-audit/ virtual environment. Run tools via: ./.venv-audit/bin/python -m ruff, ./.venv-audit/bin/python -m pylint, ./.venv-audit/bin/python -m vulture. Versions: ruff 0.14.10, pylint 4.0.4, vulture 2.14, pip_audit 2.10.0, pytest-cov 7.0.0",
+      "category": "environment",
+      "discovered_at": "2026-01-01T00:11:50.165614+00:00"
+    },
+    "ai-orchestrator/backend/auth.py": {
+      "description": "SQL injection vector (S608) at line 327 - uses f-string for SQL UPDATE query construction. CRITICAL priority fix needed.",
+      "category": "security",
+      "discovered_at": "2026-01-01T00:14:40.817858+00:00"
+    }
+  },
+  "last_updated": "2026-01-01T00:14:40.817865+00:00"
+}

@@ -1,0 +1,67 @@
+== RUFF SECURITY SCAN SUMMARY ==
+Run Date: 2024
+Command: ruff check --select=E,F,I,S,B,C4,UP ai-orchestrator/backend/
+Total Errors: 625
+Fixable: 249 with --fix (8 hidden with --unsafe-fixes)
+
+== SECURITY ISSUES (S-prefix) ==
+[HIGH] S608 (1) - SQL injection vector detected
+[HIGH] S306 (1) - Suspicious mktemp usage
+[MEDIUM] S324 (3) - Insecure hash function (hashlib)
+[MEDIUM] S105 (5) - Hardcoded password strings
+[MEDIUM] S106 (5) - Hardcoded password function args
+[MEDIUM] S607 (8) - Subprocess with partial path
+[LOW] S104 (2) - Binding to all interfaces 0.0.0.0
+[LOW] S108 (9) - Hardcoded temp file paths
+[LOW] S110 (4) - Exception swallowed (try-except-pass)
+[LOW] S112 (1) - try-except-continue
+[INFO] S101 (130) - assert statements (mostly in tests)
+
+== CODE QUALITY ISSUES ==
+[E501] (103) - Line too long (>100 chars)
+[E722] (4) - Bare except clauses
+[E712] (2) - True/False comparison issues
+[E741] (2) - Ambiguous variable names
+[E402] (1) - Import not at top of file
+
+== UNUSED IMPORTS & VARIABLES ==
+[F401] (56) - Unused imports
+[F541] (2) - f-string missing placeholders
+[F811] (1) - Redefined while unused
+[F841] (1) - Unused variable
+
+== IMPORT ORGANIZATION ==
+[I001] (22) - Unsorted/unformatted imports
+
+== PYUPGRADE (Python 3.12 modernization) ==
+[UP006] (104) - Use list instead of typing.List
+[UP045] (82) - Use X | None instead of Optional[X]
+[UP035] (42) - Deprecated typing imports
+[UP015] (7) - Redundant open modes
+[UP041] (2) - Use TimeoutError instead of socket.timeout
+[UP011] (1) - lru_cache without parameters
+
+== BUGBEAR ==
+[B008] (14) - Function call in default argument (FastAPI Depends pattern)
+[B007] (3) - Unused loop control variable
+[B904] (3) - Raise without from inside except
+[B905] (3) - zip without explicit strict
+[B006] (1) - Mutable argument default
+
+== PRIORITY FOR FIXES ==
+CRITICAL (Security):
+- S608: SQL injection - MUST FIX (backend/auth.py:327)
+- S306: mktemp usage - MUST FIX
+
+HIGH (Security):
+- S324: Insecure hash - Review & potentially fix
+- S105/S106: Hardcoded passwords - Verify if false positives
+
+MEDIUM (Code Quality):
+- E722: Bare except - Add specific exceptions
+- B904: Raise from - Add proper exception chaining
+- UP* issues: Auto-fixable with --fix
+
+LOW (Cleanup):
+- F401: Unused imports - Clean up
+- I001: Import order - Auto-fixable with --fix
