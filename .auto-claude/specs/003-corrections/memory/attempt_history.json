@@ -47,11 +47,95 @@
         }
       ],
       "status": "completed"
+    },
+    "subtask-1-5": {
+      "attempts": [
+        {
+          "session": 5,
+          "timestamp": "2025-12-31T19:24:06.518660",
+          "approach": "Implemented: Run Vulture for dead code detection",
+          "success": true,
+          "error": null
+        }
+      ],
+      "status": "completed"
+    },
+    "subtask-2-1": {
+      "attempts": [
+        {
+          "session": 6,
+          "timestamp": "2025-12-31T19:27:04.242631",
+          "approach": "Implemented: Create AUDIT_REPORT.md with all findings categorized by severity",
+          "success": true,
+          "error": null
+        }
+      ],
+      "status": "completed"
+    },
+    "subtask-2-2": {
+      "attempts": [
+        {
+          "session": 7,
+          "timestamp": "2025-12-31T19:28:38.969166",
+          "approach": "Implemented: Document known CRITICAL issue: datetime.utcnow() deprecation in auth.py",
+          "success": true,
+          "error": null
+        }
+      ],
+      "status": "completed"
+    },
+    "subtask-2-3": {
+      "attempts": [
+        {
+          "session": 8,
+          "timestamp": "2025-12-31T19:30:32.308181",
+          "approach": "Implemented: Document HIGH issue: python-jose deprecated dependency",
+          "success": true,
+          "error": null
+        }
+      ],
+      "status": "completed"
+    },
+    "subtask-3-1": {
+      "attempts": [
+        {
+          "session": 9,
+          "timestamp": "2025-12-31T19:31:43.902181",
+          "approach": "Implemented: Create backup of auth.py before modification",
+          "success": true,
+          "error": null
+        }
+      ],
+      "status": "completed"
+    },
+    "subtask-3-2": {
+      "attempts": [
+        {
+          "session": 10,
+          "timestamp": "2025-12-31T19:33:07.438112",
+          "approach": "Implemented: Fix datetime.utcnow() deprecation - replace with datetime.now(timezone.utc)",
+          "success": true,
+          "error": null
+        }
+      ],
+      "status": "completed"
+    },
+    "subtask-3-3": {
+      "attempts": [
+        {
+          "session": 11,
+          "timestamp": "2025-12-31T19:35:33.584233",
+          "approach": "Implemented: Add test for JWT token with timezone-aware datetime",
+          "success": true,
+          "error": null
+        }
+      ],
+      "status": "completed"
     }
   },
   "stuck_subtasks": [],
   "metadata": {
     "created_at": "2025-12-31T19:09:42.193278",
-    "last_updated": "2025-12-31T19:21:46.320762"
+    "last_updated": "2025-12-31T19:35:33.584236"
   }
 }

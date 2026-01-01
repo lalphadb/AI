@@ -11,3 +11,8 @@ _Context: Ruff security scan of backend - S101 is expected in test files_
 onnxruntime==1.19.2 is not available for Python 3.13 - only 1.20.0+ exists. pip-audit will fail if trying to resolve this. Use filtered requirements file excluding onnxruntime for auditing.
 
 _Context: Running pip-audit on requirements.txt with Python 3.13 audit environment_
+
+## [2026-01-01 00:31]
+Backup files (*.backup.*) are in .gitignore so they won't be committed. This is intentional - backups are local safety copies, not version-controlled artifacts.
+
+_Context: Creating backup of auth.py before CRITICAL security fix for SQL injection_

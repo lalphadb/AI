@@ -6,9 +6,9 @@
       "discovered_at": "2026-01-01T00:11:50.165614+00:00"
     },
     "ai-orchestrator/backend/auth.py": {
-      "description": "SQL injection vector (S608) at line 327 - uses f-string for SQL UPDATE query construction. CRITICAL priority fix needed.",
-      "category": "security",
-      "discovered_at": "2026-01-01T00:14:40.817858+00:00"
+      "description": "Fixed datetime.utcnow() deprecation warning (Python 3.12+). All 4 occurrences replaced with datetime.now(timezone.utc): create_access_token (2x), create_refresh_token (1x), create_api_key (1x). Import updated to include timezone from datetime module.",
+      "category": "security_fix",
+      "discovered_at": "2026-01-01T00:32:58.072843+00:00"
     },
     "ai-orchestrator/backend/main.py": {
       "description": "Pylint score 8.20/10. Main issues: 19 unused imports, 92 total issues, module too large (1425 lines vs 1000 limit). High complexity in react_loop functions.",
@@ -24,7 +24,17 @@
       "description": "Vulture dead code analysis: 0 issues at 100% confidence, 11 unused imports at 90% confidence (engine.py:1, main.py:7, services/rag/reranker.py:1, tests/test_security.py:1). Most 60% confidence results are false positives: FastAPI endpoints, pytest fixtures, Pydantic config attributes, dynamically-loaded tool functions, and watchdog event handlers.",
       "category": "dead_code",
       "discovered_at": "2026-01-01T00:23:07.152281+00:00"
+    },
+    ".auto-claude/specs/003-corrections/AUDIT_REPORT.md": {
+      "description": "Comprehensive security audit report created with categorized findings: 3 CRITICAL (SQL injection auth.py:327, datetime.utcnow() x4, mktemp), 8 HIGH (python-jose 2 CVEs, python-multipart CVE, starlette 2 CVEs, ecdsa CVE, S324 hash, Pylint 8.20 target 9.0, Ruff config, hardcoded passwords), 15 MEDIUM (Docker root user, no resource limits, code complexity). Remediation plan included.",
+      "category": "audit",
+      "discovered_at": "2026-01-01T00:26:49.301710+00:00"
+    },
+    "ai-orchestrator/backend/auth.py.backup.20251231": {
+      "description": "Backup of auth.py created before CRITICAL SQL injection fix (line 327). Original file is 17924 bytes. Backup path is ai-orchestrator/backend/ not just backend/ as referenced in subtask.",
+      "category": "backup",
+      "discovered_at": "2026-01-01T00:31:28.114692+00:00"
     }
   },
-  "last_updated": "2026-01-01T00:23:07.152289+00:00"
+  "last_updated": "2026-01-01T00:32:58.072850+00:00"
 }
