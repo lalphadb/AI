@@ -34,7 +34,12 @@
       "description": "Backup of auth.py created before CRITICAL SQL injection fix (line 327). Original file is 17924 bytes. Backup path is ai-orchestrator/backend/ not just backend/ as referenced in subtask.",
       "category": "backup",
       "discovered_at": "2026-01-01T00:31:28.114692+00:00"
+    },
+    "ai-orchestrator/backend/pyproject.toml": {
+      "description": "Comprehensive Ruff configuration with per-file-ignores. Key ignores: B008 for FastAPI Depends(), S101/S105/S106/S108 for test files, S607 for tools and system monitoring. Auto-fix reduced errors from 804 to 59 (93% reduction).",
+      "category": "configuration",
+      "discovered_at": "2026-01-01T00:41:28.629501+00:00"
     }
   },
-  "last_updated": "2026-01-01T00:32:58.072850+00:00"
+  "last_updated": "2026-01-01T00:41:28.629507+00:00"
 }
