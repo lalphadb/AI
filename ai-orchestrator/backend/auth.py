@@ -8,7 +8,7 @@ import hashlib
 import os
 import secrets
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 import jwt
@@ -347,8 +347,8 @@ def authenticate_user(username: str, password: str) -> Optional[UserInDB]:
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Créer un token JWT d'accès"""
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire, "iat": datetime.utcnow(), "type": "access"})
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire, "iat": datetime.now(timezone.utc), "type": "access"})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -356,7 +356,7 @@ def create_refresh_token(user_id: int, ip_address: str = "", user_agent: str = "
     """Créer un refresh token"""
     token = secrets.token_urlsafe(64)
     token_hash = hash_token(token)
-    expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
 
     conn = get_auth_db()
     c = conn.cursor()
@@ -429,7 +429,7 @@ def create_api_key(
     key_hash = hash_token(key)
     expires_at = None
     if expires_days:
-        expires_at = datetime.utcnow() + timedelta(days=expires_days)
+        expires_at = datetime.now(timezone.utc) + timedelta(days=expires_days)
 
     conn = get_auth_db()
     c = conn.cursor()
