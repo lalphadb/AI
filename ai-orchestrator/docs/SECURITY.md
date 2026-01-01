@@ -357,3 +357,55 @@ crowdsec:
 ---
 
 *Guide de Sécurité - AI Orchestrator v5.2*
+
+---
+
+## Audit de Sécurité - 2026-01-01
+
+### Résumé de l'Audit Auto-Claude
+
+Un audit complet de sécurité a été réalisé par Auto-Claude le 2026-01-01.
+
+| Métrique | Avant | Après |
+|----------|-------|-------|
+| Vulnérabilités pip-audit | 6 CVEs | **0** |
+| Score Pylint | 8.20/10 | **9.68/10** |
+| Erreurs Ruff | 804 | **59** |
+
+### CVEs Corrigées
+
+| CVE | Package | Sévérité | Action |
+|-----|---------|----------|--------|
+| CVE-2024-33663 | python-jose | CRITICAL | Supprimé |
+| CVE-2024-33664 | python-jose | CRITICAL | Supprimé |
+| CVE-2024-53981 | python-multipart | HIGH | Upgrade → 0.0.18 |
+| CVE-2024-47874 | starlette | HIGH | FastAPI → 0.115.6 |
+| CVE-2025-54121 | starlette | HIGH | FastAPI → 0.115.6 |
+| CVE-2024-23342 | ecdsa | HIGH | Supprimé (transitive) |
+
+### Corrections Appliquées
+
+1. **datetime.utcnow()** : Remplacé par `datetime.now(timezone.utc)` (4 occurrences)
+2. **Dockerfile** : Ajout utilisateur non-root `appuser` (UID 1000)
+3. **Docker Compose** : Limites ressources (2 CPU, 2GB RAM)
+4. **Ruff** : Règles sécurité activées (S, C4, UP)
+5. **python-jose** : Complètement supprimé (PyJWT utilisé exclusivement)
+
+### Items Vérifiés Manuellement
+
+| Issue | Fichier | Verdict |
+|-------|---------|---------|
+| SQL Injection (S608) | auth.py:327 | ✅ Faux positif (paramétré) |
+| mktemp insécure (S306) | test_auth.py:16 | ⚠️ Tests seulement |
+| MD5/SHA1 (S324) | indexer.py | ✅ Checksum, pas sécurité |
+
+### Rapport Complet
+
+Le rapport d'audit détaillé est disponible dans :
+```
+.auto-claude/specs/003-corrections/AUDIT_REPORT.md
+```
+
+---
+
+*Dernière mise à jour : 2026-01-01*

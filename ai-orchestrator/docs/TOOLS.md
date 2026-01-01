@@ -1,8 +1,10 @@
-# 🔧 Référence des Outils - AI Orchestrator v5.2
+# 🔧 Référence des Outils - AI Orchestrator v5.2.1
 
 ## Vue d'Ensemble
 
-AI Orchestrator dispose de **57 outils** organisés en 9 catégories. Chaque outil est accessible via l'API et utilisable par l'agent ReAct.
+AI Orchestrator dispose de **70 outils** organisés en 10 catégories. Chaque outil est accessible via l'API et utilisable par l'agent ReAct.
+
+> **Mise à jour** : 2026-01-01 - Ajout de 11 outils Gmail
 
 ---
 
@@ -10,15 +12,197 @@ AI Orchestrator dispose de **57 outils** organisés en 9 catégories. Chaque out
 
 | Catégorie | Outils | Description |
 |-----------|--------|-------------|
-| [Système](#système) | 9 | Commandes système, services, processus |
+| [Système](#système) | 12 | Commandes système, services, processus |
 | [Docker](#docker) | 6 | Gestion des conteneurs |
-| [Fichiers](#fichiers) | 5 | Lecture, écriture, recherche |
+| [Fichiers](#fichiers) | 4 | Lecture, écriture, recherche |
 | [Git](#git) | 5 | Gestion des dépôts |
-| [Réseau](#réseau) | 7 | Diagnostic réseau |
+| [Réseau](#réseau) | 4 | Diagnostic réseau |
 | [Mémoire](#mémoire) | 5 | Mémoire sémantique ChromaDB |
+| [RAG](#rag) | 4 | Recherche documentaire augmentée |
 | [Ollama](#ollama) | 8 | Gestion des modèles LLM |
-| [IA](#ia) | 5 | Outils d'intelligence artificielle |
-| [Meta](#meta) | 6 | Outils d'introspection |
+| [Gmail](#gmail) | 11 | Gestion emails Google |
+| [Meta](#meta) | 11 | Outils d'introspection |
+
+---
+
+## Gmail ⭐ NOUVEAU
+
+### gmail_search
+
+Recherche des emails avec requête Google (from:, subject:, is:unread, etc.).
+
+```json
+{
+  "name": "gmail_search",
+  "parameters": {
+    "query": "string (required) - ex: from:amazon is:unread",
+    "max_results": "int (default: 20)",
+    "include_body": "bool (default: false)"
+  }
+}
+```
+
+---
+
+### gmail_list
+
+Liste les emails par label (INBOX, SENT, SPAM, etc.).
+
+```json
+{
+  "name": "gmail_list",
+  "parameters": {
+    "label_id": "string (default: INBOX)",
+    "max_results": "int (default: 20)",
+    "include_body": "bool (default: false)"
+  }
+}
+```
+
+---
+
+### gmail_read
+
+Lit le contenu complet d'un email.
+
+```json
+{
+  "name": "gmail_read",
+  "parameters": {
+    "message_id": "string (required)",
+    "mark_as_read": "bool (default: true)"
+  }
+}
+```
+
+---
+
+### gmail_send
+
+Envoie un nouvel email.
+
+```json
+{
+  "name": "gmail_send",
+  "parameters": {
+    "to": "string (required)",
+    "subject": "string (required)",
+    "body": "string (required)",
+    "cc": "string (optional)",
+    "bcc": "string (optional)",
+    "is_html": "bool (default: false)"
+  }
+}
+```
+
+---
+
+### gmail_reply
+
+Répond à un email existant.
+
+```json
+{
+  "name": "gmail_reply",
+  "parameters": {
+    "message_id": "string (required)",
+    "body": "string (required)",
+    "reply_all": "bool (default: false)"
+  }
+}
+```
+
+---
+
+### gmail_delete
+
+Supprime des emails (déplace vers corbeille).
+
+```json
+{
+  "name": "gmail_delete",
+  "parameters": {
+    "message_ids": "array[string] (required)"
+  }
+}
+```
+
+---
+
+### gmail_label_list
+
+Liste tous les libellés disponibles.
+
+```json
+{
+  "name": "gmail_label_list",
+  "parameters": {}
+}
+```
+
+---
+
+### gmail_label_create
+
+Crée un nouveau libellé.
+
+```json
+{
+  "name": "gmail_label_create",
+  "parameters": {
+    "name": "string (required)",
+    "background_color": "string (optional)",
+    "text_color": "string (optional)"
+  }
+}
+```
+
+---
+
+### gmail_label_apply
+
+Applique ou retire des libellés à des emails.
+
+```json
+{
+  "name": "gmail_label_apply",
+  "parameters": {
+    "message_ids": "array[string] (required)",
+    "add_label_ids": "array[string] (optional)",
+    "remove_label_ids": "array[string] (optional)"
+  }
+}
+```
+
+---
+
+### gmail_archive
+
+Archive des emails (retire de INBOX).
+
+```json
+{
+  "name": "gmail_archive",
+  "parameters": {
+    "message_ids": "array[string] (required)"
+  }
+}
+```
+
+---
+
+### gmail_stats
+
+Statistiques de la boîte mail.
+
+```json
+{
+  "name": "gmail_stats",
+  "parameters": {}
+}
+```
+
+**Retourne** : nombre d'emails, non lus, threads, etc.
 
 ---
 
@@ -37,18 +221,13 @@ Exécute une commande shell sur le serveur.
 }
 ```
 
-**Exemple** :
-```
-execute_command({"command": "df -h"})
-```
-
 **Restrictions** : Commandes blacklistées interdites (voir SECURITY.md)
 
 ---
 
 ### system_info
 
-Retourne les informations système.
+Informations système (CPU, RAM, disque, OS).
 
 ```json
 {
@@ -57,35 +236,17 @@ Retourne les informations système.
 }
 ```
 
-**Retour** : CPU, RAM, disque, uptime, load average
-
----
-
-### disk_usage
-
-Analyse l'utilisation disque d'un chemin.
-
-```json
-{
-  "name": "disk_usage",
-  "parameters": {
-    "path": "string (default: /)"
-  }
-}
-```
-
 ---
 
 ### process_list
 
-Liste les processus en cours.
+Liste les processus actifs.
 
 ```json
 {
   "name": "process_list",
   "parameters": {
-    "limit": "int (default: 20)",
-    "sort_by": "string (cpu|memory|pid)"
+    "filter": "string (optional)"
   }
 }
 ```
@@ -105,65 +266,18 @@ Vérifie le statut d'un service systemd.
 }
 ```
 
-**Exemple** : `service_status({"service": "docker"})`
-
 ---
 
 ### service_control
 
-Contrôle un service systemd.
+Contrôle un service (start, stop, restart, enable, disable).
 
 ```json
 {
   "name": "service_control",
   "parameters": {
     "service": "string (required)",
-    "action": "string (start|stop|restart|status)"
-  }
-}
-```
-
----
-
-### logs_view
-
-Affiche les logs d'un fichier.
-
-```json
-{
-  "name": "logs_view",
-  "parameters": {
-    "file": "string (required)",
-    "lines": "int (default: 50)",
-    "filter": "string (optional)"
-  }
-}
-```
-
----
-
-### package_update
-
-Met à jour les paquets système.
-
-```json
-{
-  "name": "package_update",
-  "parameters": {}
-}
-```
-
----
-
-### package_install
-
-Installe un paquet.
-
-```json
-{
-  "name": "package_install",
-  "parameters": {
-    "package": "string (required)"
+    "action": "string (required) - start|stop|restart|enable|disable"
   }
 }
 ```
@@ -174,94 +288,27 @@ Installe un paquet.
 
 ### docker_status
 
-Liste les conteneurs Docker.
-
-```json
-{
-  "name": "docker_status",
-  "parameters": {
-    "all": "bool (default: false)"
-  }
-}
-```
-
----
+Liste tous les conteneurs avec leur état.
 
 ### docker_logs
 
-Affiche les logs d'un conteneur.
-
-```json
-{
-  "name": "docker_logs",
-  "parameters": {
-    "container": "string (required)",
-    "lines": "int (default: 100)",
-    "follow": "bool (default: false)"
-  }
-}
-```
-
----
+Récupère les logs d'un conteneur.
 
 ### docker_restart
 
 Redémarre un conteneur.
 
-```json
-{
-  "name": "docker_restart",
-  "parameters": {
-    "container": "string (required)"
-  }
-}
-```
-
----
-
 ### docker_exec
 
 Exécute une commande dans un conteneur.
 
-```json
-{
-  "name": "docker_exec",
-  "parameters": {
-    "container": "string (required)",
-    "command": "string (required)"
-  }
-}
-```
-
----
-
 ### docker_stats
 
-Statistiques des conteneurs.
-
-```json
-{
-  "name": "docker_stats",
-  "parameters": {}
-}
-```
-
----
+Statistiques de ressources des conteneurs.
 
 ### docker_compose
 
-Exécute une commande docker-compose.
-
-```json
-{
-  "name": "docker_compose",
-  "parameters": {
-    "action": "string (up|down|restart|logs|ps)",
-    "service": "string (optional)",
-    "path": "string (default: /home/lalpha/projets/infrastructure/unified-stack)"
-  }
-}
-```
+Exécute des commandes docker compose.
 
 ---
 
@@ -271,83 +318,17 @@ Exécute une commande docker-compose.
 
 Lit le contenu d'un fichier.
 
-```json
-{
-  "name": "read_file",
-  "parameters": {
-    "path": "string (required)",
-    "lines": "int (optional, limit lines)"
-  }
-}
-```
-
----
-
 ### write_file
 
 Écrit du contenu dans un fichier.
 
-```json
-{
-  "name": "write_file",
-  "parameters": {
-    "path": "string (required)",
-    "content": "string (required)",
-    "append": "bool (default: false)"
-  }
-}
-```
+### file_info
 
----
-
-### list_directory
-
-Liste le contenu d'un répertoire.
-
-```json
-{
-  "name": "list_directory",
-  "parameters": {
-    "path": "string (required)",
-    "recursive": "bool (default: false)",
-    "max_depth": "int (default: 2)"
-  }
-}
-```
-
----
+Informations sur un fichier (taille, permissions, dates).
 
 ### search_files
 
-Recherche des fichiers.
-
-```json
-{
-  "name": "search_files",
-  "parameters": {
-    "pattern": "string (required)",
-    "path": "string (default: .)",
-    "type": "string (file|dir|all)"
-  }
-}
-```
-
----
-
-### file_info
-
-Informations sur un fichier.
-
-```json
-{
-  "name": "file_info",
-  "parameters": {
-    "path": "string (required)"
-  }
-}
-```
-
-**Retour** : Taille, permissions, dates, type MIME
+Recherche de fichiers par pattern.
 
 ---
 
@@ -355,81 +336,23 @@ Informations sur un fichier.
 
 ### git_status
 
-Statut du dépôt Git.
-
-```json
-{
-  "name": "git_status",
-  "parameters": {
-    "path": "string (default: .)"
-  }
-}
-```
-
----
+Statut du dépôt git.
 
 ### git_log
 
 Historique des commits.
 
-```json
-{
-  "name": "git_log",
-  "parameters": {
-    "path": "string (default: .)",
-    "limit": "int (default: 10)",
-    "oneline": "bool (default: true)"
-  }
-}
-```
-
----
-
 ### git_diff
 
-Différences dans le dépôt.
-
-```json
-{
-  "name": "git_diff",
-  "parameters": {
-    "path": "string (default: .)",
-    "staged": "bool (default: false)"
-  }
-}
-```
-
----
+Différences entre fichiers/commits.
 
 ### git_pull
 
-Pull les changements.
-
-```json
-{
-  "name": "git_pull",
-  "parameters": {
-    "path": "string (default: .)"
-  }
-}
-```
-
----
+Pull les changements distants.
 
 ### git_branch
 
 Gestion des branches.
-
-```json
-{
-  "name": "git_branch",
-  "parameters": {
-    "path": "string (default: .)",
-    "action": "string (list|current|create|switch)",
-    "name": "string (optional)"
-  }
-}
-```
 
 ---
 
@@ -439,186 +362,61 @@ Gestion des branches.
 
 Ping un hôte.
 
-```json
-{
-  "name": "ping_host",
-  "parameters": {
-    "host": "string (required)",
-    "count": "int (default: 4)"
-  }
-}
-```
-
----
-
 ### dns_lookup
 
 Résolution DNS.
 
-```json
-{
-  "name": "dns_lookup",
-  "parameters": {
-    "domain": "string (required)",
-    "type": "string (default: A)"
-  }
-}
-```
-
----
-
-### check_url
-
-Vérifie une URL HTTP.
-
-```json
-{
-  "name": "check_url",
-  "parameters": {
-    "url": "string (required)",
-    "method": "string (default: GET)",
-    "timeout": "int (default: 10)"
-  }
-}
-```
-
----
-
 ### network_interfaces
 
-Liste les interfaces réseau.
-
-```json
-{
-  "name": "network_interfaces",
-  "parameters": {}
-}
-```
-
----
-
-### udm_status
-
-Statut du UDM-Pro.
-
-```json
-{
-  "name": "udm_status",
-  "parameters": {}
-}
-```
-
----
+Liste des interfaces réseau.
 
 ### udm_network_info
 
 Informations réseau UDM-Pro.
 
-```json
-{
-  "name": "udm_network_info",
-  "parameters": {}
-}
-```
-
 ---
 
-### udm_clients
-
-Liste des clients UDM-Pro.
-
-```json
-{
-  "name": "udm_clients",
-  "parameters": {}
-}
-```
-
----
-
-## Mémoire
+## Mémoire (ChromaDB)
 
 ### memory_store
 
 Stocke une information en mémoire sémantique.
 
-```json
-{
-  "name": "memory_store",
-  "parameters": {
-    "content": "string (required)",
-    "metadata": "object (optional)"
-  }
-}
-```
-
-**Exemple** :
-```json
-{
-  "content": "Le projet JSR utilise React et TailwindCSS",
-  "metadata": {"project": "jsr", "type": "tech_stack"}
-}
-```
-
----
-
 ### memory_recall
 
-Recherche sémantique en mémoire.
-
-```json
-{
-  "name": "memory_recall",
-  "parameters": {
-    "query": "string (required)",
-    "limit": "int (default: 5)"
-  }
-}
-```
-
----
+Recherche une information par similarité.
 
 ### memory_list
 
-Liste les entrées en mémoire.
-
-```json
-{
-  "name": "memory_list",
-  "parameters": {
-    "limit": "int (default: 20)",
-    "filter": "object (optional)"
-  }
-}
-```
-
----
+Liste les mémoires stockées.
 
 ### memory_delete
 
-Supprime une entrée mémoire.
-
-```json
-{
-  "name": "memory_delete",
-  "parameters": {
-    "id": "string (required)"
-  }
-}
-```
-
----
+Supprime une mémoire.
 
 ### memory_stats
 
 Statistiques de la mémoire.
 
-```json
-{
-  "name": "memory_stats",
-  "parameters": {}
-}
-```
+---
+
+## RAG (Retrieval Augmented Generation)
+
+### rag_search
+
+Recherche dans la documentation indexée.
+
+### rag_index
+
+Indexe un fichier.
+
+### rag_index_directory
+
+Indexe un répertoire entier.
+
+### rag_stats
+
+Statistiques du système RAG.
 
 ---
 
@@ -626,255 +424,105 @@ Statistiques de la mémoire.
 
 ### ollama_list
 
-Liste les modèles installés.
-
-```json
-{
-  "name": "ollama_list",
-  "parameters": {}
-}
-```
-
----
-
-### ollama_status
-
-Statut d'Ollama.
-
-```json
-{
-  "name": "ollama_status",
-  "parameters": {}
-}
-```
-
----
+Liste des modèles installés.
 
 ### ollama_ps
 
-Modèles actuellement chargés.
+Modèles actuellement chargés en mémoire.
 
-```json
-{
-  "name": "ollama_ps",
-  "parameters": {}
-}
-```
+### ollama_pull
 
----
+Télécharge un modèle.
+
+### ollama_run
+
+Lance une inférence.
 
 ### ollama_info
 
 Informations sur un modèle.
 
-```json
-{
-  "name": "ollama_info",
-  "parameters": {
-    "model": "string (required)"
-  }
-}
-```
+### ollama_stop
 
----
+Arrête un modèle.
 
 ### ollama_restart
 
-Redémarre Ollama.
+Redémarre le service Ollama.
 
-```json
-{
-  "name": "ollama_restart",
-  "parameters": {}
-}
-```
+### ollama_switch_model
 
----
-
-### ollama_rm
-
-Supprime un modèle.
-
-```json
-{
-  "name": "ollama_rm",
-  "parameters": {
-    "model": "string (required)"
-  }
-}
-```
-
----
-
-## IA
-
-### summarize
-
-Résume un texte.
-
-```json
-{
-  "name": "summarize",
-  "parameters": {
-    "text": "string (required)",
-    "max_length": "int (default: 200)"
-  }
-}
-```
-
----
-
-### create_plan
-
-Crée un plan d'action.
-
-```json
-{
-  "name": "create_plan",
-  "parameters": {
-    "goal": "string (required)",
-    "context": "string (optional)"
-  }
-}
-```
-
----
-
-### analyze_image
-
-Analyse une image (vision).
-
-```json
-{
-  "name": "analyze_image",
-  "parameters": {
-    "image_path": "string (required)",
-    "question": "string (optional)"
-  }
-}
-```
-
----
-
-### web_search
-
-Recherche web.
-
-```json
-{
-  "name": "web_search",
-  "parameters": {
-    "query": "string (required)",
-    "limit": "int (default: 5)"
-  }
-}
-```
-
----
-
-### final_answer
-
-Retourne la réponse finale (termine la boucle ReAct).
-
-```json
-{
-  "name": "final_answer",
-  "parameters": {
-    "answer": "string (required)"
-  }
-}
-```
+Change le modèle actif.
 
 ---
 
 ## Meta
 
-### list_my_tools
+### list_tools
 
 Liste tous les outils disponibles.
 
-```json
-{
-  "name": "list_my_tools",
-  "parameters": {
-    "category": "string (optional)"
-  }
-}
-```
+### reload_tools
+
+Recharge les outils dynamiquement.
+
+### create_tool
+
+Crée un nouvel outil.
+
+### delete_tool
+
+Supprime un outil.
+
+### analyze_image
+
+Analyse une image avec un modèle vision.
+
+### create_plan
+
+Crée un plan d'action structuré.
+
+### web_fetch
+
+Récupère le contenu d'une page web.
+
+### check_url
+
+Vérifie la disponibilité d'une URL.
+
+### self_improve
+
+Propose des améliorations automatiques.
+
+### save_learning
+
+Sauvegarde un apprentissage.
+
+### get_learnings
+
+Récupère les apprentissages.
 
 ---
 
-### reload_my_tools
+## Configuration
 
-Recharge les outils dynamiques.
+Les outils sont chargés dynamiquement depuis `backend/tools/*_tools.py`.
 
-```json
-{
-  "name": "reload_my_tools",
-  "parameters": {}
-}
-```
+Pour ajouter un nouvel outil :
 
----
-
-### view_tool_code
-
-Affiche le code source d'un outil.
-
-```json
-{
-  "name": "view_tool_code",
-  "parameters": {
-    "tool_name": "string (required)"
-  }
-}
-```
-
----
-
-## Créer un Nouvel Outil
-
-### Template
+1. Créer un fichier `backend/tools/mon_outil_tools.py`
+2. Utiliser le décorateur `@register_tool`
+3. Redémarrer ou appeler `reload_tools()`
 
 ```python
-# backend/tools/my_tools.py
 from tools import register_tool
 
-@register_tool(
-    "mon_outil",
-    description="Description de ce que fait l'outil",
-    parameters={
-        "param1": "string (required) - Description",
-        "param2": "int (optional) - Description"
-    }
-)
+@register_tool("mon_outil", description="Description de l'outil")
 async def mon_outil(params: dict) -> str:
-    """
-    Implémentation de l'outil.
-    
-    Args:
-        params: Dictionnaire des paramètres
-        
-    Returns:
-        Résultat sous forme de string
-    """
-    param1 = params.get("param1", "")
-    param2 = params.get("param2", 10)
-    
-    # Logique métier
-    result = f"Résultat pour {param1}"
-    
-    return result
+    # Implémentation
+    return "Résultat"
 ```
-
-### Bonnes Pratiques
-
-1. **Async** : Toujours utiliser `async def`
-2. **Validation** : Valider les paramètres en entrée
-3. **Erreurs** : Retourner des messages d'erreur clairs
-4. **Logs** : Logger les actions importantes
-5. **Sécurité** : Valider les chemins et commandes
 
 ---
 
-*Référence des Outils - AI Orchestrator v5.2*
+*Dernière mise à jour : 2026-01-01*

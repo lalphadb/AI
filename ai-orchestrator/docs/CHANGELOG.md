@@ -2,114 +2,101 @@
 
 Toutes les modifications notables de ce projet sont documentées dans ce fichier.
 
-Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
+Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ---
 
-## [5.2] - 2025-12-31
+## [5.2.1] - 2026-01-01
 
-### Sécurité
-- ✅ Régénération complète des secrets (.env)
-- ✅ Correction injection SSH via `shlex.quote()`
-- ✅ Désactivation `create_tool` en production
-- ✅ Suppression accès anonyme admin
-- ✅ Réduction expiration JWT à 1 heure
-- ✅ Extension blacklist à 30+ commandes
-- ✅ Ajout validation symlink bypass
+### ✨ Ajouté
+- **Gmail Integration** : 11 nouveaux outils pour gérer les emails
+  - `gmail_search`, `gmail_list`, `gmail_read`
+  - `gmail_send`, `gmail_reply`, `gmail_delete`
+  - `gmail_label_list`, `gmail_label_create`, `gmail_label_apply`
+  - `gmail_archive`, `gmail_stats`
+- Mode **exécution autonome** : L'agent exécute les actions au lieu de recommander
+- Rapport d'audit complet dans `.auto-claude/specs/003-corrections/AUDIT_REPORT.md`
 
-### Amélioré
-- 🔧 Audit de sécurité complet (méthodologie OWASP)
-- 🔧 Documentation professionnelle restructurée
-- 🔧 Nettoyage fichiers obsolètes
+### ✅ Sécurité (Audit Auto-Claude)
+- Suppression `python-jose` (CVE-2024-33663, CVE-2024-33664)
+- Upgrade `python-multipart` → 0.0.18 (CVE-2024-53981)
+- Upgrade `FastAPI` → 0.115.6 (fix Starlette CVEs)
+- Remplacement `datetime.utcnow()` → `datetime.now(timezone.utc)`
+- Dockerfile : utilisateur non-root `appuser`
+- Docker Compose : limites CPU/RAM ajoutées
+- Configuration Ruff avec règles sécurité (S, C4, UP)
 
-### En cours
-- ⚠️ Migration docker-socket-proxy
-- ⚠️ Restriction volumes /home
-- ⚠️ Configuration bouncer CrowdSec
-
----
-
-## [5.1] - 2025-12-29
-
-### Ajouté
-- ✨ Mode autonome avec approche blacklist
-- ✨ Router intelligent (factuel/opérationnel)
-- ✨ Injection de contexte dynamique
-- ✨ Self-healing system
-- ✨ Support multi-modèles cloud (Kimi, Gemini, Qwen Cloud)
-
-### Amélioré
-- 🔧 Boucle ReAct optimisée (max 15 itérations)
-- 🔧 Collecte des résultats pour réponse finale
-- 🔧 Streaming WebSocket amélioré
-- 🔧 Rate limiting par endpoint
-
-### Corrigé
-- 🐛 Fix réponses vides (P0-1)
-- 🐛 Fix collecte résultats outils (P0-2)
-- 🐛 Fix logs THINK/ACTION/OBSERVE (P0-3)
+### 🔧 Amélioré
+- Score Pylint : 8.20 → **9.68/10**
+- Erreurs Ruff : 804 → **59** (auto-fix)
+- Total outils : 57 → **70**
+- pip-audit : **0 vulnérabilités**
 
 ---
 
-## [5.0] - 2025-12-15
+## [5.2.0] - 2025-12-31
 
-### Ajouté
-- ✨ Architecture complète ReAct (Reason-Act-Observe)
-- ✨ 57 outils intégrés (9 catégories)
-- ✨ Mémoire sémantique ChromaDB
-- ✨ Authentification JWT + API Keys
-- ✨ Interface web temps réel (WebSocket)
-- ✨ Support vision (Llama Vision, Qwen VL)
+### ✨ Ajouté
+- RAG Apogée v2.0 : Architecture professionnelle complète
+- Mémoire sémantique persistante via ChromaDB
+- Script d'indexation documentation
+- Embeddings BGE-M3
 
-### Infrastructure
-- 🏗 Migration vers unified-stack
-- 🏗 Intégration Traefik v3
-- 🏗 Monitoring Prometheus/Grafana
-- 🏗 CrowdSec IPS
+### 🔧 Amélioré
+- Refactoring complet des tools
+- Meilleure gestion des erreurs
 
 ---
 
-## [4.0] - 2025-11-20
+## [5.0.0] - 2025-12-15
 
-### Ajouté
-- ✨ Auto-apprentissage des conversations
-- ✨ Outils Docker complets
-- ✨ Outils Git intégrés
-- ✨ Gestion des fichiers
+### ✨ Ajouté
+- Boucle ReAct (Reason-Act-Observe) avec 30 itérations max
+- Auto-apprentissage et auto-amélioration
+- Self-healing service
+- 34+ outils initiaux
+- Authentification JWT
+- Rate limiting
+- Support multi-modèles (local + cloud)
 
-### Amélioré
-- 🔧 Performance LLM (caching)
-- 🔧 Gestion erreurs robuste
-
----
-
-## [3.0] - 2025-10-15
-
-### Ajouté
-- ✨ Backend FastAPI
-- ✨ Frontend HTML/TailwindCSS
-- ✨ Intégration Ollama
-- ✨ Premiers outils système
-
-### Infrastructure
-- 🏗 Docker Compose initial
-- 🏗 SQLite pour persistance
+### 🏗 Infrastructure
+- Intégration Docker Compose dans unified-stack
+- Traefik reverse proxy avec SSL
+- ChromaDB pour mémoire vectorielle
 
 ---
 
-## [2.0] - 2025-09-01
+## [4.0.0] - 2025-11-01
 
-### Ajouté
-- ✨ Prototype agent conversationnel
-- ✨ Connexion Ollama basique
+### ✨ Ajouté
+- Architecture modulaire avec chargement dynamique
+- Support Ollama multi-modèles
+- Interface WebSocket temps réel
 
 ---
 
-## [1.0] - 2025-08-01
+## [3.0.0] - 2025-09-15
 
-### Ajouté
-- ✨ Concept initial
-- ✨ Proof of concept
+### ✨ Ajouté
+- API REST FastAPI
+- Authentification basique
+- Outils système de base
+
+---
+
+## [2.0.0] - 2025-08-15
+
+### ✨ Ajouté
+- Prototype agent conversationnel
+- Connexion Ollama basique
+
+---
+
+## [1.0.0] - 2025-08-01
+
+### ✨ Ajouté
+- Concept initial
+- Proof of concept
 
 ---
 
@@ -122,9 +109,9 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 | 🐛 | Correction de bug |
 | 🏗 | Infrastructure |
 | ✅ | Sécurité |
-| ⚠️ | En cours |
+| ⚠️ | Déprécié |
 | ❌ | Supprimé |
 
 ---
 
-*Changelog - AI Orchestrator*
+*Changelog - AI Orchestrator v5.2.1*

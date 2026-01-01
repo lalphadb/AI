@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-5.2-blue?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Version-5.2.1-blue?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/badge/Python-3.12-green?style=for-the-badge&logo=python" alt="Python">
   <img src="https://img.shields.io/badge/FastAPI-0.115-teal?style=for-the-badge&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Docker-Ready-blue?style=for-the-badge&logo=docker" alt="Docker">
   <img src="https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge" alt="License">
 </p>
 
-# 🤖 AI Orchestrator v5.2
+# 🤖 AI Orchestrator v5.2.1
 
 **Agent Autonome Intelligent pour l'Infrastructure 4LB.ca**
 
@@ -21,7 +21,7 @@ AI Orchestrator est un agent ReAct (Reason-Act-Observe) avancé conçu pour gér
 | **Boucle ReAct** | Cycle Think → Plan → Act → Observe pour résolution de tâches complexes |
 | **Mode Autonome** | Décision et action autonomes avec approche blacklist sécurisée |
 | **Multi-Modèles** | Support de 9+ modèles LLM (locaux et cloud) |
-| **57 Outils** | Système, Docker, Git, Réseau, Fichiers, Mémoire |
+| **70 Outils** | Système, Docker, Git, Réseau, Fichiers, Mémoire |
 | **Mémoire Sémantique** | ChromaDB pour mémorisation contextuelle persistante |
 | **WebSocket Temps Réel** | Streaming de la "pensée" de l'IA en direct |
 | **Self-Healing** | Surveillance et réparation automatique |
@@ -210,6 +210,6 @@ docker logs -f ai-orchestrator-backend
 ---
 
 <p align="center">
-  <b>AI Orchestrator v5.2</b><br>
+  <b>AI Orchestrator v5.2.1</b><br>
   Agent Autonome Intelligent pour l'Infrastructure 4LB.ca
 </p>
