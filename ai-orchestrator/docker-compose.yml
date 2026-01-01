@@ -5,6 +5,15 @@ services:
       dockerfile: Dockerfile
     container_name: ai-orchestrator-backend
     restart: unless-stopped
+    # Resource limits for security and stability
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     env_file:
       - ./backend/.env
     environment:
@@ -45,6 +54,15 @@ services:
     image: nginx:alpine
     container_name: ai-orchestrator-frontend
     restart: unless-stopped
+    # Resource limits for security and stability
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
