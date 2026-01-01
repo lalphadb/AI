@@ -15,7 +15,6 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
 import chromadb
 import httpx
@@ -510,7 +509,7 @@ def get_file_content(file_id: str) -> tuple:
         return content, "image"
     else:
         try:
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 content = f.read()
             return content, "text"
         except:
@@ -751,8 +750,8 @@ if RATE_LIMIT_ENABLED:
 class ChatRequest(BaseModel):
     message: str
     model: str = "auto"
-    conversation_id: Optional[str] = None
-    file_ids: Optional[List[str]] = None
+    conversation_id: str | None = None
+    file_ids: list[str] | None = None
 
 
 class ConversationUpdate(BaseModel):
@@ -875,8 +874,8 @@ async def create_new_user(
 @app.post("/api/auth/apikeys")
 async def create_new_api_key(
     name: str,
-    scopes: List[str],
-    expires_days: Optional[int] = None,
+    scopes: list[str],
+    expires_days: int | None = None,
     current_user=Depends(get_current_admin_user) if AUTH_ENABLED else None,
 ):
     """Créer une nouvelle API key (admin requis)"""
@@ -911,16 +910,16 @@ async def get_rate_limit_stats_endpoint(
 async def list_models():
     """Liste des modèles disponibles avec catégories"""
     models_by_category = {}
-    
+
     for model_id, model_data in MODELS.items():
         category = model_data.get("category", "other")
         if category not in models_by_category:
             models_by_category[category] = []
-        
+
         # Exclure les modèles embedding du sélecteur de chat
         if model_data.get("chat", True) is False:
             continue
-            
+
         models_by_category[category].append({
             "id": model_id,
             "name": model_data["name"],
@@ -928,10 +927,10 @@ async def list_models():
             "category": category,
             "local": model_data.get("local", True),
         })
-    
+
     return {
         "models": [
-            {"id": k, "name": v["name"], "description": v["description"], "category": v.get("category", "other")} 
+            {"id": k, "name": v["name"], "description": v["description"], "category": v.get("category", "other")}
             for k, v in MODELS.items() if v.get("chat", True) is not False
         ],
         "categories": MODEL_CATEGORIES,
@@ -1025,7 +1024,7 @@ async def get_system_stats():
 
         # GPU (read from host file)
         try:
-            with open("/tmp/gpu-stats.txt", "r") as f:
+            with open("/tmp/gpu-stats.txt") as f:
                 gpu_data = f.read().strip()
             if gpu_data:
                 parts = gpu_data.split(", ")
@@ -1061,7 +1060,7 @@ async def get_system_stats():
 
 
 @app.post("/api/upload")
-async def upload_file(file: UploadFile = File(...), conversation_id: Optional[str] = Form(None)):
+async def upload_file(file: UploadFile = File(...), conversation_id: str | None = Form(None)):
     """Upload un fichier"""
     try:
         result = await save_upload(file, conversation_id)
@@ -1333,7 +1332,7 @@ async def get_server_logs(
 ):
     """Voir les dernières lignes des logs serveur (admin requis)"""
     try:
-        with open("server.log", "r") as f:
+        with open("server.log") as f:
             all_lines = f.readlines()
 
         # Filtrer par niveau si spécifié

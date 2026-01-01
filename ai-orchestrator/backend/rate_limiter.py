@@ -9,7 +9,6 @@ import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, Optional
 
 from fastapi import HTTPException, Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -60,7 +59,7 @@ class RateLimitState:
     requests: int = 0
     window_start: float = field(default_factory=time.time)
     violations: int = 0
-    banned_until: Optional[float] = None
+    banned_until: float | None = None
 
 
 @dataclass
@@ -70,7 +69,7 @@ class RateLimitResult:
     allowed: bool
     remaining: int
     reset_at: float
-    retry_after: Optional[int] = None
+    retry_after: int | None = None
 
 
 # ===== STOCKAGE EN MÉMOIRE =====
@@ -80,7 +79,7 @@ class InMemoryStorage:
     """Stockage en mémoire pour le rate limiting"""
 
     def __init__(self):
-        self._data: Dict[str, RateLimitState] = defaultdict(RateLimitState)
+        self._data: dict[str, RateLimitState] = defaultdict(RateLimitState)
         self._lock = asyncio.Lock()
 
     async def get(self, key: str) -> RateLimitState:
@@ -250,7 +249,7 @@ class RateLimiter:
         return RateLimitResult(allowed=True, remaining=remaining, reset_at=reset_at)
 
     async def check_request(
-        self, request: Request, user_id: Optional[str] = None
+        self, request: Request, user_id: str | None = None
     ) -> RateLimitResult:
         """
         Vérifier une requête HTTP
@@ -390,7 +389,7 @@ async def cleanup_task():
 # ===== CONFIGURATION PERSONNALISÉE =====
 
 
-def configure_rate_limits(limits: Dict[str, tuple]):
+def configure_rate_limits(limits: dict[str, tuple]):
     """
     Configurer des limites personnalisées
 
@@ -413,7 +412,7 @@ def remove_whitelist_ip(ip: str):
 # ===== STATISTIQUES =====
 
 
-async def get_rate_limit_stats() -> Dict:
+async def get_rate_limit_stats() -> dict:
     """Obtenir les statistiques du rate limiter"""
     stats = {"total_keys": len(storage._data), "banned_count": 0, "top_violators": []}
 

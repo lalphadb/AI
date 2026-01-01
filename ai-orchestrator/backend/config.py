@@ -6,7 +6,6 @@ Variables d'environnement et paramètres
 
 import os
 from functools import lru_cache
-from typing import List
 
 from pydantic_settings import BaseSettings
 
@@ -62,15 +61,15 @@ class Settings(BaseSettings):
         return pwd
 
     # CORS
-    cors_origins: List[str] = [
+    cors_origins: list[str] = [
         "https://ai.4lb.ca",
         "https://4lb.ca",
         "http://localhost:3000",
         "http://localhost:8080",
     ]
     cors_allow_credentials: bool = True
-    cors_allow_methods: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-    cors_allow_headers: List[str] = ["*"]
+    cors_allow_methods: list[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    cors_allow_headers: list[str] = ["*"]
 
     # Rate Limiting
     rate_limit_enabled: bool = True
@@ -92,7 +91,7 @@ class Settings(BaseSettings):
         )
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """Obtenir les settings (cached)"""
     return Settings()

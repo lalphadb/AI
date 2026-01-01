@@ -14,14 +14,15 @@ import inspect
 import logging
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 # Registre des handlers d'outils
-_tool_handlers: Dict[str, Callable] = {}
-_tool_metadata: Dict[str, dict] = {}  # Métadonnées des outils (description, params)
+_tool_handlers: dict[str, Callable] = {}
+_tool_metadata: dict[str, dict] = {}  # Métadonnées des outils (description, params)
 _handlers_loaded = False
 
 # Chemin du dossier tools
@@ -178,7 +179,7 @@ async def execute_tool(
         return f"❌ Erreur {tool_name}: {str(e)}"
 
 
-def get_tools_definitions() -> List[dict]:
+def get_tools_definitions() -> list[dict]:
     """Retourne les définitions des outils (dynamique)"""
     _ensure_handlers_loaded()
     return list(_tool_metadata.values())

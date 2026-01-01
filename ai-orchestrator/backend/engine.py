@@ -9,15 +9,15 @@ Moteur ReAct v5.5 - FULL FONCTIONNEL
 import asyncio
 import logging
 import re
-from typing import Optional
 
 import httpx
 from fastapi import WebSocket
 
 from config import get_settings
+
 # RAG Apogée v2.0
 try:
-    from services.rag import inject_rag_context, get_search_service
+    from services.rag import get_search_service, inject_rag_context
     RAG_AVAILABLE = True
 except ImportError:
     RAG_AVAILABLE = False
@@ -36,7 +36,7 @@ logger.info(
 )
 
 
-def extract_final_answer(text: str) -> Optional[str]:
+def extract_final_answer(text: str) -> str | None:
     """Extraire final_answer - ROBUSTE v5.5"""
 
     # Méthode 1: Triple quotes (priorité haute) - supporte ''' et """
@@ -149,8 +149,8 @@ async def react_loop(
 ):
     """Boucle ReAct v5.5 - THINK -> PLAN -> ACTION -> OBSERVE"""
 
-    from prompts import build_system_prompt, classify_query, get_urgency_message, get_factual_prompt
     from dynamic_context import get_dynamic_context
+    from prompts import build_system_prompt, classify_query, get_urgency_message
     from tools import get_tools_description
 
     # P1-2 FIX: Classification de la requête
@@ -173,7 +173,7 @@ async def react_loop(
             dynamic_ctx = await get_dynamic_context()
         except Exception as e:
             logger.warning(f"⚠️ Impossible de récupérer dynamic_context: {e}")
-    
+
     system_prompt = build_system_prompt(tools_desc, files_info, dynamic_context=dynamic_ctx)
 
     messages = [

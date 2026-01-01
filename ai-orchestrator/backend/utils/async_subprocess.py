@@ -7,7 +7,6 @@ AI Orchestrator v4.0
 
 import asyncio
 import logging
-from typing import Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -15,10 +14,10 @@ logger = logging.getLogger(__name__)
 async def run_command_async(
     command,
     timeout: int = 60,
-    cwd: Optional[str] = None,
-    env: Optional[Dict[str, str]] = None,
+    cwd: str | None = None,
+    env: dict[str, str] | None = None,
     use_shell: bool = None,
-) -> Tuple[str, int]:
+) -> tuple[str, int]:
     """
     Exécute une commande shell de manière asynchrone.
 
@@ -77,7 +76,7 @@ async def run_command_async(
 
             return output or "(aucune sortie)", process.returncode or 0
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Tuer le processus si timeout
             try:
                 process.kill()
@@ -92,7 +91,7 @@ async def run_command_async(
         return f"❌ Erreur d'exécution: {str(e)}", -2
 
 
-async def run_multiple_commands(commands: Dict[str, str], timeout: int = 10) -> Dict[str, str]:
+async def run_multiple_commands(commands: dict[str, str], timeout: int = 10) -> dict[str, str]:
     """
     Exécute plusieurs commandes en parallèle.
 
@@ -104,7 +103,7 @@ async def run_multiple_commands(commands: Dict[str, str], timeout: int = 10) -> 
         Dict {nom: output}
     """
 
-    async def run_one(name: str, cmd: str) -> Tuple[str, str]:
+    async def run_one(name: str, cmd: str) -> tuple[str, str]:
         output, code = await run_command_async(cmd, timeout=timeout)
         return name, output
 
@@ -123,7 +122,7 @@ async def run_multiple_commands(commands: Dict[str, str], timeout: int = 10) -> 
 
 async def run_ssh_command(
     host: str, command: str, key_path: str = None, user: str = "root", timeout: int = 30
-) -> Tuple[str, int]:
+) -> tuple[str, int]:
     """
     Exécute une commande via SSH de manière asynchrone.
 

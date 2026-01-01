@@ -8,8 +8,7 @@ import hashlib
 import os
 import secrets
 import sqlite3
-from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from dotenv import load_dotenv
@@ -54,17 +53,17 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    username: Optional[str] = None
-    scopes: List[str] = []
+    username: str | None = None
+    scopes: list[str] = []
 
 
 class User(BaseModel):
     username: str
-    email: Optional[str] = None
-    full_name: Optional[str] = None
+    email: str | None = None
+    full_name: str | None = None
     disabled: bool = False
     is_admin: bool = False
-    scopes: List[str] = []
+    scopes: list[str] = []
 
 
 class UserInDB(User):
@@ -74,22 +73,22 @@ class UserInDB(User):
 class UserCreate(BaseModel):
     username: str
     password: str
-    email: Optional[str] = None
-    full_name: Optional[str] = None
+    email: str | None = None
+    full_name: str | None = None
 
 
 class UserUpdate(BaseModel):
-    email: Optional[str] = None
-    full_name: Optional[str] = None
-    password: Optional[str] = None
+    email: str | None = None
+    full_name: str | None = None
+    password: str | None = None
 
 
 class APIKey(BaseModel):
     key: str
     name: str
-    scopes: List[str]
+    scopes: list[str]
     created_at: datetime
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
 
 
 # ===== BASE DE DONNÉES =====
@@ -215,7 +214,7 @@ def hash_token(token: str) -> str:
 # ===== GESTION DES UTILISATEURS =====
 
 
-def get_user(username: str) -> Optional[UserInDB]:
+def get_user(username: str) -> UserInDB | None:
     """Récupérer un utilisateur par username"""
     conn = get_auth_db()
     c = conn.cursor()
@@ -238,7 +237,7 @@ def get_user(username: str) -> Optional[UserInDB]:
     return None
 
 
-def get_user_by_id(user_id: int) -> Optional[User]:
+def get_user_by_id(user_id: int) -> User | None:
     """Récupérer un utilisateur par son ID"""
     conn = get_auth_db()
     c = conn.cursor()
@@ -260,7 +259,7 @@ def get_user_by_id(user_id: int) -> Optional[User]:
     return None
 
 
-def get_user_id(username: str) -> Optional[int]:
+def get_user_id(username: str) -> int | None:
     """Récupérer l'ID d'un utilisateur par son username"""
     conn = get_auth_db()
     c = conn.cursor()
@@ -301,7 +300,7 @@ def create_user(user: UserCreate, is_admin: bool = False) -> User:
     )
 
 
-def update_user(username: str, update: UserUpdate) -> Optional[User]:
+def update_user(username: str, update: UserUpdate) -> User | None:
     """Mettre à jour un utilisateur"""
     conn = get_auth_db()
     c = conn.cursor()
@@ -331,7 +330,7 @@ def update_user(username: str, update: UserUpdate) -> Optional[User]:
     return get_user(username)
 
 
-def authenticate_user(username: str, password: str) -> Optional[UserInDB]:
+def authenticate_user(username: str, password: str) -> UserInDB | None:
     """Authentifier un utilisateur"""
     user = get_user(username)
     if not user:
@@ -344,11 +343,11 @@ def authenticate_user(username: str, password: str) -> Optional[UserInDB]:
 # ===== GESTION DES TOKENS =====
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """Créer un token JWT d'accès"""
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire, "iat": datetime.now(timezone.utc), "type": "access"})
+    expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire, "iat": datetime.now(UTC), "type": "access"})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -356,7 +355,7 @@ def create_refresh_token(user_id: int, ip_address: str = "", user_agent: str = "
     """Créer un refresh token"""
     token = secrets.token_urlsafe(64)
     token_hash = hash_token(token)
-    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expires_at = datetime.now(UTC) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
 
     conn = get_auth_db()
     c = conn.cursor()
@@ -371,12 +370,12 @@ def create_refresh_token(user_id: int, ip_address: str = "", user_agent: str = "
     return token
 
 
-def verify_token(token: str) -> Optional[TokenData]:
+def verify_token(token: str) -> TokenData | None:
     """Vérifier et décoder un token JWT"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
-        scopes: List[str] = payload.get("scopes", [])
+        scopes: list[str] = payload.get("scopes", [])
 
         if username is None:
             return None
@@ -388,7 +387,7 @@ def verify_token(token: str) -> Optional[TokenData]:
         return None
 
 
-def verify_refresh_token(token: str) -> Optional[int]:
+def verify_refresh_token(token: str) -> int | None:
     """Vérifier un refresh token et retourner l'user_id"""
     token_hash = hash_token(token)
 
@@ -422,14 +421,14 @@ def revoke_refresh_token(token: str):
 
 
 def create_api_key(
-    name: str, user_id: int, scopes: List[str], expires_days: Optional[int] = None
+    name: str, user_id: int, scopes: list[str], expires_days: int | None = None
 ) -> str:
     """Créer une nouvelle API key"""
     key = f"ak_{secrets.token_urlsafe(32)}"
     key_hash = hash_token(key)
     expires_at = None
     if expires_days:
-        expires_at = datetime.now(timezone.utc) + timedelta(days=expires_days)
+        expires_at = datetime.now(UTC) + timedelta(days=expires_days)
 
     conn = get_auth_db()
     c = conn.cursor()
@@ -446,7 +445,7 @@ def create_api_key(
     return key
 
 
-def verify_api_key(key: str) -> Optional[Dict]:
+def verify_api_key(key: str) -> dict | None:
     """Vérifier une API key"""
     if not key or not key.startswith("ak_"):
         return None
@@ -525,9 +524,9 @@ def record_login_attempt(username: str, ip_address: str, success: bool):
 
 async def get_current_user(
     request: Request,
-    token: Optional[str] = Depends(oauth2_scheme),
-    api_key: Optional[str] = Depends(API_KEY_HEADER),
-) -> Optional[User]:
+    token: str | None = Depends(oauth2_scheme),
+    api_key: str | None = Depends(API_KEY_HEADER),
+) -> User | None:
     """
     Obtenir l'utilisateur courant depuis le token JWT ou l'API key
     """
@@ -565,7 +564,7 @@ async def get_current_user(
     return None
 
 
-async def get_current_active_user(current_user: Optional[User] = Depends(get_current_user)) -> User:
+async def get_current_active_user(current_user: User | None = Depends(get_current_user)) -> User:
     """
     Obtenir l'utilisateur courant actif (requis)
     """
@@ -610,8 +609,8 @@ AUTH_ENABLED = os.getenv("AUTH_ENABLED", "true").lower() == "true"
 
 
 async def get_optional_user(
-    current_user: Optional[User] = Depends(get_current_user),
-) -> Optional[User]:
+    current_user: User | None = Depends(get_current_user),
+) -> User | None:
     """
     Obtenir l'utilisateur courant si l'auth est activée
     Retourne un utilisateur avec permissions limitees si l'auth est désactivée

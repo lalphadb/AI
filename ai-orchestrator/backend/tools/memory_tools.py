@@ -11,7 +11,6 @@ Intégration ChromaDB avec embeddings Ollama (bge-m3)
 import logging
 import os
 from datetime import datetime
-from typing import List, Optional
 
 import httpx
 
@@ -31,7 +30,7 @@ _chroma_client = None
 _memory_collection = None
 
 
-async def get_embedding(text: str) -> Optional[List[float]]:
+async def get_embedding(text: str) -> list[float] | None:
     """Obtenir embedding via Ollama (bge-m3 - 1024 dim)"""
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:

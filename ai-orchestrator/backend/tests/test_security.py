@@ -12,12 +12,10 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from security import (
-    CommandNotAllowedError,
     PathNotAllowedError,
     check_dangerous_patterns,
     extract_base_command,
     is_path_allowed,
-    sanitize_path,
     validate_command,
     validate_path,
 )

@@ -15,6 +15,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Utiliser une DB temporaire pour les tests
 os.environ["AUTH_DB_PATH"] = tempfile.mktemp(suffix=".db")
 
+from datetime import UTC
+
 from auth import (
     UserCreate,
     authenticate_user,
@@ -99,9 +101,11 @@ class TestJWT:
 
     def test_token_with_timezone_aware_datetime(self):
         """Verify JWT tokens use timezone-aware datetime (UTC)"""
+        from datetime import datetime
+
         import jwt as pyjwt
-        from datetime import datetime, timezone
-        from auth import SECRET_KEY, ALGORITHM
+
+        from auth import ALGORITHM, SECRET_KEY
 
         # Create a token
         token = create_access_token({"sub": "tztest", "scopes": ["read"]})
@@ -115,9 +119,9 @@ class TestJWT:
 
         # The exp and iat are Unix timestamps (integers)
         # Convert them to datetime and verify they're reasonable (within the future for exp)
-        exp_dt = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
-        iat_dt = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
-        now = datetime.now(timezone.utc)
+        exp_dt = datetime.fromtimestamp(payload["exp"], tz=UTC)
+        iat_dt = datetime.fromtimestamp(payload["iat"], tz=UTC)
+        now = datetime.now(UTC)
 
         # iat should be in the past or very close to now (within 5 seconds)
         assert (now - iat_dt).total_seconds() < 5, "iat should be close to now"

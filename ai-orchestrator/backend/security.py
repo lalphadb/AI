@@ -9,7 +9,6 @@ import os
 import re
 import shlex
 from pathlib import Path
-from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +185,7 @@ def sanitize_path(path: str) -> str:
     return resolved
 
 
-def is_path_allowed(path: str, write: bool = False) -> Tuple[bool, str]:
+def is_path_allowed(path: str, write: bool = False) -> tuple[bool, str]:
     """
     Vérifier si un chemin est autorisé
     SECURITE: Verification du chemin RESOLU (pas le symlink source)
@@ -232,7 +231,7 @@ def validate_path(path: str, write: bool = False) -> str:
     return sanitize_path(path)
 
 
-def check_dangerous_patterns(command: str) -> Optional[str]:
+def check_dangerous_patterns(command: str) -> str | None:
     """Vérifier les patterns dangereux dans une commande"""
     for pattern in FORBIDDEN_PATTERNS:
         if re.search(pattern, command, re.IGNORECASE):
@@ -263,7 +262,7 @@ def extract_base_command(command: str) -> str:
     return ""
 
 
-def validate_command(command: str) -> Tuple[bool, str]:
+def validate_command(command: str) -> tuple[bool, str]:
     """Valider une commande - Mode autonome = blacklist"""
     if not command or not command.strip():
         return False, "Commande vide"

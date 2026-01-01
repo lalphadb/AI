@@ -7,7 +7,6 @@ Optimise pour embeddings bge-m3 (1024 dim, 8192 tokens max, multilingue FR/EN)
 
 import re
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 
 
 @dataclass
@@ -18,7 +17,7 @@ class Chunk:
     index: int
     start_char: int
     end_char: int
-    metadata: Dict
+    metadata: dict
 
 
 # Configuration chunking optimisée pour bge-m3
@@ -32,7 +31,7 @@ def count_tokens_approx(text: str) -> int:
     return len(text) // CHARS_PER_TOKEN
 
 
-def split_into_sentences(text: str) -> List[str]:
+def split_into_sentences(text: str) -> list[str]:
     """Decouper texte en phrases"""
     # Pattern pour fin de phrase (., !, ?, :) suivi d'espace ou fin
     pattern = r"(?<=[.!?:])\s+"
@@ -40,7 +39,7 @@ def split_into_sentences(text: str) -> List[str]:
     return [s.strip() for s in sentences if s.strip()]
 
 
-def split_into_paragraphs(text: str) -> List[str]:
+def split_into_paragraphs(text: str) -> list[str]:
     """Decouper texte en paragraphes"""
     paragraphs = re.split(r"\n\s*\n", text)
     return [p.strip() for p in paragraphs if p.strip()]
@@ -51,7 +50,7 @@ def chunk_text(
     chunk_size: int = DEFAULT_CHUNK_SIZE,
     overlap: int = DEFAULT_OVERLAP,
     respect_sentences: bool = True,
-) -> List[Chunk]:
+) -> list[Chunk]:
     """
     Decouper un texte en chunks avec overlap
 
@@ -187,7 +186,7 @@ def chunk_file_content(
     file_type: str = "text",
     chunk_size: int = DEFAULT_CHUNK_SIZE,
     overlap: int = DEFAULT_OVERLAP,
-) -> List[Dict]:
+) -> list[dict]:
     """
     Chunker le contenu d'un fichier avec metadata enrichies
 
@@ -234,7 +233,7 @@ def chunk_file_content(
     return results
 
 
-def chunk_code(content: str, chunk_size: int, overlap: int) -> List[Chunk]:
+def chunk_code(content: str, chunk_size: int, overlap: int) -> list[Chunk]:
     """Chunker du code en respectant les blocs (fonctions, classes)"""
     # Pattern pour detecter les debuts de fonctions/classes Python
     block_pattern = r"^(def |class |async def )"
@@ -326,7 +325,7 @@ def chunk_code(content: str, chunk_size: int, overlap: int) -> List[Chunk]:
     return chunks
 
 
-def chunk_markdown(content: str, chunk_size: int, overlap: int) -> List[Chunk]:
+def chunk_markdown(content: str, chunk_size: int, overlap: int) -> list[Chunk]:
     """Chunker du markdown en respectant les sections (headers)"""
     # Pattern pour headers markdown
     header_pattern = r"^(#{1,6})\s+(.+)$"

@@ -3,11 +3,9 @@
 Script de test unitaire pour tous les outils de l'AI Orchestrator v5.0
 """
 
-import asyncio
-import json
 import time
+
 import pytest
-from datetime import datetime
 
 # Liste des paramètres pour les tests
 test_params = [
@@ -33,7 +31,7 @@ test_params = [
     ("list_directory", {"path": ".", "recursive": False}, [], False),
     ("search_files", {"pattern": "*.py", "path": "."}, [".py"], False),
     ("file_info", {"path": "main.py"}, ["file"], False),
-    
+
     # Test write_file avec validation syntaxe
     ("write_file", {"path": "/tmp/test_valid.py", "content": "def hello():\n    return 'world'"}, ["écrit"], False),
     ("write_file", {"path": "/tmp/test_invalid.py", "content": "def broken(\n    return"}, [], True),
@@ -72,7 +70,7 @@ async def test_tool(tool_name: str, params: dict, expected_contains: list, shoul
     from tools import execute_tool
 
     print(f"Testing tool: {tool_name}")
-    
+
     start = time.time()
     try:
         result = await execute_tool(tool_name, params)
@@ -83,7 +81,7 @@ async def test_tool(tool_name: str, params: dict, expected_contains: list, shoul
         else:
              pytest.fail(f"Tool execution failed unexpectedly: {e}")
 
-    elapsed = round((time.time() - start) * 1000, 2)
+    round((time.time() - start) * 1000, 2)
 
     # Vérifier si c'est une erreur
     is_error = result.startswith("❌") or "Erreur" in result

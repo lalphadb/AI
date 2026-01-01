@@ -4,8 +4,9 @@ Services AI Orchestrator
 - rag_service: Service RAG hybride complet
 """
 
-from services.reranker import rerank_documents, hybrid_search_with_rerank, clear_cache as clear_reranker_cache
-from services.rag_service import RAGService, get_rag_service, RAGResult
+from services.rag_service import RAGResult, RAGService, get_rag_service
+from services.reranker import clear_cache as clear_reranker_cache
+from services.reranker import hybrid_search_with_rerank, rerank_documents
 
 __all__ = [
     "rerank_documents",

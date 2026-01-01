@@ -18,63 +18,57 @@ Usage:
         get_indexer,
         RAGConfig
     )
-    
+
     # Recherche simple
     response = await search_documents("Comment installer Docker?")
-    
+
     # Injection de contexte
     enriched_prompt, result = await inject_rag_context(system_prompt, user_query)
-    
+
     # Indexation
     indexer = get_indexer()
     stats = await indexer.index_directory("/path/to/docs")
 """
 
 from .config import (
+    EmbeddingModel,
     RAGConfig,
+    RerankerModel,
     get_rag_config,
     reset_config,
-    EmbeddingModel,
-    RerankerModel,
 )
-
-from .embeddings import (
-    EmbeddingService,
-    EmbeddingResult,
-    get_embedding_service,
-    generate_embedding,
-)
-
-from .reranker import (
-    RerankerService,
-    RerankResult,
-    RerankStats,
-    get_reranker_service,
-)
-
-from .search import (
-    SearchService,
-    SearchResult,
-    SearchResponse,
-    get_search_service,
-    search_documents,
-)
-
-from .indexer import (
-    DocumentIndexer,
-    IndexingResult,
-    IndexingStats,
-    IndexedFile,
-    get_indexer,
-)
-
 from .context_injector import (
     ContextInjector,
     InjectionResult,
     get_context_injector,
     inject_rag_context,
 )
-
+from .embeddings import (
+    EmbeddingResult,
+    EmbeddingService,
+    generate_embedding,
+    get_embedding_service,
+)
+from .indexer import (
+    DocumentIndexer,
+    IndexedFile,
+    IndexingResult,
+    IndexingStats,
+    get_indexer,
+)
+from .reranker import (
+    RerankerService,
+    RerankResult,
+    RerankStats,
+    get_reranker_service,
+)
+from .search import (
+    SearchResponse,
+    SearchResult,
+    SearchService,
+    get_search_service,
+    search_documents,
+)
 
 __all__ = [
     # Config

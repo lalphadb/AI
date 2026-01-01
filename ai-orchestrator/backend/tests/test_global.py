@@ -5,8 +5,8 @@ Test du fonctionnement global - Questions complexes via ReAct
 
 import asyncio
 import time
+
 import pytest
-from datetime import datetime
 
 questions = [
     # Question 1: État système simple
@@ -53,11 +53,11 @@ async def test_react_question(question: str):
         print(response[:500] if len(response) > 500 else response)
         if len(response) > 500:
             print(f"\n... ({len(response)} caractères au total)")
-        
+
         # Simple assertion that we got a non-empty response
         assert response and len(response) > 0
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         print(f"⏱️ TIMEOUT après {timeout}s")
         pytest.fail(f"Timeout after {timeout}s")
     except Exception as e:

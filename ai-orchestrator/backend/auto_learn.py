@@ -6,7 +6,6 @@ Extrait automatiquement les faits, préférences et résume les conversations
 import os
 import re
 from datetime import datetime
-from typing import Dict, List, Optional
 
 import chromadb
 from chromadb.config import Settings
@@ -58,7 +57,7 @@ def get_chroma_collection():
     )
 
 
-def extract_facts_from_message(message: str) -> List[Dict]:
+def extract_facts_from_message(message: str) -> list[dict]:
     """
     Extraire automatiquement les faits d'un message utilisateur
     Retourne une liste de faits avec leur catégorie
@@ -89,7 +88,7 @@ def detect_correction(message: str) -> bool:
     return any(keyword in message_lower for keyword in CORRECTION_KEYWORDS)
 
 
-def extract_problem_solution(conversation: List[Dict]) -> Optional[Dict]:
+def extract_problem_solution(conversation: list[dict]) -> dict | None:
     """
     Analyser une conversation pour extraire un problème et sa solution
     """
@@ -127,7 +126,7 @@ def extract_problem_solution(conversation: List[Dict]) -> Optional[Dict]:
     return None
 
 
-def summarize_conversation(conversation: List[Dict]) -> str:
+def summarize_conversation(conversation: list[dict]) -> str:
     """
     Créer un résumé de la conversation
     """
@@ -149,7 +148,7 @@ def summarize_conversation(conversation: List[Dict]) -> str:
     return summary
 
 
-def auto_learn_from_message(message: str, conversation_id: str) -> List[str]:
+def auto_learn_from_message(message: str, conversation_id: str) -> list[str]:
     """
     Fonction principale d'auto-apprentissage
     Analyse un message et stocke les informations apprises
@@ -193,7 +192,7 @@ def auto_learn_from_message(message: str, conversation_id: str) -> List[str]:
         return []
 
 
-def save_conversation_summary(conversation: List[Dict], conversation_id: str) -> bool:
+def save_conversation_summary(conversation: list[dict], conversation_id: str) -> bool:
     """
     Sauvegarder le résumé d'une conversation terminée
     """
@@ -244,7 +243,7 @@ def save_conversation_summary(conversation: List[Dict], conversation_id: str) ->
         return False
 
 
-def get_relevant_context(query: str, limit: int = 5) -> List[str]:
+def get_relevant_context(query: str, limit: int = 5) -> list[str]:
     """
     Récupérer le contexte pertinent pour une nouvelle requête
     """
@@ -280,7 +279,7 @@ def get_relevant_context(query: str, limit: int = 5) -> List[str]:
         return []
 
 
-def get_user_preferences() -> Dict:
+def get_user_preferences() -> dict:
     """
     Récupérer les préférences utilisateur stockées
     """
@@ -307,7 +306,7 @@ def get_user_preferences() -> Dict:
         return {}
 
 
-def get_memory_stats() -> Dict:
+def get_memory_stats() -> dict:
     """
     Obtenir les statistiques de la mémoire
     """

@@ -39,7 +39,7 @@ async def read_file(params: dict, security_validator=None, audit_logger=None) ->
         if file_size > 500000:  # 500KB max
             return f"⚠️ Fichier trop volumineux ({file_size} octets). Utilisez head/tail."
 
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
+        with open(path, encoding="utf-8", errors="replace") as f:
             content = f.read()
 
         # Numéroter les lignes

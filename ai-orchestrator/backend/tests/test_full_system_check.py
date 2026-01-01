@@ -4,12 +4,12 @@ Test Complet du Système AI Orchestrator
 Vérifie: Autonomie, Outils, Mémoire, Sécurité
 """
 
-import asyncio
 import logging
 import os
 import sys
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Setup path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -71,7 +71,7 @@ async def test_memory_learning():
         else:
             logger.warning(f"⚠️ Auto-Learn n'a rien détecté (peut être normal selon le modèle/logique). Résultat: {learned}")
             # On ne fail pas forcément ici car ça dépend de l'IA/Regex
-            
+
 @pytest.mark.asyncio
 async def test_react_engine_logic():
     from engine import react_loop

@@ -9,8 +9,7 @@ import os
 import re
 from pathlib import Path
 
-from tools import (get_tool_names, get_tools_description, register_tool,
-                   reload_tools)
+from tools import get_tool_names, get_tools_description, register_tool, reload_tools
 
 TOOLS_DIR = Path(__file__).parent
 
@@ -193,7 +192,7 @@ async def view_tool_code(params: dict) -> str:
     # Chercher dans quel fichier se trouve l'outil
     for file_path in TOOLS_DIR.glob("*_tools.py"):
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
 
             # Chercher le décorateur avec ce nom

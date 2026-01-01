@@ -18,7 +18,6 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Set
 
 import httpx
 
@@ -93,7 +92,7 @@ IGNORE_PATTERNS = [
 MAX_FILE_SIZE = 100 * 1024  # 100 KB
 
 # Cache des fichiers indexes (hash -> timestamp)
-_indexed_files: Dict[str, float] = {}
+_indexed_files: dict[str, float] = {}
 
 
 def should_ignore(path: str) -> bool:
@@ -108,7 +107,7 @@ def should_ignore(path: str) -> bool:
     return False
 
 
-def get_file_type(path: str) -> Optional[str]:
+def get_file_type(path: str) -> str | None:
     """Determiner le type de fichier"""
     ext = Path(path).suffix.lower()
     return INDEXABLE_EXTENSIONS.get(ext)
@@ -119,7 +118,7 @@ def get_file_hash(content: str) -> str:
     return hashlib.md5(content.encode()).hexdigest()
 
 
-async def get_embedding(text: str) -> Optional[List[float]]:
+async def get_embedding(text: str) -> list[float] | None:
     """Obtenir embedding via Ollama"""
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0)) as client:
@@ -185,7 +184,7 @@ async def index_file(filepath: str, force: bool = False) -> bool:
 
     # Lire contenu
     try:
-        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+        with open(filepath, encoding="utf-8", errors="ignore") as f:
             content = f.read()
     except Exception as e:
         logger.error(f"Erreur lecture {filepath}: {e}")
@@ -304,7 +303,7 @@ class FileIndexerHandler(FileSystemEventHandler):
 
     def __init__(self, loop):
         self.loop = loop
-        self._debounce: Dict[str, float] = {}
+        self._debounce: dict[str, float] = {}
         self._debounce_delay = 2.0  # secondes
 
     def _should_process(self, path: str) -> bool:
