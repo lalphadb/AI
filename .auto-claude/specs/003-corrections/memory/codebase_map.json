@@ -14,7 +14,12 @@
       "description": "Pylint score 8.20/10. Main issues: 19 unused imports, 92 total issues, module too large (1425 lines vs 1000 limit). High complexity in react_loop functions.",
       "category": "code_quality",
       "discovered_at": "2026-01-01T00:17:10.512350+00:00"
+    },
+    "ai-orchestrator/backend/requirements.txt": {
+      "description": "pip-audit found 6 vulnerabilities in 4 packages: 1) python-multipart 0.0.12 (CVE-2024-53981 DoS) - upgrade to 0.0.18, 2) python-jose 3.3.0 (PYSEC-2024-232, PYSEC-2024-233 algorithm confusion + JWT bomb) - REMOVE (deprecated, spec says use PyJWT only), 3) starlette 0.38.6 transitive (CVE-2024-47874, CVE-2025-54121 DoS) - upgrade to 0.47.2, 4) ecdsa 0.19.1 transitive from python-jose (CVE-2024-23342 timing attack) - no fix, removing python-jose resolves this.",
+      "category": "security_vulnerabilities",
+      "discovered_at": "2026-01-01T00:20:34.578540+00:00"
     }
   },
-  "last_updated": "2026-01-01T00:17:10.512387+00:00"
+  "last_updated": "2026-01-01T00:20:34.578544+00:00"
 }

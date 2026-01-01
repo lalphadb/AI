@@ -208,3 +208,61 @@ TO ACHIEVE SCORE 9.0, PRIORITY FIXES:
 Full report saved to: .auto-claude/specs/003-corrections/pylint-audit.txt
 
 === END SESSION 3 ===
+
+=== SESSION 4: pip-audit Dependency Vulnerability Scan ===
+Date: 2024-12-31
+
+Subtask 1-4: Run pip-audit for dependency vulnerabilities
+Status: COMPLETED
+
+Command: ./.venv-audit/bin/python -m pip_audit -r requirements.txt --format=json
+
+NOTE: onnxruntime==1.19.2 not available for Python 3.13, used filtered requirements file
+
+RESULTS SUMMARY:
+- Total Vulnerabilities: 6
+- Affected Packages: 4
+- Required Actions: Upgrade 2 packages, Remove 1 deprecated package
+
+VULNERABILITIES FOUND:
+
+[HIGH] python-jose 3.3.0 (2 vulnerabilities) - REMOVE ENTIRELY
+  - PYSEC-2024-232 (CVE-2024-33663): Algorithm confusion with OpenSSH ECDSA keys
+  - PYSEC-2024-233 (CVE-2024-33664): JWT bomb DoS via high compression ratio
+  - Fix: Remove python-jose (deprecated), already using PyJWT
+  - Action: Remove python-jose[cryptography]==3.3.0 from requirements.txt
+
+[HIGH] python-multipart 0.0.12 (1 vulnerability)
+  - CVE-2024-53981: DoS via excessive logging when parsing malformed form data
+  - Fix: Upgrade to 0.0.18
+  - Action: Update python-multipart==0.0.12 -> python-multipart==0.0.18
+
+[MEDIUM] starlette 0.38.6 (transitive from FastAPI, 2 vulnerabilities)
+  - CVE-2024-47874: DoS via multipart/form-data memory exhaustion
+  - CVE-2025-54121: DoS via large file uploads blocking event loop
+  - Fix: Upgrade to 0.47.2 (requires FastAPI update)
+  - Action: Consider upgrading FastAPI to pull in newer starlette
+
+[MEDIUM] ecdsa 0.19.1 (transitive from python-jose, 1 vulnerability)
+  - CVE-2024-23342: Minerva timing attack on P-256 curve
+  - Fix: None available (project considers side-channel attacks out of scope)
+  - Action: Removing python-jose will remove this transitive dependency
+
+TRANSITIVE DEPENDENCIES CHECKED (no vulnerabilities):
+- pydantic-core 2.23.4
+- starlette 0.38.6 (has vulns, listed above)
+- bcrypt 5.0.0
+- httptools 0.7.1
+- uvloop 0.22.1
+- orjson 3.11.5
+- pyyaml 6.0.3
+- and 10+ others
+
+RECOMMENDED FIXES (Priority Order):
+1. Remove python-jose[cryptography]==3.3.0 (eliminates 3 vulnerabilities)
+2. Upgrade python-multipart==0.0.12 -> 0.0.18 (eliminates 1 vulnerability)
+3. Consider FastAPI upgrade to get newer starlette (eliminates 2 vulnerabilities)
+
+Full JSON report saved to: .auto-claude/specs/003-corrections/pip-audit-results.json
+
+=== END SESSION 4 ===
