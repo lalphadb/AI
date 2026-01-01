@@ -9,7 +9,12 @@
       "description": "SQL injection vector (S608) at line 327 - uses f-string for SQL UPDATE query construction. CRITICAL priority fix needed.",
       "category": "security",
       "discovered_at": "2026-01-01T00:14:40.817858+00:00"
+    },
+    "ai-orchestrator/backend/main.py": {
+      "description": "Pylint score 8.20/10. Main issues: 19 unused imports, 92 total issues, module too large (1425 lines vs 1000 limit). High complexity in react_loop functions.",
+      "category": "code_quality",
+      "discovered_at": "2026-01-01T00:17:10.512350+00:00"
     }
   },
-  "last_updated": "2026-01-01T00:14:40.817865+00:00"
+  "last_updated": "2026-01-01T00:17:10.512387+00:00"
 }

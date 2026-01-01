@@ -40,9 +40,9 @@
             "command": "cd backend && ruff check --select=E,F,I,S,B,C4,UP . 2>&1 || true",
             "expected": "Ruff output captured (may have errors)"
           },
-          "status": "in_progress",
-          "notes": "Starting Ruff security scan with extended rules (E,F,I,S,B,C4,UP)",
-          "updated_at": "2026-01-01T00:12:44.021207+00:00"
+          "status": "completed",
+          "notes": "Ruff security scan completed. Found 625 errors total including 2 CRITICAL (SQL injection S608, mktemp S306), 11 HIGH/MEDIUM security issues. Full report saved to ruff-audit.txt and ruff-summary.txt. 249 issues are auto-fixable with --fix.",
+          "updated_at": "2026-01-01T00:14:59.688131+00:00"
         },
         {
           "id": "subtask-1-3",
@@ -57,7 +57,9 @@
             "command": "cd backend && pylint --output-format=text main.py auth.py security.py config.py engine.py 2>&1 || true",
             "expected": "Pylint output with score"
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "Pylint scan completed. Score: 8.20/10 (target: 9.0). 159 issues found across 5 core files. Main issues: unused imports (19), logging f-strings (26+), broad exceptions (15), code complexity. Full report saved to pylint-audit.txt. Achieving score 9.0 will require fixing unused imports, logging format, and trailing whitespace as priority.",
+          "updated_at": "2026-01-01T00:17:10.494297+00:00"
         },
         {
           "id": "subtask-1-4",
@@ -586,5 +588,5 @@
     }
   },
   "qa_signoff": null,
-  "last_updated": "2026-01-01T00:12:44.021213+00:00"
+  "last_updated": "2026-01-01T00:17:10.494324+00:00"
 }
