@@ -2,3 +2,6 @@
 # Secrets backup
 backup-system/.env
 backup-system/local/*.tar.gz
+
+# Audit virtual environment
+.venv-audit/
