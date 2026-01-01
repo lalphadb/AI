@@ -92,3 +92,6 @@ docker-compose.override.yml
 AUDIT_*.md
 PLAN_*.md
 CORRECTIONS_*.md
+
+# Auto Claude data directory
+.auto-claude/
