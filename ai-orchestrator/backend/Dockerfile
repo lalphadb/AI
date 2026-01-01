@@ -2,8 +2,8 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Installer les dépendances système incluant Docker CLI et Git
-RUN apt-get update && apt-get install -y \
+# Install system dependencies (combining all apt operations in single layer)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     openssh-client \
     procps \
@@ -13,40 +13,46 @@ RUN apt-get update && apt-get install -y \
     iputils-ping \
     dnsutils \
     net-tools \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# Configurer Git pour accepter tous les répertoires (requis pour volumes montés)
+# Create non-root user with specific UID/GID for better security
+RUN groupadd --gid 1000 appgroup \
+    && useradd --uid 1000 --gid appgroup --shell /bin/bash --create-home appuser
+
+# Configure Git to accept all directories (required for mounted volumes)
 RUN git config --global --add safe.directory '*'
 
-# Copier les requirements
+# Copy requirements first for better layer caching
 COPY requirements.txt .
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copier l'application et tous les modules v4.0
-COPY main.py .
-COPY auto_learn.py .
-COPY security.py .
-COPY auth.py .
-COPY rate_limiter.py .
-COPY config.py .
-COPY prompts.py .
-COPY engine.py .
-COPY dynamic_context.py .
+# Copy all Python application files in optimized layers
+# Core application files
+COPY main.py auth.py security.py config.py engine.py rate_limiter.py prompts.py auto_learn.py dynamic_context.py ./
 
-# === NOUVEAUX MODULES v4.0 & v5.0 ===
+# Application modules (tools, utils, services)
 COPY tools/ ./tools/
 COPY utils/ ./utils/
 COPY services/ ./services/
 
-# Créer le dossier data
-RUN mkdir -p /data
+# Create data directory with proper ownership
+RUN mkdir -p /data && chown -R appuser:appgroup /data
 
-# Exposer le port
+# Set ownership of application files
+RUN chown -R appuser:appgroup /app
+
+# Expose port
 EXPOSE 8001
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8001/health || exit 1
 
-# Démarrer
+# Switch to non-root user
+USER appuser
+
+# Start application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
