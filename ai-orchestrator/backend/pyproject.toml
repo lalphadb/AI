@@ -23,8 +23,16 @@ exclude = [
 # F: pyflakes
 # I: isort
 # B: flake8-bugbear
-select = ["E", "W", "F", "I", "B"]
+# S: flake8-bandit (security rules)
+# C4: flake8-comprehensions
+# UP: pyupgrade (Python upgrade suggestions)
+select = ["E", "W", "F", "I", "B", "S", "C4", "UP"]
 ignore = ["E501"] # On ignore la longueur de ligne stricte pour l'instant
+
+[tool.ruff.lint.per-file-ignores]
+# Allow assert statements and hardcoded passwords in test files
+"tests/*" = ["S101", "S106"]
+"test_*.py" = ["S101", "S106"]
 
 [tool.ruff.format]
 quote-style = "double"
