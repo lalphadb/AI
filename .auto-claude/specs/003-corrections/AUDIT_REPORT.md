@@ -38,12 +38,62 @@ Issues that must be fixed immediately. They pose severe security risks.
 - **Status:** PENDING
 
 ### CRITICAL-002: Deprecated datetime.utcnow() Usage
-- **Tool:** Manual Review / Pylint
-- **File:** `backend/auth.py`
-- **Lines:** 350, 351, 359, 432
+- **Tool:** Manual Review / Pylint / Python 3.12 Deprecation Warning
+- **File:** `ai-orchestrator/backend/auth.py`
+- **Lines:** 350, 351, 359, 432 (4 occurrences total)
 - **Description:** `datetime.utcnow()` is deprecated in Python 3.12+. Returns naive datetime objects which can cause timezone-related bugs in JWT token handling.
-- **Risk:** Token expiration calculations may be incorrect, potentially extending token validity or causing authentication failures.
-- **Remediation:** Replace with `datetime.now(timezone.utc)` and add import `from datetime import timezone`.
+- **Risk:** Token expiration calculations may be incorrect, potentially extending token validity or causing authentication failures. Can also cause comparison issues with timezone-aware datetimes.
+- **Python Deprecation Notice:** `DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use datetime.datetime.now(datetime.timezone.utc) instead.`
+
+#### Affected Code Locations
+
+**Line 350 (create_access_token - token expiry):**
+```python
+# BEFORE (deprecated)
+expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+```
+
+**Line 351 (create_access_token - issued at time):**
+```python
+# BEFORE (deprecated)
+to_encode.update({"exp": expire, "iat": datetime.utcnow(), "type": "access"})
+```
+
+**Line 359 (create_refresh_token - session expiry):**
+```python
+# BEFORE (deprecated)
+expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+```
+
+**Line 432 (create_api_key - API key expiry):**
+```python
+# BEFORE (deprecated)
+expires_at = datetime.utcnow() + timedelta(days=expires_days)
+```
+
+#### Remediation Strategy
+
+1. **Update imports** (Line 11):
+   ```python
+   # BEFORE
+   from datetime import datetime, timedelta
+
+   # AFTER
+   from datetime import datetime, timedelta, timezone
+   ```
+
+2. **Replace all occurrences** with `datetime.now(timezone.utc)`:
+   ```python
+   # AFTER (all 4 locations)
+   datetime.now(timezone.utc)
+   ```
+
+3. **Verification command:**
+   ```bash
+   grep -c 'utcnow' ai-orchestrator/backend/auth.py  # Should return 0 after fix
+   grep -c 'timezone.utc' ai-orchestrator/backend/auth.py  # Should return >= 4 after fix
+   ```
+
 - **Status:** PENDING
 
 ### CRITICAL-003: Insecure Temporary File Creation
