@@ -97,6 +97,53 @@ class TestJWT:
         data = verify_token(tampered)
         assert data is None
 
+    def test_token_with_timezone_aware_datetime(self):
+        """Verify JWT tokens use timezone-aware datetime (UTC)"""
+        import jwt as pyjwt
+        from datetime import datetime, timezone
+        from auth import SECRET_KEY, ALGORITHM
+
+        # Create a token
+        token = create_access_token({"sub": "tztest", "scopes": ["read"]})
+
+        # Decode the token to inspect claims
+        payload = pyjwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+        # Verify exp and iat claims exist
+        assert "exp" in payload, "Token should have 'exp' claim"
+        assert "iat" in payload, "Token should have 'iat' claim"
+
+        # The exp and iat are Unix timestamps (integers)
+        # Convert them to datetime and verify they're reasonable (within the future for exp)
+        exp_dt = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+        iat_dt = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
+        now = datetime.now(timezone.utc)
+
+        # iat should be in the past or very close to now (within 5 seconds)
+        assert (now - iat_dt).total_seconds() < 5, "iat should be close to now"
+
+        # exp should be in the future
+        assert exp_dt > now, "exp should be in the future"
+
+        # exp should be reasonable (not more than 24 hours from now for access token)
+        delta = (exp_dt - now).total_seconds()
+        assert delta > 0, "Token should not already be expired"
+        assert delta <= 24 * 60 * 60, "Access token should not exceed 24 hours"
+
+    def test_expired_token_rejected(self):
+        """Verify expired tokens are properly rejected"""
+        from datetime import timedelta
+
+        # Create a token that expires immediately (negative delta)
+        token = create_access_token(
+            {"sub": "expireduser", "scopes": ["read"]},
+            expires_delta=timedelta(seconds=-1)  # Already expired
+        )
+
+        # Verify the token is rejected
+        data = verify_token(token)
+        assert data is None, "Expired token should be rejected"
+
 
 class TestUserManagement:
     """Tests pour la gestion des utilisateurs"""
