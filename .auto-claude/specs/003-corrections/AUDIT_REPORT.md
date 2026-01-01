@@ -112,13 +112,52 @@ Issues that should be fixed as part of this audit cycle.
 
 ### HIGH-001: Deprecated python-jose Dependency (CVE-2024-33663, CVE-2024-33664)
 - **Tool:** pip-audit
-- **File:** `backend/requirements.txt`
+- **File:** `ai-orchestrator/backend/requirements.txt:36`
 - **Package:** `python-jose[cryptography]==3.3.0`
 - **Vulnerabilities:**
   - **PYSEC-2024-232 (CVE-2024-33663):** Algorithm confusion with OpenSSH ECDSA keys, allows signature bypass.
   - **PYSEC-2024-233 (CVE-2024-33664):** JWT bomb attack - crafted JWE token causes denial of service.
 - **Risk:** Authentication bypass, denial of service.
-- **Remediation:** Remove `python-jose` entirely. PyJWT 2.9.0 is already present and sufficient.
+
+#### Code Analysis
+
+**Codebase Search Results:**
+- `grep -r "from jose\|import jose" ai-orchestrator/backend/` → **0 matches**
+- `python-jose` is listed in requirements.txt but is **NOT imported or used anywhere** in the codebase
+- The project already uses `PyJWT==2.9.0` (line 27 in requirements.txt) for all JWT operations
+
+**Conclusion:** `python-jose` is a legacy/unused dependency that can be safely removed without any code changes.
+
+#### Removal Plan
+
+1. **Delete the dependency line** from `ai-orchestrator/backend/requirements.txt`:
+   ```diff
+   - python-jose[cryptography]==3.3.0
+   ```
+
+2. **No code changes required** - the codebase already uses PyJWT exclusively:
+   ```python
+   # Current JWT usage in auth.py (uses jwt, not jose)
+   import jwt  # PyJWT
+   token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+   ```
+
+3. **Verify no import errors** after removal:
+   ```bash
+   cd ai-orchestrator/backend && python3 -c "import auth; import main; print('OK')"
+   ```
+
+4. **Re-run pip-audit** to confirm vulnerability is resolved:
+   ```bash
+   pip-audit -r ai-orchestrator/backend/requirements.txt | grep -E 'python-jose|ecdsa'
+   # Should return empty (both python-jose and its transitive ecdsa dependency removed)
+   ```
+
+#### Impact
+
+Removing `python-jose` will also resolve:
+- **HIGH-004 (ecdsa CVE-2024-23342):** Transitive dependency removed automatically
+
 - **Status:** PENDING
 
 ### HIGH-002: Vulnerable python-multipart (CVE-2024-53981)
