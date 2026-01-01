@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "003-corrections",
+  "state": "building",
+  "subtasks": {
+    "completed": 4,
+    "total": 23,
+    "in_progress": 1,
+    "failed": 0
+  },
+  "phase": {
+    "current": "Run Audit Tools",
+    "id": null,
+    "total": 5
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 5,
+    "started_at": "2025-12-31T19:09:42.193472"
+  },
+  "last_update": "2025-12-31T19:21:51.405985"
+}

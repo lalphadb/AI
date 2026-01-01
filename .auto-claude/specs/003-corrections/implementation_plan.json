@@ -74,7 +74,9 @@
             "command": "cd backend && pip-audit -r requirements.txt --format=json 2>&1 || true",
             "expected": "pip-audit JSON output"
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "pip-audit scan completed. Found 6 vulnerabilities in 4 packages: python-jose (2 CVEs - to remove), python-multipart (1 CVE - upgrade to 0.0.18), starlette transitive (2 CVEs), ecdsa transitive (1 CVE - resolved by removing python-jose). Results saved to pip-audit-results.json.",
+          "updated_at": "2026-01-01T00:21:30.541124+00:00"
         },
         {
           "id": "subtask-1-5",
@@ -588,5 +590,5 @@
     }
   },
   "qa_signoff": null,
-  "last_updated": "2026-01-01T00:17:10.494324+00:00"
+  "last_updated": "2026-01-01T00:21:30.541130+00:00"
 }

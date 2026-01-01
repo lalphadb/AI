@@ -1,0 +1,34 @@
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true
+  },
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read(./**)",
+      "Write(./**)",
+      "Edit(./**)",
+      "Glob(./**)",
+      "Grep(./**)",
+      "Read(/home/lalpha/projets/ai-tools/ai-orchestrator/.worktrees/003-corrections/**)",
+      "Write(/home/lalpha/projets/ai-tools/ai-orchestrator/.worktrees/003-corrections/**)",
+      "Edit(/home/lalpha/projets/ai-tools/ai-orchestrator/.worktrees/003-corrections/**)",
+      "Glob(/home/lalpha/projets/ai-tools/ai-orchestrator/.worktrees/003-corrections/**)",
+      "Grep(/home/lalpha/projets/ai-tools/ai-orchestrator/.worktrees/003-corrections/**)",
+      "Read(/home/lalpha/projets/ai-tools/ai-orchestrator/.worktrees/003-corrections/.auto-claude/specs/003-corrections/**)",
+      "Write(/home/lalpha/projets/ai-tools/ai-orchestrator/.worktrees/003-corrections/.auto-claude/specs/003-corrections/**)",
+      "Edit(/home/lalpha/projets/ai-tools/ai-orchestrator/.worktrees/003-corrections/.auto-claude/specs/003-corrections/**)",
+      "Bash(*)",
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "mcp__context7__resolve-library-id(*)",
+      "mcp__context7__get-library-docs(*)",
+      "mcp__graphiti-memory__search_nodes(*)",
+      "mcp__graphiti-memory__search_facts(*)",
+      "mcp__graphiti-memory__add_episode(*)",
+      "mcp__graphiti-memory__get_episodes(*)",
+      "mcp__graphiti-memory__get_entity_edge(*)"
+    ]
+  }
+}

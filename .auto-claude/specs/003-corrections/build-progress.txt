@@ -266,3 +266,47 @@ RECOMMENDED FIXES (Priority Order):
 Full JSON report saved to: .auto-claude/specs/003-corrections/pip-audit-results.json
 
 === END SESSION 4 ===
+
+=== SESSION 5: Vulture Dead Code Detection ===
+Date: 2024-12-31
+
+Subtask 1-5: Run Vulture for dead code detection
+Status: COMPLETED
+
+Command: ./.venv-audit/bin/python -m vulture . --min-confidence 100
+
+RESULTS SUMMARY:
+- At 100% confidence: 0 issues (no definite dead code)
+- At 90% confidence: 11 unused imports
+- At 60% confidence: Many results, mostly false positives
+
+UNUSED IMPORTS (90% confidence - real issues to fix):
+1. engine.py:152 - unused import 'get_factual_prompt'
+2. main.py:49 - unused import 'CommandNotAllowedError'
+3. main.py:65 - unused import 'APIKey'
+4. main.py:65 - unused import 'require_scope'
+5. main.py:65 - unused import 'update_user'
+6. main.py:106 - unused import 'CONFIG_MODELS'
+7. main.py:115 - unused import 'get_initial_memory_prompt'
+8. main.py:174 - unused import 'get_memory_stats'
+9. main.py:174 - unused import 'get_user_preferences'
+10. services/rag/reranker.py:8 - unused import 'math'
+11. tests/test_security.py:14 - unused import 'CommandNotAllowedError'
+
+FALSE POSITIVES (60% confidence - NOT dead code):
+- FastAPI endpoint functions (decorated with @app.route, called by framework)
+- pytest fixtures and setup methods (called by pytest)
+- Pydantic config class attributes (used by settings framework)
+- Tool functions in tools/ directory (dynamically loaded at runtime)
+- Watchdog event handlers (on_modified, on_created)
+- Config class variables (accessed via settings.variable_name)
+
+OVERLAP WITH RUFF:
+- The 11 unused imports at 90% confidence match Ruff's F401 findings
+- Will be cleaned up as part of Ruff auto-fix (subtask 4-3)
+
+NO ACTION REQUIRED:
+- Vulture confirms there is no significant dead code at 100% confidence
+- The 90% confidence unused imports will be addressed by Ruff fixes
+
+=== END SESSION 5 ===

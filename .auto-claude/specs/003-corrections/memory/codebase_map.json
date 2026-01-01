@@ -19,7 +19,12 @@
       "description": "pip-audit found 6 vulnerabilities in 4 packages: 1) python-multipart 0.0.12 (CVE-2024-53981 DoS) - upgrade to 0.0.18, 2) python-jose 3.3.0 (PYSEC-2024-232, PYSEC-2024-233 algorithm confusion + JWT bomb) - REMOVE (deprecated, spec says use PyJWT only), 3) starlette 0.38.6 transitive (CVE-2024-47874, CVE-2025-54121 DoS) - upgrade to 0.47.2, 4) ecdsa 0.19.1 transitive from python-jose (CVE-2024-23342 timing attack) - no fix, removing python-jose resolves this.",
       "category": "security_vulnerabilities",
       "discovered_at": "2026-01-01T00:20:34.578540+00:00"
+    },
+    "ai-orchestrator/backend/": {
+      "description": "Vulture dead code analysis: 0 issues at 100% confidence, 11 unused imports at 90% confidence (engine.py:1, main.py:7, services/rag/reranker.py:1, tests/test_security.py:1). Most 60% confidence results are false positives: FastAPI endpoints, pytest fixtures, Pydantic config attributes, dynamically-loaded tool functions, and watchdog event handlers.",
+      "category": "dead_code",
+      "discovered_at": "2026-01-01T00:23:07.152281+00:00"
     }
   },
-  "last_updated": "2026-01-01T00:20:34.578544+00:00"
+  "last_updated": "2026-01-01T00:23:07.152289+00:00"
 }
